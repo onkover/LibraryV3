@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
-#include "ResourceHandle.h"
-#include "MathTypes.h"
-namespace LibV2 {
+#include "../Ressources/ResourceHandle.h"
+#include "../Ressources/MathTypes.h"
+
+namespace LibV3 {
     class Material {
     public:
         Material() = default;
@@ -63,4 +64,4 @@ namespace LibV2 {
         TextureHandle m_diffuseMap, m_specularMap, m_normalMap;
         TextureHandle m_ambientMap, m_opacityMap,  m_emissiveMap;
     };
-} // namespace LibV2
+} // namespace LibV3

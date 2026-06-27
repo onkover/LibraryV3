@@ -1,9 +1,11 @@
-pragma once
+#pragma once
 #include "../Core/Types.h"
 #include <string>
 #include <vector>
 #include <memory>
-namespace LibV2 {
+
+namespace LibV3 
+{
     struct Texture {
         int width=0, height=0, bpp=4;
         std::vector<uint32_t> pixels;
@@ -11,4 +13,4 @@ namespace LibV2 {
         [[nodiscard]] ARGB4f Sample(float u, float v) const noexcept;
         static std::unique_ptr<Texture> Load(const std::string& path);
     };
-} // namespace LibV2
+} // namespace LibV3

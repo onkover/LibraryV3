@@ -10,7 +10,7 @@
 #include "MathTypes.h"
 #include "OBJLoadOptions.h" 
 
-namespace LibV2
+namespace LibV3
 {
 	// Forward declarations pour éviter les inclusions circulaires
     class ResourceManager;
@@ -80,4 +80,4 @@ namespace LibV2
         static RawIndex    ParseVertex (const std::string& token, int pc, int uc, int nc);
     };
 
-} // namespace LibV2
+} // namespace LibV3

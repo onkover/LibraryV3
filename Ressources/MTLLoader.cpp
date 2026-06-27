@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "MTLLoader.h"
-#include "Material.h"
+#include "../Geometry/Material.h"
 #include "ResourceManager.h"
 #include <fstream>
 #include <sstream>
 #include <filesystem>
 
-namespace LibV2 {
+namespace LibV3 {
 
 MaterialMap MTLLoader::Load(const std::string& mtlPath, const std::string& baseDir, ResourceManager& rm)
 {
@@ -97,4 +97,4 @@ TextureHandle MTLLoader::LoadTexture(const std::string&, ResourceManager&)
     return TextureHandle::Invalid(); // TODO Phase 3
 }
 
-} // namespace LibV2
+} // namespace LibV3

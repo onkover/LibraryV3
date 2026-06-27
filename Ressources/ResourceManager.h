@@ -1,16 +1,17 @@
 #pragma once
 #include <memory>
 #include <string>
+
 #include <unordered_map>
 #include "ResourceHandle.h"
 #include "OBJLoader.h"
 #include "OBJLoadOptions.h" 
 
-#include <Resources/Material.h>
-#include <Resources/SubMesh.h>
-#include <Geometry/MeshClass.h>
+#include "geometry/Material.h"
+#include "geometry/SubMesh.h"
+#include "geometry/MeshClass.h"
 
-namespace LibV2 {
+namespace LibV3 {
     class MeshClass;
     class Material;
    
@@ -73,4 +74,4 @@ namespace LibV2 {
         MaterialHandle AllocateMaterialHandle() noexcept;
     };
 
-} // namespace LibV2
+} // namespace LibV3

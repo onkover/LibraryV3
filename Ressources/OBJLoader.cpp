@@ -2,13 +2,13 @@
 #include "OBJLoader.h"
 #include "MTLLoader.h"
 #include "../Geometry/MeshClass.h"
-#include "SubMesh.h"
+#include "../Geometry/SubMesh.h"
 #include "ResourceManager.h"
 #include <fstream>
 #include <sstream>
 #include <filesystem>
 
-namespace LibV2 {
+namespace LibV3 {
 
 namespace {
     inline Vec3f V3Cross(const Vec3f& a,const Vec3f& b) noexcept{ return{a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x}; }
@@ -612,4 +612,4 @@ OBJLoader::RawIndex OBJLoader::ParseVertex(const std::string& token, int pc, int
     return ri;
 }
 
-} // namespace LibV2
+} // namespace LibV3

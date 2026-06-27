@@ -2,7 +2,7 @@
 //#include "pch.h"
 //#include <cstdint>
 
-namespace LibV2 {
+namespace LibV3 {
   
     /// <summary>
     /// Handle léger pour une ressource, basé sur un identifiant 32 bits. Fournit validation et opérations de comparaison.
@@ -27,4 +27,4 @@ namespace LibV2 {
     using MaterialHandle = ResourceHandle<MaterialTag>;
     using TextureHandle  = ResourceHandle<TextureTag>;
 
-} // namespace LibV2
+} // namespace LibV3

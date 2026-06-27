@@ -1,11 +1,13 @@
 #pragma once
-#include "../pch.h"          // ? première ligne, toujours
+#include "pch.h"          // ? première ligne, toujours
 
 #include "Registry.hpp"
 #include <Maths/MatrixLib.h>
 #include "../Core/EventBus.hpp"
 #include <map>	// pour le debug
 #include <set>
+
+
 
 /// <summary>
 /// Met à jour les angles d'orbite et de rotation des composants Mesh dans le registre en fonction du temps écoulé.

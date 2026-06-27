@@ -11,6 +11,21 @@
     <Filter Include="Source">
       <UniqueIdentifier>{39c475b8-1cb8-4d0c-a8c6-9d8adc3ae44c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene">
+      <UniqueIdentifier>{a5e8d352-1902-4aef-8eb7-13edaa094ca1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Components">
+      <UniqueIdentifier>{defc6f02-0d91-4cad-a663-e00028645c9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ressources">
+      <UniqueIdentifier>{165d5067-75b4-44ca-85ab-fbc59677eab0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Geometry">
+      <UniqueIdentifier>{d7a05de7-6404-4f28-8e7b-4c1804252101}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Maths">
+      <UniqueIdentifier>{04a0b0e4-5eed-4b8c-9e2e-24b7836a78e4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logger.h">
@@ -25,6 +40,79 @@
     <ClInclude Include="Core\Compiler.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Components\Component.hpp">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Entity.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Registry.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneGraph.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Serializer.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SparseSet.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\System.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="Ressources\MTLLoader.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\OBJLoader.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\OBJLoadOptions.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\ResourceHandle.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\ResourceManager.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\json.hpp">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\FaceView.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\MeshClass.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\Material.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\SubMesh.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Geometry\Texture.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\EventBus.hpp">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Vec2f.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Vec3f.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Vec4f.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\MathTypes.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -33,5 +121,31 @@
     <ClCompile Include="pch.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\SceneGraph.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Serializer.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Systeme.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Ressources\MTLLoader.cpp">
+      <Filter>Ressources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ressources\OBJLoader.cpp">
+      <Filter>Ressources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ressources\ResourceManager.cpp">
+      <Filter>Ressources</Filter>
+    </ClCompile>
+    <ClCompile Include="Geometry\MeshClass.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="LibraryV3.rc">
+      <Filter>Fichiers de ressources</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

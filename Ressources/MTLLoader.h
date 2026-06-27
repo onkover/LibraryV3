@@ -2,7 +2,9 @@
 #include <string>
 #include <unordered_map>
 #include "ResourceHandle.h"
-namespace LibV2 {
+
+namespace LibV3 
+{
     class ResourceManager;
     using MaterialMap = std::unordered_map<std::string,MaterialHandle>;
     class MTLLoader {
@@ -17,4 +19,4 @@ namespace LibV2 {
         static std::string ResolvePath(const std::string& baseDir, const std::string& rel);
         static TextureHandle LoadTexture(const std::string& path, ResourceManager& rm);
     };
-} // namespace LibV2
+} // namespace LibV3

@@ -152,16 +152,51 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h" />
     <ClInclude Include="Core\Compiler.h" />
+    <ClInclude Include="Core\EventBus.hpp" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />
+    <ClInclude Include="Geometry\FaceView.h" />
+    <ClInclude Include="Geometry\Material.h" />
+    <ClInclude Include="Geometry\MeshClass.h" />
+    <ClInclude Include="Geometry\SubMesh.h" />
+    <ClInclude Include="Geometry\Texture.h" />
+    <ClInclude Include="Maths\Vec2f.h" />
+    <ClInclude Include="Maths\Vec3f.h" />
+    <ClInclude Include="Maths\Vec4f.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="Ressources\json.hpp" />
+    <ClInclude Include="Ressources\MathTypes.h" />
+    <ClInclude Include="Ressources\MTLLoader.h" />
+    <ClInclude Include="Ressources\OBJLoader.h" />
+    <ClInclude Include="Ressources\OBJLoadOptions.h" />
+    <ClInclude Include="Ressources\ResourceHandle.h" />
+    <ClInclude Include="Ressources\ResourceManager.h" />
+    <ClInclude Include="Scene\Components\Component.hpp" />
+    <ClInclude Include="Scene\Entity.hpp" />
+    <ClInclude Include="Scene\Registry.hpp" />
+    <ClInclude Include="Scene\SceneGraph.hpp" />
+    <ClInclude Include="Scene\Serializer.hpp" />
+    <ClInclude Include="Scene\SparseSet.hpp" />
+    <ClInclude Include="Scene\System.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp" />
+    <ClCompile Include="Geometry\MeshClass.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Ressources\MTLLoader.cpp" />
+    <ClCompile Include="Ressources\OBJLoader.cpp" />
+    <ClCompile Include="Ressources\ResourceManager.cpp" />
+    <ClCompile Include="Scene\SceneGraph.cpp" />
+    <ClCompile Include="Scene\Serializer.cpp" />
+    <ClCompile Include="Scene\Systeme.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="LibraryV3.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

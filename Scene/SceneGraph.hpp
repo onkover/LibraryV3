@@ -7,20 +7,24 @@
 #include <fstream>	// fichier
 #include <iostream>
 
-#include <File/json.hpp>
+#include "../ressources/json.hpp"
 
 #include <Maths/Vectorlib.h>
-#include <Objects/RessourceManager/RessourceMeshManager.hpp>
+#include "../Ressources/ResourceManager.h"
 #include "Registry.hpp"
 
 
 #ifndef SCENE_GRAPH_INCLUDE
 #define SCENE_GRAPH_INCLUDE
 
-bool buildSceneGraph(
-    const std::string& sceneFilePath,
-    Registry& registry,
-    Entity& out_activeCamera,
-    RessourceMeshManager& pRM, world* pWorld, const char* directory);
+namespace LibV3
+{
+    bool buildSceneGraph(
+        const std::string& sceneFilePath,
+        Registry& registry,
+        Entity& out_activeCamera,
+        ResourceManager& pRM, const char* directory);
 
 #endif
+
+}
