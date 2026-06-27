@@ -1,0 +1,30 @@
+# 3ds Max Wavefront OBJ Exporter v0.99 - (c)2007 guruware
+# File Created: 16.11.2020 23:35:28
+
+newmtl Material__72
+	Ns 10.00000000
+	Ni 1.50000000
+	d 1.00000000
+	Tr 0.00000000
+	Tf 1.00000000 1.00000000 1.00000000 
+	illum 2
+	Ka 0.97254902 0.10588235 0.35294119
+	Kd 0.97254902 0.10588235 0.35294119
+	Ks 0.00000000 0.00000000 0.00000000
+	Ke 0.00000000 0.00000000 0.00000000
+	map_Ka G:\Projects Visual Studio\Graphs\damier 200x200.pcx
+	map_Kd G:\Projects Visual Studio\Graphs\damier 200x200.pcx
+
+newmtl Material__71
+	Ns 10.00000000
+	Ni 1.50000000
+	d 1.00000000
+	Tr 0.00000000
+	Tf 1.00000000 1.00000000 1.00000000 
+	illum 2
+	Ka 0.10588235 0.04313726 0.91372550
+	Kd 0.10588235 0.04313726 0.91372550
+	Ks 0.00000000 0.00000000 0.00000000
+	Ke 0.00000000 0.00000000 0.00000000
+	map_Ka G:\Projects Visual Studio\Graphs\damier 200x200.pcx
+	map_Kd G:\Projects Visual Studio\Graphs\damier 200x200.pcx
