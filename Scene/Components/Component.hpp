@@ -2,9 +2,9 @@
 
 #include <string>
 #include <set>
-#include <Maths/Vectorlib.h>
-#include <Maths/MatrixLib.h>
-#include <Maths/QuaternionLib.h>
+#include "../Maths/Vectorlib.h"
+#include "../Maths/MatrixLib.h"
+#include "../Maths/QuaternionLib.h"
 #include "Entity.hpp"
 
 #include <Objects/Light/Light.h>

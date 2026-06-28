@@ -1,11 +1,12 @@
 #pragma once
 // ============================================================
 //  Platform.h — Couche d'abstraction OS
+//  Inclure manuellement uniquement là où on crée/gère des fenêtres
+// 
 //  À inclure UNIQUEMENT dans les .cpp qui en ont besoin directement.
 //  NE PAS inclure dans pch.h (pollution des macros Win32).
 // ============================================================
 
-#include "Compiler.h"   // réexporte LV2_FORCEINLINE
 
 #if defined(_WIN32)
     #define LV2_PLATFORM_WINDOWS
@@ -27,13 +28,3 @@
     #error "Plateforme non supportée"
 #endif
 
-//// Alignement mémoire SIMD
-//#define LV2_ALIGN_SIMD  alignas(32)   // AVX2
-//#define LV2_ALIGN_CACHE alignas(64)   // Ligne de cache
-//
-//// Force-inline
-//#if defined(_MSC_VER)
-//    #define LV2_FORCEINLINE __forceinline
-//#else
-//    #define LV2_FORCEINLINE __attribute__((always_inline)) inline
-//#endif

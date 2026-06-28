@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include "../Ressources/ResourceManager.h
+#include "../Ressources/ResourceManager.h"
 #include "Registry.hpp"
 #include <unordered_map>
 

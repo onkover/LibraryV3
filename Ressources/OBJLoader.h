@@ -8,7 +8,6 @@
 #include "OBJLoadOptions.h"
 
 #include "MathTypes.h"
-#include "OBJLoadOptions.h" 
 
 namespace LibV3
 {

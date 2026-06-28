@@ -26,6 +26,12 @@
     <Filter Include="Maths">
       <UniqueIdentifier>{04a0b0e4-5eed-4b8c-9e2e-24b7836a78e4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{e8cd8707-c1c1-4ea0-8421-5bbee4fe9e30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lighting">
+      <UniqueIdentifier>{000e546a-3ed2-4fa6-be69-e510ea0ada24}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logger.h">
@@ -113,6 +119,27 @@
     <ClInclude Include="Ressources\MathTypes.h">
       <Filter>Ressources</Filter>
     </ClInclude>
+    <ClInclude Include="Core\CoreTypes.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\config.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\RenderTypes.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Lighting\LightTypes.h">
+      <Filter>Lighting</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SceneTypes.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\EngineSettings.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\EngineConfig.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -147,5 +174,8 @@
     <ResourceCompile Include="LibraryV3.rc">
       <Filter>Fichiers de ressources</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="engine.json" />
   </ItemGroup>
 </Project>

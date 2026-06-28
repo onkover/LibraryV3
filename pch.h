@@ -35,7 +35,9 @@
 #endif
 
 // --- Core moteur (toujours présent) ---
-#include "Core/Platform.h"
+#include "core/Compiler.h"			// LV2_FORCEINLINE
+#include "core/config.h"				// configuration du moteur qui ne change jamais sinon, recompilation totale du projet
+#include "Core/CoreTypes.h"		
 //#include "Core/Types.h"
 
 //#include <Resources/MathTypes.h>
