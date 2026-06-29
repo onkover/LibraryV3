@@ -99,9 +99,9 @@ public:
 
 	/* un produit vectoriel 2d donne un scalaire e nnon un vecteur 2d
 	
-	Le résultat est un scalaire représentant l'aire du parallélogramme formé par les deux vecteurs.
+	Le rï¿½sultat est un scalaire reprï¿½sentant l'aire du parallï¿½logramme formï¿½ par les deux vecteurs.
 	Notez que contrairement au produit scalaire, qui donne un nombre qui mesure la projection d'un vecteur sur un autre, 
-		le produit vectoriel donne une quantité qui mesure l'aire du parallélogramme formé par les deux vecteurs, ce qui est une quantité géométrique.	 
+		le produit vectoriel donne une quantitï¿½ qui mesure l'aire du parallï¿½logramme formï¿½ par les deux vecteurs, ce qui est une quantitï¿½ gï¿½omï¿½trique.	 
 	*/
 	T crossProduct(const Vec2<T>& v) const
 	{
@@ -134,7 +134,7 @@ public:
 
 	T getAngle() const
 	{
-		return atan2(y, x);	// retrouve l'angle par rapport à l'axe positif des absisses
+		return atan2(y, x);	// retrouve l'angle par rapport ï¿½ l'axe positif des absisses
 	}
 	
 	Vec2& setMagnitude(const T& r)
