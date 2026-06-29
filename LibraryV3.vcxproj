@@ -167,9 +167,12 @@
     <ClInclude Include="Geometry\SubMesh.h" />
     <ClInclude Include="Geometry\Texture.h" />
     <ClInclude Include="Lighting\LightTypes.h" />
+    <ClInclude Include="Maths\MatrixLib.h" />
+    <ClInclude Include="Maths\QuaternionLib.h" />
     <ClInclude Include="Maths\Vec2f.h" />
     <ClInclude Include="Maths\Vec3f.h" />
     <ClInclude Include="Maths\Vec4f.h" />
+    <ClInclude Include="Maths\Vectorlib.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
     <ClInclude Include="resource.h" />

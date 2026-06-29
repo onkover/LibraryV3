@@ -140,6 +140,15 @@
     <ClInclude Include="Core\EngineConfig.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Maths\Vectorlib.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\MatrixLib.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\QuaternionLib.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">

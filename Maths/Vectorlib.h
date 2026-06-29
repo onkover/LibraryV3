@@ -1,16 +1,9 @@
 #define VECTOR_LIB
 #pragma once
-//#include "../Core/config.h"
 
-#include <cstdlib>
-#include <cstdio>
+//#include <cmath>
 #include <iostream>
-#include <iomanip>
-#include <cmath>
-#include <immintrin.h>
-
-//#include "../divers/Global_Define.h"	// pour les macro
-
+//#include <algorithm>
 
 template<typename T>
 class Vec2
@@ -317,26 +310,20 @@ public:
 
 	Vec3& setMin(const Vec3<T>& v)
 	{
-		x = min(x, v.x);
-		y = min(y, v.y);
-		z = min(z, v.z);
+		x = std::min(x, v.x);
+		y = std::min(y, v.y);
+		z = std::min(z, v.z);
 		return *this;
 	}
 
 	Vec3& setMax(const Vec3<T>& v)
 	{
-		x = max(x, v.x);
-		y = max(y, v.y);
-		z = max(z, v.z);
+		x = std::max(x, v.x);
+		y = std::max(y, v.y);
+		z = std::max(z, v.z);
 		return *this;
 	}
 
-
-	//T rotate(float rot) const
-	//{
-
-	//	return x * x + y * y + z * z;
-	//}
 
 
 
@@ -401,6 +388,14 @@ public:
 	{
 		return s << '[' << v.x << ' ' << v.y << ' ' << v.z << ']';
 	}
+
+
+	static constexpr Vec3 Zero()    noexcept { Vec3<T>return { 0,0,0 }; }
+	static constexpr Vec3 One()     noexcept { Vec3<T>return { 1,1,1 }; }
+	static constexpr Vec3 Up()      noexcept { Vec3<T>return { 0,1,0 }; }
+	static constexpr Vec3 Forward() noexcept { Vec3<T>return { 0,0,1 }; }
+	static constexpr Vec3 Right()   noexcept { Vec3<T>return { 1,0,0 }; }
+
 
 	T x, y, z;
 };
