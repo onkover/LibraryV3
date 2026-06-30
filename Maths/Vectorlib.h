@@ -154,6 +154,7 @@ public:
 	}
 	T x, y;
 };
+};
 
 typedef Vec2<double> Vec2d;
 typedef Vec2<float> Vec2f;
