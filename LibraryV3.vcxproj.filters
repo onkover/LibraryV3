@@ -55,9 +55,6 @@
     <ClInclude Include="Scene\Registry.hpp">
       <Filter>Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SceneGraph.hpp">
-      <Filter>Scene</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\Serializer.hpp">
       <Filter>Scene</Filter>
     </ClInclude>
@@ -107,9 +104,6 @@
     <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h">
       <Filter>Maths</Filter>
     </ClInclude>
-    <ClInclude Include="Ressources\MathTypes.h">
-      <Filter>Ressources</Filter>
-    </ClInclude>
     <ClInclude Include="Core\CoreTypes.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -143,6 +137,9 @@
     <ClInclude Include="Maths\Transform.h">
       <Filter>Maths</Filter>
     </ClInclude>
+    <ClInclude Include="Maths\MathTypes.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -150,9 +147,6 @@
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene\SceneGraph.cpp">
-      <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Serializer.cpp">
       <Filter>Scene</Filter>

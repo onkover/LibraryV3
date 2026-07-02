@@ -18,7 +18,7 @@ namespace LV3
     void Logger::log(std::string_view msg, LogLevel lvl)
     {
         if (lvl >= s_level)
-            std::cout << "[LibV2] " << msg << "\n";
+            std::cout << "[LibV3] " << msg << "\n";
     }
 
 	// Logue un message d'avertissement.

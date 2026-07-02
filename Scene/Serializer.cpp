@@ -40,12 +40,12 @@ namespace LV3
     {
 
         // --- 1. CHARGEMENT ET VALIDATION DU FICHIER JSON ---
-        std::cout << "Première passe : initialisation des données" << std::endl;
-        std::cout << "- Lecteur et parsing du fichier json" << std::endl;
+        Logger::log("\033[32mPremière passe : initialisation des données\033[0m");
+        Logger::log("- Lecteur et parsing du fichier json");
 
         std::ifstream file(sceneFilePath + jsonSceneFile);
         if (!file.is_open()) {
-            Logger::error("SceneSerializer::Load — fichier introuvable : " + sceneFilePath + jsonSceneFile);
+            Logger::error("\033[31mSceneSerializer::Load — fichier introuvable : " + sceneFilePath + jsonSceneFile + "\033[0m");
             return false;
         }
 
@@ -57,11 +57,11 @@ namespace LV3
         }
         catch (const json::parse_error& e)
         {
-            Logger::error(std::string("SceneSerializer::Load — JSON malformé : ") + e.what());
+            Logger::error(std::string("\033[31mSceneSerializer::Load — JSON malformé : ") + e.what() + "\033[0m");
             return false;
         }
 
-        Logger::log("Construction de la scène" + sceneData["sceneName"].get<std::string>());            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
+        Logger::log("Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>());            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
 
 
         if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
@@ -79,41 +79,44 @@ namespace LV3
                 entityMap[id] = entity;
                 registry.addComponent<NameComponent>(entity, NameComponent{ id });
 
-                if (!ParseNode(&nodeJson, ctx, entity, pWorld))
+                if (!ParseNode(&nodeJson, ctx, entity))
                 {
-                    Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
+                    Logger::error("\033[31mSceneSerializer::Load — erreur lors du parsing du noeud : " + id + "\033[0m");
                     return false;
                 }
 
                 Logger::log("Première passe terminée. " + std::to_string(entityMap.size()) + " noeuds créés.");
 
             }
+
+            Logger::log("\033[32mPhase 2 : Link des hiérarchie\033[0m");
+
             for (const auto& nodeJson : sceneData["nodes"])
             {
                 if (!ParseHierarchy(&nodeJson, ctx))
                 {
-                    Logger::error("SceneSerializer::Load — erreur lors des hiérarchies");
+                    Logger::error("\033[31mSceneSerializer::Load — erreur lors des hiérarchies\033[0m");
                     return false;
                 }
             }
 
-            Logger::log("Deuxième passe terminée. Hiérarchie assemblée.");
-            Logger::log("BuildSceneGraph (ECS) terminé. " + std::to_string(registry.getEntityCount()) + " entités créées.");
-            Logger::log("Construction de la scène terminée avec succès.");
+            Logger::log("\033[32mDeuxième passe terminée. Hiérarchie assemblée. \033[0m");
+            Logger::log("\033[32mBuildSceneGraph (ECS) terminé. " + std::to_string(registry.getEntityCount()) + " entités créées. \033[0m");
+            Logger::log("\033[32mConstruction de la scène terminée avec succès.\033[0m");
 
         }
         else
         {
-            Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
+            Logger::warn("\033[31mSceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath + " \033[0m");
         }
 
-        Logger::log("SceneSerializer::Load — scène chargée : " + sceneFilePath);
+        Logger::log("\033[32mSceneSerializer::Load — scène chargée : " + sceneFilePath + " \033[0m");
 
 
         return true;
     }
 
-    bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity, world* pWorld)
+    bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
     {
         const json& nodeJson = *static_cast<const json*>(pJsonNode);
         if (!nodeJson.is_object()) return false;
@@ -134,7 +137,7 @@ namespace LV3
                     ParseTransform(&compJson, ctx, entity);
 
                 else if (compName == "Mesh")
-                    ParseMesh(&compJson, ctx, entity, pWorld);
+                    ParseMesh(&compJson, ctx, entity);
 
                 else if (compName == "Light")
                     ParseLight(&compJson, ctx, entity);
@@ -180,7 +183,7 @@ namespace LV3
         ctx.registry.addComponent(entity, t);
     }
 
-    void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity, world* pWorld)
+    void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)
     {
         const json& compJson = *static_cast<const json*>(pJsonNode);
         if (!compJson.is_object()) return;
@@ -196,8 +199,20 @@ namespace LV3
 
         const std::string fullPath = ResolvePath(ctx.baseDir, meshPath);
 
-        if (compJson.contains("model")) m.m_mesh = ctx.pRM.getMesh(pWorld, ctx.baseDir.c_str(), meshPath.c_str());// compJson["model"]);
-        // if (compJson.contains("model")) m.m_mesh = ctx.pRM.getMesh(pWorld, ctx.baseDir.c_str(), fullPath.c_str());// compJson["model"]);
+        MeshHandle hMesh;
+        if (compJson.contains("model")) 
+        {
+            OBJLoadOptions  opts;
+            opts.flipUVsVertically = true;
+            opts.generateNormalsIfMissing = true;
+            hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
+        }
+		if (!hMesh.IsValid())
+		{
+			Logger::error("\033[31mSceneSerializer::ParseMesh — échec du chargement du mesh : " + fullPath + " \033[0m");
+			return;
+		}
+        
         if (compJson.contains("texture")) m.m_texture = compJson["texture"];
 
         //                    m.m_mesh->AABB.resetAABB();
@@ -206,6 +221,7 @@ namespace LV3
         ctx.registry.addComponent(entity, m);
     }
 
+    //***************************************************************************************
     void SceneSerializer::ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity)
     {
         const json& compJson = *static_cast<const json*>(pJsonNode);
@@ -215,9 +231,20 @@ namespace LV3
         if (compJson.contains("type"))
         {
             std::string typeStr = compJson["type"];
-            if (typeStr == "POINT_LIGHT") l.m_type = POINT_LIGHT;
-            //                        else if (typeStr == "DIRECTIONAL_LIGHT") l.m_type = DIRECTIONAL_LIGHT;
-            else if (typeStr == "SPOT_LIGHT") l.m_type = SPOT_LIGHT;
+            if (typeStr == "Point")
+                l.m_type = ELightType::Point;
+            else if (typeStr == "Directional")
+                l.m_type = ELightType::Directional;
+            else if (typeStr == "Spot")
+                l.m_type = ELightType::Spot;
+            else if (typeStr == "Ambient")
+                l.m_type = ELightType::Ambient;
+            else
+            {
+                l.m_type = ELightType::Ambient;
+                std::cout << "\033[31mAvertissement: Type de lumière inconnu '" << typeStr << "' sur le noeud '" << compJson.contains("type") << "'.\033[0m" << std::endl;
+                std::cout << "\033[31mAmbient par défaut\033[0m" << std::endl;
+            }
         }
         if (compJson.contains("color")) l.m_color = Vec3f{ compJson["color"][0], compJson["color"][1], compJson["color"][2] };
         if (compJson.contains("intensity")) l.m_intensity = compJson["intensity"];

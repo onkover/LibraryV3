@@ -6,7 +6,7 @@
 #include "ResourceHandle.h"
 #include "OBJLoadOptions.h"
 
-#include "MathTypes.h"
+#include "../Maths/MathTypes.h"
 
 namespace LV3
 {

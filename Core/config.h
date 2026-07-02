@@ -23,15 +23,17 @@ namespace LV3
 	constexpr auto M_SQRT2 = 1.41421356237309504880;   // sqrt(2)
 	constexpr auto M_SQRT1_2 = 0.707106781186547524401;  // 1/sqrt(2)
 
-	constexpr double INV_PI = 0.31830988618379067153777;
-	constexpr double INV_2PI = 0.15915494309189533576888;
+	// constexpr double INV_PI = 0.31830988618379067153777;
+	// constexpr double INV_2PI = 0.15915494309189533576888;
+	constexpr float INV_PI = 0.31830988618379067153777f;
+	constexpr float INV_2PI = 0.15915494309189533576888f;
 
-	constexpr double EPSILON = 0.01;
+	constexpr float EPSILON = 0.01f;
 	constexpr float EPSILON_FLOAT = 0.001f;
 	constexpr double EPSILON_DOUBLE = 0.001;
 
-	constexpr double TO_RADIAN = M_PI / 180.0; //double
-	constexpr double TO_DEGRE = 180.0 / M_PI;	//double
+	constexpr float TO_RADIAN = M_PI / 180.0f; //float
+	constexpr float TO_DEGRE = 180.0f / M_PI;	//float
 
 	constexpr float inchToMm = 25.4f;
 

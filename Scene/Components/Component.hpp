@@ -7,8 +7,8 @@
 #include "../Maths/QuaternionLib.h"
 #include "Entity.hpp"
 
-#include <Objects/Light/Light.h>
-#include <Objects/mesh.h>
+#include "Lighting/LightTypes.h"
+#include "Geometry/MeshClass.h"
 namespace LV3
 {
 	//********************************************************************
@@ -124,7 +124,7 @@ namespace LV3
 
 	struct LightComponent
 	{
-		lIGHT_TYPE m_type = lIGHT_TYPE::POINT_LIGHT;
+		ELightType m_type = ELightType::Point;
 		Vec3f m_color = { 1.0f, 1.0f, 1.0f };
 		float m_intensity = 1.0f;
 	};

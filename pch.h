@@ -38,7 +38,7 @@
 #include "core/Compiler.h"			// LV3_FORCEINLINE
 #include "core/config.h"				// configuration du moteur qui ne change jamais sinon, recompilation totale du projet
 #include "Core/CoreTypes.h"		
-//#include "Core/Types.h"
+#include "Maths/MathTypes.h"
 
 //#include <Resources/MathTypes.h>
 //#include <Resources/ResourceHandle.h>

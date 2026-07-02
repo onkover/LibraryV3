@@ -114,7 +114,7 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_LIB;PROJECT_DIR=R"($(ProjectDir))";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -167,6 +167,7 @@
     <ClInclude Include="Geometry\SubMesh.h" />
     <ClInclude Include="Geometry\Texture.h" />
     <ClInclude Include="Lighting\LightTypes.h" />
+    <ClInclude Include="Maths\MathTypes.h" />
     <ClInclude Include="Maths\MatrixLib.h" />
     <ClInclude Include="Maths\QuaternionLib.h" />
     <ClInclude Include="Maths\Transform.h" />
@@ -175,7 +176,6 @@
     <ClInclude Include="Rendering\RenderTypes.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Ressources\json.hpp" />
-    <ClInclude Include="Ressources\MathTypes.h" />
     <ClInclude Include="Ressources\MTLLoader.h" />
     <ClInclude Include="Ressources\OBJLoader.h" />
     <ClInclude Include="Ressources\OBJLoadOptions.h" />
@@ -184,7 +184,6 @@
     <ClInclude Include="Scene\Components\Component.hpp" />
     <ClInclude Include="Scene\Entity.hpp" />
     <ClInclude Include="Scene\Registry.hpp" />
-    <ClInclude Include="Scene\SceneGraph.hpp" />
     <ClInclude Include="Scene\SceneTypes.h" />
     <ClInclude Include="Scene\Serializer.hpp" />
     <ClInclude Include="Scene\SparseSet.hpp" />
@@ -200,7 +199,6 @@
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />
-    <ClCompile Include="Scene\SceneGraph.cpp" />
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\Systeme.cpp" />
   </ItemGroup>

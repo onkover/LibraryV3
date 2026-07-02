@@ -43,9 +43,9 @@ namespace LV3
 
         static void linkChildToParent(Registry& registry, Entity child, Entity parent);
 
-        static bool ParseNode(const void* jsonNode, ParseContext& ctx, Entity entity, world* pWorld);
+        static bool ParseNode(const void* jsonNode, ParseContext& ctx, Entity entity);
         static void ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity);
-        static void ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity, world* pWorld);
+        static void ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera);
         static void ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity);

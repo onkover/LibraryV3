@@ -163,9 +163,21 @@ namespace LV3
                         if (compJson.contains("type"))
                         {
                             std::string typeStr = compJson["type"];
-                            if (typeStr == "POINT_LIGHT") l.m_type = POINT_LIGHT;
-                            //                        else if (typeStr == "DIRECTIONAL_LIGHT") l.m_type = DIRECTIONAL_LIGHT;
-                            else if (typeStr == "SPOT_LIGHT") l.m_type = SPOT_LIGHT;
+                            if (typeStr == "Point")
+                                    l.m_type = ELightType::Point;
+                                if (typeStr == "Directional")
+                                    l.m_type = ELightType::Directional;
+                                else if (typeStr == "Spot")
+                                    l.m_type = ELightType::Spot;
+                                else if (typeStr == "Ambient")
+                                    l.m_type = ELightType::Ambient;
+                                else
+                                {
+                                    l.m_type = ELightType::Ambient;
+                                    std::cout << "Avertissement: Type de lumière inconnu '" << typeStr << "' sur le noeud '" << id << "'." << std::endl;
+                                    std::cout << "Ambient par défaut" << std::endl;
+                                }
+
                         }
                         if (compJson.contains("color")) l.m_color = Vec3f{ compJson["color"][0], compJson["color"][1], compJson["color"][2] };
                         if (compJson.contains("intensity")) l.m_intensity = compJson["intensity"];

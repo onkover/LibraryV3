@@ -9,7 +9,7 @@
 
 
 #if defined(_WIN32)
-    #define LV2_PLATFORM_WINDOWS
+    #define LV3_PLATFORM_WINDOWS
     #define WIN32_LEAN_AND_MEAN
     #define NOMINMAX
     #define VC_EXTRALEAN
@@ -17,11 +17,11 @@
     using WindowHandle  = HWND;
     using DeviceContext = HDC;
 #elif defined(__linux__)
-    #define LV2_PLATFORM_LINUX
+    #define LV3_PLATFORM_LINUX
     using WindowHandle  = unsigned long;
     using DeviceContext = void*;
 #elif defined(__APPLE__)
-    #define LV2_PLATFORM_MACOS
+    #define LV3_PLATFORM_MACOS
     using WindowHandle  = void*;
     using DeviceContext = void*;
 #else
