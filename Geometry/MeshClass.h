@@ -3,14 +3,13 @@
 #include <string>
 #include <cstdint>
 
-#include "../Maths/Vec3f.h"
-#include "../Maths/Vec2f.h"
+#include "../Maths/Vectorlib.h"
 #include "../Maths/AABB3d.h"
 #include "../Core/Types.h"
 
 #include "FaceView.h"
 #include "SubMesh.h"
-namespace LibV3
+namespace LV3
 {
     class ResourceManager; // forward
 
@@ -68,4 +67,4 @@ namespace LibV3
         void ResetFaceFlags() noexcept;
         [[nodiscard]] bool IsValid() const noexcept;
     };
-} // namespace LibV3
+} // namespace LV3

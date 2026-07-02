@@ -2,7 +2,7 @@
 #include <string>
 #include <cstdint>
 #include "../Ressources/ResourceHandle.h"
-namespace LibV3 
+namespace LV3 
 {
     struct SubMesh {
         uint32_t       startIndex = 0u;
@@ -12,4 +12,4 @@ namespace LibV3
         [[nodiscard]] uint32_t TriangleCount() const noexcept { return indexCount/3u; }
         [[nodiscard]] bool     HasMaterial()   const noexcept { return material.IsValid(); }
     };
-} // namespace LibV3
+} // namespace LV3

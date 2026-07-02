@@ -4,12 +4,11 @@
 #include <vector>
 #include <unordered_map>
 #include "ResourceHandle.h"
-
 #include "OBJLoadOptions.h"
 
 #include "MathTypes.h"
 
-namespace LibV3
+namespace LV3
 {
 	// Forward declarations pour éviter les inclusions circulaires
     class ResourceManager;
@@ -79,4 +78,4 @@ namespace LibV3
         static RawIndex    ParseVertex (const std::string& token, int pc, int uc, int nc);
     };
 
-} // namespace LibV3
+} // namespace LV3

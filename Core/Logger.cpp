@@ -3,7 +3,7 @@
 #include "Logger.h"
 #include <iostream>
 
-namespace LibV3
+namespace LV3
 {
     LogLevel Logger::s_level = LogLevel::Info;
 
@@ -33,4 +33,4 @@ namespace LibV3
         log(msg, LogLevel::Error);
     }
 
-} // namespace LibV3
+} // namespace LV3

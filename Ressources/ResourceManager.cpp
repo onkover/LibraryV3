@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ResourceManager.h"
 
-namespace LibV3 
+namespace LV3 
 {
 
 ResourceManager::~ResourceManager()     // Cf. commentaire dans ResourceManager.h sur la raison de définir le destructeur dans le .cpp
@@ -136,4 +136,4 @@ MaterialHandle ResourceManager::AllocateMaterialHandle() noexcept { return Mater
 ResourceManager::ResourceManager(ResourceManager&&) noexcept = default;
 ResourceManager& ResourceManager::operator=(ResourceManager&&) noexcept = default;
 
-} // namespace LibV3
+} // namespace LV3

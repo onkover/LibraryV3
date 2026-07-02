@@ -10,7 +10,7 @@
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-namespace LibV3
+namespace LV3
 {
 
     /**********************************************

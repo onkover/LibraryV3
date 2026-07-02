@@ -5,7 +5,7 @@
 #include <iostream>
 #include "Components/Component.hpp"
 
-namespace LibV3
+namespace LV3
 {
 	const size_t MAX_ENTITIES_INIT = 10;
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-namespace LibV3
+namespace LV3
 {
 	using Entity = uint32_t;
 

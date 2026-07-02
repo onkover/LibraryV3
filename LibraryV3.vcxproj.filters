@@ -104,15 +104,6 @@
     <ClInclude Include="Core\EventBus.hpp">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Maths\Vec2f.h">
-      <Filter>Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="Maths\Vec3f.h">
-      <Filter>Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="Maths\Vec4f.h">
-      <Filter>Maths</Filter>
-    </ClInclude>
     <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h">
       <Filter>Maths</Filter>
     </ClInclude>
@@ -149,6 +140,9 @@
     <ClInclude Include="Maths\Vectorlib.h">
       <Filter>Maths</Filter>
     </ClInclude>
+    <ClInclude Include="Maths\Transform.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -177,6 +171,9 @@
     </ClCompile>
     <ClCompile Include="Geometry\MeshClass.cpp">
       <Filter>Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="Maths\Transform.cpp">
+      <Filter>Maths</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

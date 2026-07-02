@@ -1,10 +1,9 @@
 #pragma once
-#include "../Maths/Vec3f.h"
-#include "../Maths/Vec2f.h"
+#include "../Maths/Vectorlib.h"
 #include "../Maths/AABB3d.h"
 #include "../Core/Types.h"
 
-namespace LibV3
+namespace LV3
 {
     class Material; // forward
 
@@ -29,22 +28,22 @@ namespace LibV3
         } screenVerts[4];
 
         // ── Accesseurs flags ──────────────────────────────────
-        LV2_FORCEINLINE bool IsVisible()   const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Visible))   != 0; }
-        LV2_FORCEINLINE bool IsClipped()   const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Clipped))   != 0; }
-        LV2_FORCEINLINE bool IsCulled()    const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Culled))    != 0; }
-        LV2_FORCEINLINE bool IsInFrustum() const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::InFrustum)) != 0; }
+        LV3_FORCEINLINE bool IsVisible()   const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Visible))   != 0; }
+        LV3_FORCEINLINE bool IsClipped()   const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Clipped))   != 0; }
+        LV3_FORCEINLINE bool IsCulled()    const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::Culled))    != 0; }
+        LV3_FORCEINLINE bool IsInFrustum() const noexcept { return (flags & static_cast<uint8_t>(FaceFlag::InFrustum)) != 0; }
 
-        LV2_FORCEINLINE void SetVisible(bool v) noexcept {
+        LV3_FORCEINLINE void SetVisible(bool v) noexcept {
             if(v) flags|=static_cast<uint8_t>(FaceFlag::Visible);
             else  flags&=~static_cast<uint8_t>(FaceFlag::Visible);
         }
-        LV2_FORCEINLINE void SetClipped(bool v) noexcept {
+        LV3_FORCEINLINE void SetClipped(bool v) noexcept {
             if(v) flags|=static_cast<uint8_t>(FaceFlag::Clipped);
             else  flags&=~static_cast<uint8_t>(FaceFlag::Clipped);
         }
-        LV2_FORCEINLINE void SetCulled(bool v) noexcept {
+        LV3_FORCEINLINE void SetCulled(bool v) noexcept {
             if(v) flags|=static_cast<uint8_t>(FaceFlag::Culled);
             else  flags&=~static_cast<uint8_t>(FaceFlag::Culled);
         }
     };
-} // namespace LibV3
+} // namespace LV3

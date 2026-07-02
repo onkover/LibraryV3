@@ -9,7 +9,7 @@
 
 #include <Objects/Light/Light.h>
 #include <Objects/mesh.h>
-namespace LibV3
+namespace LV3
 {
 	//********************************************************************
 

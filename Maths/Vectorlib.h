@@ -1,515 +1,252 @@
-#define VECTOR_LIB
 #pragma once
+#define VECTOR_LIB
+// ============================================================
+//  Maths/Vectorlib.h — Vecteurs templatés du moteur LibraryV3
+//  Convention : right-handed, vecteur-ligne (v' = v·M)
+//  Standardisée Leçon 02 : scoping LV3, fabriques corrigées,
+//  noexcept/constexpr, méthodes géométriques ajoutées.
+//  Noms hérités conservés (dotProduct/crossProduct/Normalized)
+//  car MatrixLib.h et QuaternionLib.h en dépendent.
+// ============================================================
 
-//#include <cmath>
+#include "../Core/Compiler.h"
+#include <cmath>
 #include <iostream>
-//#include <algorithm>
+#include <algorithm>
+//#include <cstdint>
 
-template<typename T>
-class Vec2
+
+namespace LV3
 {
-public:
-	Vec2() : x(0), y(0) {}
-	Vec2(T xx) : x(xx), y(xx) {}
-	Vec2(T xx, T yy) : x(xx), y(yy) {}
-	Vec2 operator + (const T& r) const
-	{
-		return Vec2(x + r, y + r);
-	}
-	Vec2 operator + (const Vec2& v) const
-	{
-		return Vec2(x + v.x, y + v.y);
-	}
-
-	Vec2 operator - () const
-	{
-		return Vec2(-x, -y);
-	}
-	Vec2 operator - (const Vec2& v) const
-	{
-		return Vec2(x - v.x, y - v.y);
-	}
-	friend Vec2 operator -(const Vec2& v, const T& r)
-	{
-		return Vec2(v.x - r, v.y - r);
-	}
-
-	friend Vec2 operator -(const T& r, const Vec2& v)
-	{
-		return Vec2(r - v.x, r - v.y);
-	}
-
-
-	Vec2 operator * (const T& r) const
-	{
-		return Vec2(x * r, y * r);
-	}
-	Vec2 operator * (const Vec2& v) const
-	{
-		return Vec2(x * v.x, y * v.y);
-	}
-
-	Vec2 operator / (const T &r) const
-	{
-		return Vec2(x / r, y / r);
-	}
-	Vec2 operator / (const Vec2& v) const
-	{
-		return Vec2(x / v.x, y / v.y);
-	}
-	
-	//*************************************************
-
-	Vec2& operator += (const Vec2& v)
-	{
-		x += v.x, y += v.y; return *this;
-	}
-
-	Vec2& operator -= (const Vec2& v)
-	{
-		x -= v.x, y -= v.y; return *this;
-	}
-
-	Vec2& operator /= (const T &r)
-	{
-		x /= r, y /= r; return *this;
-	}
-
-	Vec2& operator *= (const T &r)
-	{
-		x *= r, y *= r; return *this;
-	}
-
-	Vec2& operator *= (const Vec2& v)
-	{
-		x *= v.x, y *= v.y; return *this;
-	}
-
-	Vec2& operator >>= (const Vec2& v)			// ne fonctionnera qu'avec du INT
-	{
-		x >>= v.x, y >>= v.y; return *this;
-	}
-
-	Vec2& operator <<= (const Vec2& v)			// ne fonctionnera qu'avec du INT
-	{
-		x <<= v.x, y <<= v.y; return *this;
-	}
-	//*************************************************
-
-
-	/* un produit vectoriel 2d donne un scalaire e nnon un vecteur 2d
-	
-	Le r�sultat est un scalaire repr�sentant l'aire du parall�logramme form� par les deux vecteurs.
-	Notez que contrairement au produit scalaire, qui donne un nombre qui mesure la projection d'un vecteur sur un autre, 
-		le produit vectoriel donne une quantit� qui mesure l'aire du parall�logramme form� par les deux vecteurs, ce qui est une quantit� g�om�trique.	 
-	*/
-	T crossProduct(const Vec2<T>& v) const
-	{
-		return x * v.y - y * v.x;
-	}
-
-	T dotProduct(const Vec2<T>& v) const
-	{
-		return x * v.x + y * v.y;
-	}
-	T norm() const
-	{
-		return x * x + y * y;
-	}
-	T length() const	// magnitude
-	{
-		return sqrt(norm());
-	}
-
-	Vec2& normalize()
-	{
-		T n = norm();
-		if (n > 0) {
-			T factor = 1 / sqrt(n);
-			x *= factor, y *= factor;
-		}
-
-		return *this;
-	}
-
-	T getAngle() const
-	{
-		return atan2(y, x);	// retrouve l'angle par rapport � l'axe positif des absisses
-	}
-	
-	Vec2& setMagnitude(const T& r)
-	{
-		normalize();
-		x *= r, y *= r;
-		return *this;
-	}
-
-	friend std::ostream& operator << (std::ostream &s, const Vec2<T> &v)
-	{
-		return s << '[' << v.x << ' ' << v.y << ']';
-	}
-	friend Vec2 operator * (const T &r, const Vec2<T> &v)
-	{
-		return Vec2(v.x * r, v.y * r);
-	}
-	T x, y;
-};
-};
-
-typedef Vec2<double> Vec2d;
-typedef Vec2<float> Vec2f;
-typedef Vec2<long> Vec2l;
-typedef Vec2<int> Vec2i;
-
-//[comment]
-// Implementation of a generic vector class - it will be used to deal with 3D points, vectors and normals.
-// The class is implemented as a template. While it may complicate the code a bit, it gives us
-// the flexibility later, to specialize the type of the coordinates into anything we want.
-// For example: Vec3f if we want the coordinates to be floats or Vec3i if we want the coordinates to be integers.
-//
-// Vec3 is a standard/common way of naming vectors, points, etc. The OpenEXR and Autodesk libraries
-// use this convention for instance.
-//[/comment]
-template<typename T>
-class Vec3
-{
-public:
-	Vec3() : x(T(0)), y(T(0)), z(T(0)) {}
-	Vec3(T xx) : x(xx), y(xx), z(xx) {}
-	Vec3(T xx, T yy, T zz) : x(xx), y(yy), z(zz) {}
-	Vec3 operator + (const Vec3 &v) const
-	{
-		return Vec3(x + v.x, y + v.y, z + v.z);
-	}
-	Vec3 operator + (const T& r) const
-	{
-		return Vec3(x + r, y + r, z + r);
-	}
-
-	Vec3 operator - (const Vec3 &v) const
-	{
-		return Vec3(x - v.x, y - v.y, z - v.z);
-	}
-
-	friend Vec3 operator -(const Vec3 &v, const T &r)
-	{
-		return Vec3(v.x - r, v.y - r, v.z - r);
-	}
-	
-	friend Vec3 operator -(const T& r, const Vec3& v)
-	{
-		return Vec3(r - v.x, r - v.y, r - v.z);
-	}
-	
-	Vec3 operator - () const
-	{
-		return Vec3(-x, -y, -z);
-	}
-
-	Vec3 operator * (const T &r) const
-	{
-		return Vec3(x * r, y * r, z * r);
-	}
-	Vec3 operator * (const Vec3 &v) const
-	{
-		return Vec3(x * v.x, y * v.y, z * v.z);
-	}
-
-	Vec3 operator / (const Vec3& v) const
-	{
-		return Vec3(x / v.x, y / v.y, z / v.z);
-	}
-
-	Vec3 operator / (const T &r) const
-	{
-		return Vec3(x / r, y / r, z / r);
-	}
-	
-	bool operator < (const Vec3& v) const
-	{
-		if (x < v.x && y < v.y && z < v.z)
-			return true;
-		return false;	
-	}
-	bool operator > (const Vec3& v) const
-	{
-		if (x > v.x && y > v.y && z > v.z)
-			return true;		
-		return false;
-	}
-
-	//*******************************************************
-	Vec3& operator *= (const Vec3& v)
-	{
-		x *= v.x, y *= v.y, z *= v.z; return *this;
-	}
-	Vec3& operator *= (const T& r)
-	{
-		x *= r, y *= r, z *= r; return *this;
-	}
-	Vec3& operator /= (const Vec3& v)
-	{
-		x /= v.x, y /= v.y, z /= v.z; return *this;
-	}
-	Vec3& operator /= (const T &r)
-	{
-		x /= r, y /= r, z /= r; return *this;
-	}
-
-	Vec3& operator += (const Vec3& v)
-	{
-		x += v.x, y += v.y, z += v.z; return *this;
-	}
-
-	Vec3& operator -= (const Vec3& v)
-	{
-		x -= v.x, y -= v.y, z -= v.z; return *this;
-	}
-	
-	Vec3& operator >>= (const Vec3& v)			// ne fonctionnera qu'avec du INT
-	{
-		x >>= v.x, y >>= v.y, z >>= v.z; return *this;
-	}
-
-	Vec3& operator <<= (const Vec3& v)			// ne fonctionnera qu'avec du INT
-	{
-		x <<= v.x, y <<= v.y, z <<= v.z; return *this;
-	}
-	//*******************************************************
-	//T dotProductSIMD(const Vec3<T>& v) const
-	//{
-	//	return x * v.x + y * v.y + z * v.z;
-	//}
-
-	inline T dotProduct(const Vec3<T>& v) const
-	{
-		return x * v.x + y * v.y + z * v.z;
-	}
-	inline Vec3 crossProduct(const Vec3<T> &v) const
-	{
-		return Vec3<T>(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x);
-	}
-	inline T norm() const
-	{
-		return x * x + y * y + z * z;
-	}
-	inline T length() const	// magnitude
-	{
-		return sqrt(norm());
-	}
-	T getAngle(const Vec3<T>& v) const
-	{
-		return max(dotProduct(v), 0);
-	}
-
-	Vec3& setMagnitude(const T& r)
-	{
-		normalize();
-		x *= r, y *= r, z *= r;
-		return *this;
-	}
-
-	Vec3& setMin(const Vec3<T>& v)
-	{
-		x = std::min(x, v.x);
-		y = std::min(y, v.y);
-		z = std::min(z, v.z);
-		return *this;
-	}
-
-	Vec3& setMax(const Vec3<T>& v)
-	{
-		x = std::max(x, v.x);
-		y = std::max(y, v.y);
-		z = std::max(z, v.z);
-		return *this;
-	}
-
-
-
-
-
-	//[comment]
-	// The next two operators are sometimes called access operators or
-	// accessors. The Vec coordinates can be accessed that way v[0], v[1], v[2],
-	// rather than using the more traditional form v.x, v.y, v.z. This useful
-	// when vectors are used in loops: the coordinates can be accessed with the
-	// loop index (e.g. v[i]).
-	//[/comment]
-	const T& operator [] (uint8_t i) const { return (&x)[i]; }
-	T& operator [] (uint8_t i) { return (&x)[i]; }
-	
-	inline Vec3& normalize()
-	{
-		T n = norm();
-		if (n > 0) {
-			T factor = 1 / sqrt(n);
-			x *= factor, y *= factor, z *= factor;
-		}
-
-		return *this;
-	}
-
-	Vec3 Normalized() const {
-		T l = std::sqrt(x * x + y * y + z * z);
-		if (l == 0) 
-			return Vec3(T(0));
-		return Vec3(x / l, y / l, z / l);
-	}
-
-
-	// Limite "max" du vecteur
-	Vec3& Limit(const T& max)
-	{
-		if (norm() > max * max)
-		{
-			T mag = length();
-			Vec3<T> n = *this;
-			n /= mag;
-			n *= max;
-			
-			x = n.x;
-			y = n.y;
-			z = n.z;
-		}
-		return *this;
-
-	}
-
-	friend Vec3 operator * (const T &r, const Vec3 &v)
-	{
-		return Vec3<T>(v.x * r, v.y * r, v.z * r);
-	}
-	friend Vec3 operator / (const T &r, const Vec3 &v)
-	{
-		return Vec3<T>(r / v.x, r / v.y, r / v.z);
-	}
-
-	friend std::ostream& operator << (std::ostream &s, const Vec3<T> &v)
-	{
-		return s << '[' << v.x << ' ' << v.y << ' ' << v.z << ']';
-	}
-
-
-	static constexpr Vec3 Zero()    noexcept { Vec3<T>return { 0,0,0 }; }
-	static constexpr Vec3 One()     noexcept { Vec3<T>return { 1,1,1 }; }
-	static constexpr Vec3 Up()      noexcept { Vec3<T>return { 0,1,0 }; }
-	static constexpr Vec3 Forward() noexcept { Vec3<T>return { 0,0,1 }; }
-	static constexpr Vec3 Right()   noexcept { Vec3<T>return { 1,0,0 }; }
-
-
-	T x, y, z;
-};
-
-//[comment]
-// Now you can specialize the class. We are just showing two examples here. In your code
-// you can declare a vector either that way: Vec3<float> a, or that way: Vec3f a
-//[/comment]
-typedef Vec3<double> Vec3d;
-typedef Vec3<float> Vec3f;
-typedef Vec3<int> Vec3i;
-
-
-//***********************************************
-
-template<typename T>
-class Vec4
-{
-public:
-	Vec4() : x(T(0)), y(T(0)), z(T(0)), w(T(0)) {}
-	Vec4(T xx) : x(xx), y(xx), z(xx), w(xx) {}
-	Vec4(T xx, T yy, T zz, T ww) : x(xx), y(yy), z(zz), w(ww) {}
-
-	Vec4 operator + (const Vec4& v) const
-	{
-		return Vec4(x + v.x, y + v.y, z + v.z, w + v.w);
-	}
-
-	Vec4 operator - (const Vec4& v) const
-	{
-		return Vec4(x - v.x, y - v.y, z - v.z, w - v.w);
-	}
-
-	Vec4 operator - () const
-	{
-		return Vec4(-x, -y, -z, -w);
-	}
-
-	Vec4 operator * (const T& rr) const
-	{
-		return Vec4(x * rr, y * rr, z * rr, w * rr);
-	}
-
-	Vec4 operator * (const Vec4& v) const
-	{
-		return Vec4(x * v.x, y * v.y, z * v.z, w * v.w);
-	}
-
-	Vec4 operator / (const Vec4& v) const
-	{
-		return Vec4(x / v.x, y / v.y, z / v.z, w / v.w);
-	}
-
-	Vec4 operator / (const T& rr) const
-	{
-		return Vec4(x / rr, y / rr, z / rr, w / rr);
-	}
-	Vec4 operator & (const T& rr) const
-	{
-		return Vec4(x & rr, y & rr, z & rr, w & rr);
-	}
-	Vec4 operator & (const Vec4& v) const
-	{
-		return Vec4(x & v.x, y & v.y, z & v.z, w & v.w);
-	}
-
-	Vec4& operator /= (const T& rr)
-	{
-		x /= rr, y /= rr, z /= rr, w /= rr;
-		return *this;
-	}
-	Vec4& operator *= (const Vec4& v)
-	{
-		x *= v.x, y *= v.y, z *= v.z, w *= v.w; return *this;
-	}
-	Vec4& operator *= (const T& rr)
-	{
-		x *= rr, y *= rr, z *= rr, w *= rr; return *this;
-	}
-	Vec4& operator += (const Vec4& v)
-	{
-		x += v.x, y += v.y, z += v.z, w += v.w; return *this;
-	}
-	Vec4& operator &= (const T& rr)
-	{
-		x &= rr, y &= rr, z &= rr, w &= rr;
-		return *this;
-	}
-	Vec4& operator &= (const Vec4& v)
-	{
-		x &= v.x, y &= v.y, z &= v.z, w &= v.w; return *this;
-	}
-
-
-	//friend int operator >= (const T & rr)
-	//{
-	//	return int (x >= rr) & (y >= rr) & (z >= rr) & (w >= rr);
-	//}
-
-	friend Vec4 operator * (const T& r, const Vec4& v)
-	{
-		return Vec4<T>(v.x * r, v.y * r, v.z * r, v.w * r);
-	}
-
-
-	friend Vec4 operator - (const T& r, const Vec4& v)
-	{
-		return Vec4<T>(r - v.x, r - v.y, r - v.z, r - v.w);
-	}
-
-
-	T x, y, z, w;
-};
-typedef Vec4<double> Vec4d;
-typedef Vec4<float> Vec4f;
-typedef Vec4<int> Vec4i;
+
+    // ============================================================
+    //  Vec2<T>
+    // ============================================================
+    template<typename T>
+    class Vec2
+    {
+    public:
+        T x{ T(0) }, y{ T(0) };
+
+        constexpr Vec2() noexcept = default;
+        constexpr explicit Vec2(T xx) noexcept : x(xx), y(xx) {}
+        constexpr Vec2(T xx, T yy) noexcept : x(xx), y(yy) {}
+
+        // --- arithmétique ---
+        LV3_FORCEINLINE constexpr Vec2 operator+(const Vec2& v) const noexcept { return { x + v.x, y + v.y }; }
+        LV3_FORCEINLINE constexpr Vec2 operator-(const Vec2& v) const noexcept { return { x - v.x, y - v.y }; }
+        LV3_FORCEINLINE constexpr Vec2 operator-()              const noexcept { return { -x, -y }; }
+        LV3_FORCEINLINE constexpr Vec2 operator*(T r)           const noexcept { return { x * r, y * r }; }
+        LV3_FORCEINLINE constexpr Vec2 operator*(const Vec2& v) const noexcept { return { x * v.x, y * v.y }; }
+        LV3_FORCEINLINE constexpr Vec2 operator/(T r)           const noexcept { return { x / r, y / r }; }
+        LV3_FORCEINLINE constexpr Vec2 operator/(const Vec2& v) const noexcept { return { x / v.x, y / v.y }; }
+
+        LV3_FORCEINLINE constexpr Vec2& operator+=(const Vec2& v) noexcept { x += v.x; y += v.y; return *this; }
+        LV3_FORCEINLINE constexpr Vec2& operator-=(const Vec2& v) noexcept { x -= v.x; y -= v.y; return *this; }
+        LV3_FORCEINLINE constexpr Vec2& operator*=(T r)           noexcept { x *= r;   y *= r;   return *this; }
+        LV3_FORCEINLINE constexpr Vec2& operator/=(T r)           noexcept { x /= r;   y /= r;   return *this; }
+
+        LV3_FORCEINLINE constexpr bool operator==(const Vec2& v) const noexcept = default;
+
+        // --- produits & métriques ---
+        // Produit vectoriel 2D : scalaire = aire signée du parallélogramme.
+        LV3_FORCEINLINE constexpr T crossProduct(const Vec2& v) const noexcept { return x * v.y - y * v.x; }
+        LV3_FORCEINLINE constexpr T dotProduct(const Vec2& v)   const noexcept { return x * v.x + y * v.y; }
+        LV3_FORCEINLINE constexpr T norm()    const noexcept { return x * x + y * y; }   // longueur au carré
+        LV3_FORCEINLINE T          length()   const noexcept { return std::sqrt(norm()); }
+        LV3_FORCEINLINE T          getAngle() const noexcept { return std::atan2(y, x); } // angle / axe +X
+
+        LV3_FORCEINLINE Vec2& normalize() noexcept {
+            T n = norm();
+            if (n > T(0)) { T f = T(1) / std::sqrt(n); x *= f; y *= f; }
+            return *this;
+        }
+        LV3_FORCEINLINE Vec2 Normalized() const noexcept {
+            T n = norm();
+            if (n <= T(0)) return Vec2(T(0));
+            T f = T(1) / std::sqrt(n);
+            return { x * f, y * f };
+        }
+        LV3_FORCEINLINE Vec2& setMagnitude(T r) noexcept { normalize(); x *= r; y *= r; return *this; }
+
+        // --- fabriques ---
+        static constexpr Vec2 Zero() noexcept { return { T(0), T(0) }; }
+        static constexpr Vec2 One()  noexcept { return { T(1), T(1) }; }
+
+        friend std::ostream& operator<<(std::ostream& s, const Vec2& v) { return s << '[' << v.x << ' ' << v.y << ']'; }
+    };
+
+    template<typename T>
+    LV3_FORCEINLINE constexpr Vec2<T> operator*(T r, const Vec2<T>& v) noexcept { return { v.x * r, v.y * r }; }
+
+    using Vec2d = Vec2<double>;
+    using Vec2f = Vec2<float>;
+    using Vec2i = Vec2<int>;
+    using Vec2l = Vec2<long>;
+
+    // ============================================================
+    //  Vec3<T>  — cœur 3D (points, vecteurs, normales)
+    // ============================================================
+    template<typename T>
+    class Vec3
+    {
+    public:
+        T x{ T(0) }, y{ T(0) }, z{ T(0) };
+
+        constexpr Vec3() noexcept = default;
+        constexpr explicit Vec3(T xx) noexcept : x(xx), y(xx), z(xx) {}
+        constexpr Vec3(T xx, T yy, T zz) noexcept : x(xx), y(yy), z(zz) {}
+
+        // --- arithmétique ---
+        LV3_FORCEINLINE constexpr Vec3 operator+(const Vec3& v) const noexcept { return { x + v.x, y + v.y, z + v.z }; }
+        LV3_FORCEINLINE constexpr Vec3 operator-(const Vec3& v) const noexcept { return { x - v.x, y - v.y, z - v.z }; }
+        LV3_FORCEINLINE constexpr Vec3 operator-()              const noexcept { return { -x, -y, -z }; }
+        LV3_FORCEINLINE constexpr Vec3 operator*(T r)           const noexcept { return { x * r, y * r, z * r }; }
+        LV3_FORCEINLINE constexpr Vec3 operator*(const Vec3& v) const noexcept { return { x * v.x, y * v.y, z * v.z }; }
+        LV3_FORCEINLINE constexpr Vec3 operator/(T r)           const noexcept { return { x / r, y / r, z / r }; }
+        LV3_FORCEINLINE constexpr Vec3 operator/(const Vec3& v) const noexcept { return { x / v.x, y / v.y, z / v.z }; }
+
+        LV3_FORCEINLINE constexpr Vec3& operator+=(const Vec3& v) noexcept { x += v.x; y += v.y; z += v.z; return *this; }
+        LV3_FORCEINLINE constexpr Vec3& operator-=(const Vec3& v) noexcept { x -= v.x; y -= v.y; z -= v.z; return *this; }
+        LV3_FORCEINLINE constexpr Vec3& operator*=(T r)           noexcept { x *= r;   y *= r;   z *= r;   return *this; }
+        LV3_FORCEINLINE constexpr Vec3& operator*=(const Vec3& v) noexcept { x *= v.x; y *= v.y; z *= v.z; return *this; }
+        LV3_FORCEINLINE constexpr Vec3& operator/=(T r)           noexcept { x /= r;   y /= r;   z /= r;   return *this; }
+        LV3_FORCEINLINE constexpr Vec3& operator/=(const Vec3& v) noexcept { x /= v.x; y /= v.y; z /= v.z; return *this; }
+
+        LV3_FORCEINLINE constexpr bool operator==(const Vec3& v) const noexcept = default;
+
+        // accès indexé : v[0]=x, v[1]=y, v[2]=z (utilisé par MatrixLib)
+        LV3_FORCEINLINE constexpr const T& operator[](int i) const noexcept { return (&x)[i]; }
+        LV3_FORCEINLINE constexpr T& operator[](int i)       noexcept { return (&x)[i]; }
+
+        // --- produits & métriques ---
+        LV3_FORCEINLINE constexpr T    dotProduct(const Vec3& v)   const noexcept { return x * v.x + y * v.y + z * v.z; }
+        LV3_FORCEINLINE constexpr Vec3 crossProduct(const Vec3& v) const noexcept { // right-handed
+            return { y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x };
+        }
+        LV3_FORCEINLINE constexpr T norm()   const noexcept { return x * x + y * y + z * z; } // longueur au carré
+        LV3_FORCEINLINE T           length() const noexcept { return std::sqrt(norm()); }
+
+        LV3_FORCEINLINE Vec3& normalize() noexcept {
+            T n = norm();
+            if (n > T(0)) { T f = T(1) / std::sqrt(n); x *= f; y *= f; z *= f; }
+            return *this;
+        }
+        LV3_FORCEINLINE Vec3 Normalized() const noexcept {
+            T n = norm();
+            if (n <= T(0)) return Vec3(T(0));
+            T f = T(1) / std::sqrt(n);
+            return { x * f, y * f, z * f };
+        }
+
+        // --- géométrie (ajouts Leçon 02) ---
+        // Réflexion autour d'une normale n (supposée unitaire) : r = v - 2(v·n)n
+        LV3_FORCEINLINE constexpr Vec3 reflect(const Vec3& n) const noexcept {
+            return *this - n * (T(2) * dotProduct(n));
+        }
+        // Projection de *this sur u (u quelconque, non nul)
+        LV3_FORCEINLINE Vec3 projectOnto(const Vec3& u) const noexcept {
+            T d = u.norm();
+            if (d <= T(0)) return Vec3(T(0));
+            return u * (dotProduct(u) / d);
+        }
+        LV3_FORCEINLINE T distanceTo(const Vec3& v) const noexcept { return (*this - v).length(); }
+        // Angle non signé entre deux vecteurs (radians)
+        LV3_FORCEINLINE T angleTo(const Vec3& v) const noexcept {
+            T denom = length() * v.length();
+            if (denom <= T(0)) return T(0);
+            T c = dotProduct(v) / denom;
+            c = std::clamp(c, T(-1), T(1));
+            return std::acos(c);
+        }
+
+        LV3_FORCEINLINE Vec3& setMagnitude(T r) noexcept { normalize(); x *= r; y *= r; z *= r; return *this; }
+        LV3_FORCEINLINE Vec3& setMin(const Vec3& v) noexcept {
+            x = std::min(x, v.x); y = std::min(y, v.y); z = std::min(z, v.z); return *this;
+        }
+        LV3_FORCEINLINE Vec3& setMax(const Vec3& v) noexcept {
+            x = std::max(x, v.x); y = std::max(y, v.y); z = std::max(z, v.z); return *this;
+        }
+        // Plafonne la longueur à maxLen
+        LV3_FORCEINLINE Vec3& Limit(T maxLen) noexcept {
+            if (norm() > maxLen * maxLen) { normalize(); *this *= maxLen; }
+            return *this;
+        }
+
+        // --- fabriques (corrigées : l'ancienne version ne compilait pas) ---
+        static constexpr Vec3 Zero()    noexcept { return { T(0), T(0), T(0) }; }
+        static constexpr Vec3 One()     noexcept { return { T(1), T(1), T(1) }; }
+        static constexpr Vec3 Up()      noexcept { return { T(0), T(1), T(0) }; }
+        static constexpr Vec3 Down()    noexcept { return { T(0), T(-1), T(0) }; }
+        static constexpr Vec3 Right()   noexcept { return { T(1), T(0), T(0) }; }
+        static constexpr Vec3 Left()    noexcept { return { T(-1), T(0), T(0) }; }
+        static constexpr Vec3 Forward() noexcept { return { T(0), T(0), T(1) }; }  // axe monde +Z
+        static constexpr Vec3 Back()    noexcept { return { T(0), T(0), T(-1) }; } // vue RH regarde vers -Z
+
+        // Interpolation linéaire
+        static constexpr Vec3 Lerp(const Vec3& a, const Vec3& b, T t) noexcept { return a + (b - a) * t; }
+
+        friend std::ostream& operator<<(std::ostream& s, const Vec3& v) {
+            return s << '[' << v.x << ' ' << v.y << ' ' << v.z << ']';
+        }
+    };
+
+    template<typename T>
+    LV3_FORCEINLINE constexpr Vec3<T> operator*(T r, const Vec3<T>& v) noexcept { return { v.x * r, v.y * r, v.z * r }; }
+
+    using Vec3d = Vec3<double>;
+    using Vec3f = Vec3<float>;
+    using Vec3i = Vec3<int>;
+
+    // ============================================================
+    //  Vec4<T>  — coordonnées homogènes
+    //  (dotProduct/length/normalize ajoutés : absents de l'original)
+    // ============================================================
+    template<typename T>
+    class Vec4
+    {
+    public:
+        T x{ T(0) }, y{ T(0) }, z{ T(0) }, w{ T(0) };
+
+        constexpr Vec4() noexcept = default;
+        constexpr explicit Vec4(T xx) noexcept : x(xx), y(xx), z(xx), w(xx) {}
+        constexpr Vec4(T xx, T yy, T zz, T ww) noexcept : x(xx), y(yy), z(zz), w(ww) {}
+        constexpr explicit Vec4(const Vec3<T>& v, T ww = T(1)) noexcept : x(v.x), y(v.y), z(v.z), w(ww) {}
+
+        LV3_FORCEINLINE constexpr Vec3<T> xyz() const noexcept { return { x, y, z }; }
+
+        LV3_FORCEINLINE constexpr Vec4 operator+(const Vec4& v) const noexcept { return { x + v.x, y + v.y, z + v.z, w + v.w }; }
+        LV3_FORCEINLINE constexpr Vec4 operator-(const Vec4& v) const noexcept { return { x - v.x, y - v.y, z - v.z, w - v.w }; }
+        LV3_FORCEINLINE constexpr Vec4 operator-()              const noexcept { return { -x, -y, -z, -w }; }
+        LV3_FORCEINLINE constexpr Vec4 operator*(T r)           const noexcept { return { x * r, y * r, z * r, w * r }; }
+        LV3_FORCEINLINE constexpr Vec4 operator*(const Vec4& v) const noexcept { return { x * v.x, y * v.y, z * v.z, w * v.w }; }
+        LV3_FORCEINLINE constexpr Vec4 operator/(T r)           const noexcept { return { x / r, y / r, z / r, w / r }; }
+
+        LV3_FORCEINLINE constexpr Vec4& operator+=(const Vec4& v) noexcept { x += v.x; y += v.y; z += v.z; w += v.w; return *this; }
+        LV3_FORCEINLINE constexpr Vec4& operator*=(T r)           noexcept { x *= r;   y *= r;   z *= r;   w *= r;   return *this; }
+        LV3_FORCEINLINE constexpr Vec4& operator/=(T r)           noexcept { x /= r;   y /= r;   z /= r;   w /= r;   return *this; }
+
+        LV3_FORCEINLINE constexpr bool operator==(const Vec4& v) const noexcept = default;
+
+        LV3_FORCEINLINE constexpr const T& operator[](int i) const noexcept { return (&x)[i]; }
+        LV3_FORCEINLINE constexpr T& operator[](int i)       noexcept { return (&x)[i]; }
+
+        LV3_FORCEINLINE constexpr T dotProduct(const Vec4& v) const noexcept { return x * v.x + y * v.y + z * v.z + w * v.w; }
+        LV3_FORCEINLINE constexpr T norm()   const noexcept { return x * x + y * y + z * z + w * w; }
+        LV3_FORCEINLINE T          length()  const noexcept { return std::sqrt(norm()); }
+
+        static constexpr Vec4 Zero() noexcept { return { T(0), T(0), T(0), T(0) }; }
+
+        friend std::ostream& operator<<(std::ostream& s, const Vec4& v) {
+            return s << '[' << v.x << ' ' << v.y << ' ' << v.z << ' ' << v.w << ']';
+        }
+    };
+
+    template<typename T>
+    LV3_FORCEINLINE constexpr Vec4<T> operator*(T r, const Vec4<T>& v) noexcept { return { v.x * r, v.y * r, v.z * r, v.w * r }; }
+
+    using Vec4d = Vec4<double>;
+    using Vec4f = Vec4<float>;
+    using Vec4i = Vec4<int>;
+
+} // namespace LV3

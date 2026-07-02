@@ -2,7 +2,7 @@
 //#include <cstdint>
 //#include <cstddef>
 
-namespace LibV3 {
+namespace LV3 {
 
     using INT8   = int8_t;   using UINT8   = uint8_t;
     using INT16  = int16_t;  using UINT16  = uint16_t;
@@ -36,4 +36,4 @@ namespace LibV3 {
         return static_cast<FaceFlag>(static_cast<uint8_t>(a)&static_cast<uint8_t>(b));
     }
 
-} // namespace LibV3
+} // namespace LV3

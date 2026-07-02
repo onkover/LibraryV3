@@ -6,7 +6,7 @@
 #include "Registry.hpp"
 
 
-namespace LibV3
+namespace LV3
 {
 	void DebugDisplaySystem(Registry& registry);
 	void PlayerInputSystem(Registry& registry, float deltaTime);

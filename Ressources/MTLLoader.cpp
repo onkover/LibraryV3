@@ -6,7 +6,7 @@
 #include <sstream>
 #include <filesystem>
 
-namespace LibV3 {
+namespace LV3 {
 
 MaterialMap MTLLoader::Load(const std::string& mtlPath, const std::string& baseDir, ResourceManager& rm)
 {
@@ -97,4 +97,4 @@ TextureHandle MTLLoader::LoadTexture(const std::string&, ResourceManager&)
     return TextureHandle::Invalid(); // TODO Phase 3
 }
 
-} // namespace LibV3
+} // namespace LV3

@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "ResourceHandle.h"
 
-namespace LibV3 
+namespace LV3 
 {
     class ResourceManager;
     using MaterialMap = std::unordered_map<std::string,MaterialHandle>;
@@ -19,4 +19,4 @@ namespace LibV3
         static std::string ResolvePath(const std::string& baseDir, const std::string& rel);
         static TextureHandle LoadTexture(const std::string& path, ResourceManager& rm);
     };
-} // namespace LibV3
+} // namespace LV3

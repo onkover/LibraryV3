@@ -17,7 +17,7 @@
 #ifndef SCENE_GRAPH_INCLUDE
 #define SCENE_GRAPH_INCLUDE
 
-namespace LibV3
+namespace LV3
 {
     bool buildSceneGraph(
         const std::string& sceneFilePath,

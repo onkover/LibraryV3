@@ -8,7 +8,7 @@
 #include <iostream>
 
 #include "../Scene/Entity.hpp"
-namespace LibV3
+namespace LV3
 {
 
     class Registry;

@@ -1,10 +1,12 @@
 #pragma once
 #include <string>
 #include "../Ressources/ResourceHandle.h"
-#include "../Ressources/MathTypes.h"
+#include "../maths/Vectorlib.h"
 
-namespace LibV3 {
-    class Material {
+namespace LV3 
+{
+    class Material
+    {
     public:
         Material() = default;
         explicit Material(std::string name) : m_name(std::move(name)) {}
@@ -64,4 +66,4 @@ namespace LibV3 {
         TextureHandle m_diffuseMap, m_specularMap, m_normalMap;
         TextureHandle m_ambientMap, m_opacityMap,  m_emissiveMap;
     };
-} // namespace LibV3
+} // namespace LV3

@@ -11,7 +11,7 @@
 #include "geometry/SubMesh.h"
 #include "geometry/MeshClass.h"
 
-namespace LibV3 {
+namespace LV3 {
     class MeshClass;
     class Material;
    
@@ -74,4 +74,4 @@ namespace LibV3 {
         MaterialHandle AllocateMaterialHandle() noexcept;
     };
 
-} // namespace LibV3
+} // namespace LV3

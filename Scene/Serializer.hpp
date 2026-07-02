@@ -5,7 +5,7 @@
 #include "Registry.hpp"
 #include <unordered_map>
 
-namespace LibV3
+namespace LV3
 {
     class SceneSerializer
     {

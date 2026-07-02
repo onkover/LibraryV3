@@ -80,7 +80,7 @@ Exemples d'utilisation
 		}
 
 *********************************************************************/
-namespace LibV3
+namespace LV3
 {
 
 	// Simple gestionnaire d'ID de type

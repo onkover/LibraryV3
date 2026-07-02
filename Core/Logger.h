@@ -1,7 +1,7 @@
 #pragma once
 #include <string_view>
 
-namespace LibV3
+namespace LV3
 {
     enum class LogLevel { Debug, Info, Warning, Error };
 
@@ -16,5 +16,5 @@ namespace LibV3
         static LogLevel s_level;
     };
 
-} // namespace LibV3
+} // namespace LV3
 

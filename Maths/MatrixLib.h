@@ -1,693 +1,323 @@
+ï»¿#pragma once
 #define MATRIX_LIB
-#pragma once
-#include "../Core/config.h"
+// ============================================================
+//  Maths/MatrixLib.h â€” Matrices 4x4 templatÃ©es du moteur LibraryV3
+//  Convention : row-major (x[row][col]), vecteur-ligne (v' = vÂ·M),
+//               composition SÂ·RÂ·T, translation en LIGNE 3,
+//               right-handed, NDC z âˆˆ [-1, 1].
+//  StandardisÃ©e LeÃ§on 02 : scoping LV3, code mort retirÃ©,
+//  noexcept, ajout des matrices camÃ©ra (LookAt/Perspective/Ortho).
+//  DÃ©pend de Vectorlib.h (LV3::Vec3<T> et ses mÃ©thodes hÃ©ritÃ©es
+//  dotProduct / crossProduct / Normalized).
+// ============================================================
 
-#include <cstdlib>
-#include <cstdio>
+#include "../Core/Compiler.h"
+#include "../Core/config.h"     // LV3::TO_DEGRE, LV3::EPSILON_FLOAT
+#include "Vectorlib.h"
+#include <cmath>
 #include <iostream>
 #include <iomanip>
-#include <cmath>
-#include <immintrin.h>
+//#include <cstdint>
 
-
-#include "Vectorlib.h"
-//#include "../config.h"
-
-
-//[comment]
-// Implementation of a generic 4x4 Matrix class - Same thing here than with the Vec3 class. It uses
-// a template which is maybe less useful than with vectors but it can be used to
-// define the coefficients of the matrix to be either floats (the most case) or doubles depending
-// on our needs.
-//
-// To use you can either write: Matrix44<float> m; or: Matrix44f m;
-//[/comment]
-template<typename T>
-class Matrix44
+namespace LV3
 {
-public:
-
-	T x[4][4] = { {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
-
-	Matrix44() {}
-
-	Matrix44(T a, T b, T c, T d, T e, T f, T g, T h,
-		T i, T j, T k, T l, T m, T n, T o, T p)
-	{
-		x[0][0] = a;
-		x[0][1] = b;
-		x[0][2] = c;
-		x[0][3] = d;
-		x[1][0] = e;
-		x[1][1] = f;
-		x[1][2] = g;
-		x[1][3] = h;
-		x[2][0] = i;
-		x[2][1] = j;
-		x[2][2] = k;
-		x[2][3] = l;
-		x[3][0] = m;
-		x[3][1] = n;
-		x[3][2] = o;
-		x[3][3] = p;
-	}
-
-	const T* operator [] (uint8_t i) const { return x[i]; }
-	T* operator [] (uint8_t i) { return x[i]; }
-
-	// Multiply the current matrix with another matrix (rhs)
-	Matrix44 operator * (const Matrix44& v) const
-	{
-		Matrix44 tmp;
-		multiply(*this, v, tmp);
-
-		return tmp;
-	}
-
-	//[comment]
-	// To make it easier to understand how a matrix multiplication works, the fragment of code
-	// included within the #if-#else statement, show how this works if you were to iterate
-	// over the coefficients of the resulting matrix (a). However you will often see this
-	// multiplication being done using the code contained within the #else-#end statement.
-	// It is exactly the same as the first fragment only we have litteraly written down
-	// as a series of operations what would actually result from executing the two for() loops
-	// contained in the first fragment. It is supposed to be faster, however considering
-	// matrix multiplicatin is not necessarily that common, this is probably not super
-	// useful nor really necessary (but nice to have -- and it gives you an example of how
-	// it can be done, as this how you will this operation implemented in most libraries).
-	//[/comment]
-	static void multiply(const Matrix44<T> &a, const Matrix44& b, Matrix44 &c)
-	{
-#if 0
-		for (uint8_t i = 0; i < 4; ++i) {
-			for (uint8_t j = 0; j < 4; ++j) {
-				c[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] +
-					a[i][2] * b[2][j] + a[i][3] * b[3][j];
-			}
-		}
-#else
-		// A restric qualified pointer (or reference) is basically a promise
-		// to the compiler that for the scope of the pointer, the target of the
-		// pointer will only be accessed through that pointer (and pointers
-		// copied from it.
-		const T * __restrict ap = &a.x[0][0];
-		const T * __restrict bp = &b.x[0][0];
-		T * __restrict cp = &c.x[0][0];
-
-		T a0, a1, a2, a3;
-
-		a0 = ap[0];
-		a1 = ap[1];
-		a2 = ap[2];
-		a3 = ap[3];
-
-		cp[0] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
-		cp[1] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
-		cp[2] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
-		cp[3] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
-
-		a0 = ap[4];
-		a1 = ap[5];
-		a2 = ap[6];
-		a3 = ap[7];
-
-		cp[4] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
-		cp[5] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
-		cp[6] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
-		cp[7] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
-
-		a0 = ap[8];
-		a1 = ap[9];
-		a2 = ap[10];
-		a3 = ap[11];
-
-		cp[8] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
-		cp[9] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
-		cp[10] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
-		cp[11] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
-
-		a0 = ap[12];
-		a1 = ap[13];
-		a2 = ap[14];
-		a3 = ap[15];
-
-		cp[12] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
-		cp[13] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
-		cp[14] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
-		cp[15] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
-#endif
-	}
-
-	// \brief return a transposed copy of the current matrix as a new matrix
-	Matrix44 transposed() const
-	{
-#if 0
-		Matrix44 t;
-		for (uint8_t i = 0; i < 4; ++i) {
-			for (uint8_t j = 0; j < 4; ++j) {
-				t[i][j] = x[j][i];
-			}
-		}
-
-		return t;
-#else
-		return Matrix44(x[0][0],
-			x[1][0],
-			x[2][0],
-			x[3][0],
-			x[0][1],
-			x[1][1],
-			x[2][1],
-			x[3][1],
-			x[0][2],
-			x[1][2],
-			x[2][2],
-			x[3][2],
-			x[0][3],
-			x[1][3],
-			x[2][3],
-			x[3][3]);
-#endif
-	}
-
-	// \brief transpose itself
-	Matrix44& transpose()
-	{
-		Matrix44 tmp(x[0][0],
-			x[1][0],
-			x[2][0],
-			x[3][0],
-			x[0][1],
-			x[1][1],
-			x[2][1],
-			x[3][1],
-			x[0][2],
-			x[1][2],
-			x[2][2],
-			x[3][2],
-			x[0][3],
-			x[1][3],
-			x[2][3],
-			x[3][3]);
-		*this = tmp;
-
-		return *this;
-	}
-
-	//[comment]
-	// This method needs to be used for point-matrix multiplication. Keep in mind
-	// we don't make the distinction between points and vectors at least from
-	// a programming point of view, as both (as well as normals) are declared as Vec3.
-	// However, mathematically they need to be treated differently. Points can be translated
-	// when translation for vectors is meaningless. Furthermore, points are implicitly
-	// be considered as having homogeneous coordinates. Thus the w coordinates needs
-	// to be computed and to convert the coordinates from homogeneous back to Cartesian
-	// coordinates, we need to divided x, y z by w.
-	//
-	// The coordinate w is more often than not equals to 1, but it can be different than
-	// 1 especially when the matrix is projective matrix (perspective projection matrix).
-	//[/comment]
-	template<typename S>
-	void multVecMatrix(const Vec3<S> &src, Vec3<S> &dst) const
-	{
-
-//		int nThreads = 0,
-//		omp_set_num_threads(4);
-
-		__m128 abcdw = _mm_setzero_ps();
-
-//#pragma omp parallel default(none) shared(nThreads)
-//		{
-//#pragma omp master
-//			nThreads = omp_get_num_threads();
-//
-//	#pragma omp for
-//			for (int i = 0; i < 3; i++)
-//			{
-//
-////				int ii = omp_get_thread_num();
-////				printf_s("Hello from thread %d\n", ii);
-//
-//
-//				__m128 result = _mm_mul_ps(
-//					_mm_set1_ps(src[i]),
-//					_mm_load_ps(x[i]));
-//				//					_mm_set_ps(x[i][3], x[i][2], x[i][1], x[i][0]));
-//				abcdw = _mm_add_ps(abcdw, result);
-//			}
-//
-////			printf_s("Expected 4 OpenMP threads, but %d were used.\n", nThreads);
-//		
-//		
-////		}
-//		abcdw = _mm_add_ps(abcdw,
-//			_mm_load_ps(x[3]));
-//		//_mm_set_ps(x[3][3], x[3][2], x[3][1], x[3][0]));
-//
-//		//__m128 _w = _mm_set1_ps(abcdw.m128_f32[3]);
-//		__m128 az = _mm_div_ps(abcdw,
-//				_mm_shuffle_ps(abcdw, abcdw, _MM_SHUFFLE(3, 3, 3, 3)));		// optimsation, permet de prendre le dernier élément - plus rapide que SET1 ?
-//
-//		dst.x = az.m128_f32[0];
-//		dst.y = az.m128_f32[1];
-//		dst.z = az.m128_f32[2];
-
-		S a, b, c,w;
-		a = src[0] * x[0][0] + src[1] * x[1][0] + src[2] * x[2][0] + x[3][0];
-		b = src[0] * x[0][1] + src[1] * x[1][1] + src[2] * x[2][1] + x[3][1];
-		c = src[0] * x[0][2] + src[1] * x[1][2] + src[2] * x[2][2] + x[3][2];
-		w = src[0] * x[0][3] + src[1] * x[1][3] + src[2] * x[2][3] + x[3][3];
-
-		dst.x = a / w;
-		dst.y = b / w;
-		dst.z = c / w;
-	}
-
-	//[comment]
-	// This method needs to be used for vector-matrix multiplication. Look at the differences
-	// with the previous method (to compute a point-matrix multiplication). We don't use
-	// the coefficients in the matrix that account for translation (x[3][0], x[3][1], x[3][2])
-	// and we don't compute w.
-	//[/comment]
-	template<typename S>
-	void multDirMatrix(const Vec3<S> &src, Vec3<S> &dst) const
-	{
-		S a, b, c;
-
-		a = src[0] * x[0][0] + src[1] * x[1][0] + src[2] * x[2][0];
-		b = src[0] * x[0][1] + src[1] * x[1][1] + src[2] * x[2][1];
-		c = src[0] * x[0][2] + src[1] * x[1][2] + src[2] * x[2][2];
-
-		dst.x = a;
-		dst.y = b;
-		dst.z = c;
-	}
-
-
-
-	//[comment]
-	// Compute the inverse of the matrix using the Gauss-Jordan (or reduced row) elimination method.
-	// We didn't explain in the lesson on Geometry how the inverse of matrix can be found. Don't
-	// worry at this point if you don't understand how this works. But we will need to be able to
-	// compute the inverse of matrices in the first lessons of the "Foundation of 3D Rendering" section,
-	// which is why we've added this code. For now, you can just use it and rely on it
-	// for doing what it's supposed to do. If you want to learn how this works though, check the lesson
-	// on called Matrix Inverse in the "Mathematics and Physics of Computer Graphics" section.
-	//[/comment]
-	Matrix44 inverse() const
-	{
-		int i, j, k;
-		Matrix44 s;
-		Matrix44 t(*this);
-
-		// Forward elimination
-		for (i = 0; i < 3; i++) {
-			int pivot = i;
-
-			T pivotsize = t[i][i];
-
-			if (pivotsize < 0)
-				pivotsize = -pivotsize;
-
-			for (j = i + 1; j < 4; j++) {
-				T tmp = t[j][i];
-
-				if (tmp < 0)
-					tmp = -tmp;
-
-				if (tmp > pivotsize) {
-					pivot = j;
-					pivotsize = tmp;
-				}
-			}
-
-			if (pivotsize == 0) {
-				// Cannot invert singular matrix
-				return Matrix44();
-			}
-
-			if (pivot != i) {
-				for (j = 0; j < 4; j++) {
-					T tmp;
-
-					tmp = t[i][j];
-					t[i][j] = t[pivot][j];
-					t[pivot][j] = tmp;
-
-					tmp = s[i][j];
-					s[i][j] = s[pivot][j];
-					s[pivot][j] = tmp;
-				}
-			}
-
-			for (j = i + 1; j < 4; j++) {
-				T f = t[j][i] / t[i][i];
-
-				for (k = 0; k < 4; k++) {
-					t[j][k] -= f * t[i][k];
-					s[j][k] -= f * s[i][k];
-				}
-			}
-		}
-
-		// Backward substitution
-		for (i = 3; i >= 0; --i) {
-			T f;
-
-			if ((f = t[i][i]) == 0) {
-				// Cannot invert singular matrix
-				return Matrix44();
-			}
-
-			for (j = 0; j < 4; j++) {
-				t[i][j] /= f;
-				s[i][j] /= f;
-			}
-
-			for (j = 0; j < i; j++) {
-				f = t[j][i];
-
-				for (k = 0; k < 4; k++) {
-					t[j][k] -= f * t[i][k];
-					s[j][k] -= f * s[i][k];
-				}
-			}
-		}
-
-		return s;
-	}
-
-	// \brief set current matrix to its inverse
-	const Matrix44<T>& invert()
-	{
-		*this = inverse();
-		return *this;
-	}
-
-	//bool inverseV2(Matrix44& out_inverse) const
-	//{
-	//	// On suppose que la matrice est un tableau de 16 flottants : float m[16];
-	//	// Accès en row-major : m[ligne * 4 + colonne]
-	//	const float* m = this->x; // Pointeur vers les données de la matrice
-
-	//	// Calcul des cofacteurs de la matrice transposée (adjugate)
-	//	float cofactor0 = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
-	//	float cofactor1 = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
-	//	float cofactor2 = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
-	//	float cofactor3 = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
-
-	//	float cofactor4 = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
-	//	float cofactor5 = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
-	//	float cofactor6 = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
-	//	float cofactor7 = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
-
-	//	float cofactor8 = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
-	//	float cofactor9 = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
-	//	float cofactor10 = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
-	//	float cofactor11 = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
-
-	//	float cofactor12 = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
-	//	float cofactor13 = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
-	//	float cofactor14 = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
-	//	float cofactor15 = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
-
-	//	// Calcul du déterminant
-	//	float determinant = m[0] * cofactor0 + m[1] * cofactor1 + m[2] * cofactor2 + m[3] * cofactor3;
-
-	//	// Vérifier si le déterminant est nul (ou proche de zéro)
-	//	if (std::abs(determinant) < 1e-6) {
-	//		return false; // La matrice n'est pas inversible
-	//	}
-
-	//	// Diviser chaque cofacteur par le déterminant pour obtenir l'inverse
-	//	float invDet = 1.0f / determinant;
-
-	//	out_inverse.x[0] = cofactor0 * invDet;
-	//	out_inverse.x[1] = cofactor4 * invDet;
-	//	out_inverse.x[2] = cofactor8 * invDet;
-	//	out_inverse.x[3] = cofactor12 * invDet;
-
-	//	out_inverse.x[4] = cofactor1 * invDet;
-	//	out_inverse.x[5] = cofactor5 * invDet;
-	//	out_inverse.x[6] = cofactor9 * invDet;
-	//	out_inverse.x[7] = cofactor13 * invDet;
-
-	//	out_inverse.x[8] = cofactor2 * invDet;
-	//	out_inverse.x[9] = cofactor6 * invDet;
-	//	out_inverse.x[10] = cofactor10 * invDet;
-	//	out_inverse.x[11] = cofactor14 * invDet;
-
-	//	out_inverse.x[12] = cofactor3 * invDet;
-	//	out_inverse.x[13] = cofactor7 * invDet;
-	//	out_inverse.x[14] = cofactor11 * invDet;
-	//	out_inverse.x[15] = cofactor15 * invDet;
-
-	//	return true;
-	//}
-
-	friend std::ostream& operator << (std::ostream &s, const Matrix44 &m)
-	{
-		std::ios_base::fmtflags oldFlags = s.flags();
-		int width = 12; // total with of the displayed number
-		s.precision(5); // control the number of displayed decimals
-		s.setf(std::ios_base::fixed);
-
-		s << "[" << std::setw(width) << m[0][0] <<
-			" " << std::setw(width) << m[0][1] <<
-			" " << std::setw(width) << m[0][2] <<
-			" " << std::setw(width) << m[0][3] << "\n" <<
-
-			" " << std::setw(width) << m[1][0] <<
-			" " << std::setw(width) << m[1][1] <<
-			" " << std::setw(width) << m[1][2] <<
-			" " << std::setw(width) << m[1][3] << "\n" <<
-
-			" " << std::setw(width) << m[2][0] <<
-			" " << std::setw(width) << m[2][1] <<
-			" " << std::setw(width) << m[2][2] <<
-			" " << std::setw(width) << m[2][3] << "\n" <<
-
-			" " << std::setw(width) << m[3][0] <<
-			" " << std::setw(width) << m[3][1] <<
-			" " << std::setw(width) << m[3][2] <<
-			" " << std::setw(width) << m[3][3] << "]";
-
-		s.flags(oldFlags);
-		return s;
-	}
-
-	/// <summary>
-	/// Applique une translation à la matrice en utilisant le vecteur donné.
-	/// </summary>
-	/// <typeparam name="S">Le type des composantes du vecteur (par exemple, float ou double).</typeparam>
-	/// <param name="src">Le vecteur de translation à appliquer (composantes x, y, z).</param>
-	/// <returns>Une référence à la matrice modifiée après l'application de la translation.</returns>
-	template<typename S>
-	Matrix44& translate(const Vec3<S>& src)
-	{
-		// Create a translation matrix (it's an identity matrix by default)
-		Matrix44 translationMatrix;
-
-		// Set the translation components in the last row
-		translationMatrix.x[3][0] = src.x;
-		translationMatrix.x[3][1] = src.y;
-		translationMatrix.x[3][2] = src.z;
-
-		// Apply the translation by post-multiplying
-		// This applies the translation after all previous transformations
-		*this = *this * translationMatrix;
-
-		return *this;
-	}
-
-	/// <summary>
-	/// Applique une mise à l'échelle à la matrice en utilisant les facteurs donnés (matrice de Type ROW Major)
-	/// </summary>
-	/// <typeparam name="S">Le type des composantes du vecteur d'échelle (par exemple, float ou double).</typeparam>
-	/// <param name="src">Un vecteur contenant les facteurs d'échelle pour chaque axe (x, y, z).</param>
-	/// <returns>Une référence à la matrice mise à l'échelle.</returns>
-	template<typename S>
-	Matrix44& scale(const Vec3<S>& src)
-	{
-		// Create a scaling matrix (it's an identity matrix by default)
-		Matrix44 scaleMatrix;
-
-		// Set the scaling factors on the main diagonal
-		scaleMatrix.x[0][0] = src.x;
-		scaleMatrix.x[1][1] = src.y;
-		scaleMatrix.x[2][2] = src.z;
-
-		// Apply the scaling by post-multiplying
-		*this = *this * scaleMatrix;
-
-		return *this;
-	}
-
-
-
-	/// <summary>
-	/// Applique une rotation autour de l'axe X à la matrice (matrice de Type ROW Major).
-	/// </summary>
-	/// <param name="angleInRadians">L'angle de rotation en radians.</param>
-	/// <returns>Une référence à la matrice modifiée après la rotation.</returns>
-	Matrix44& rotateX(T angleInRadians)
-	{
-		/*
-		Rotation sur l'axe X :
-
-			R_x(?) =(	1	0		0		0
-						0	cos?	?sin?	0
-						0	sin?	cos?	0
-						0	0		0		1)
-		*/
-		T c = cos(angleInRadians);
-		T s = sin(angleInRadians);
-
-		Matrix44 rotationMatrix;
-		rotationMatrix.x[1][1] = c;
-		rotationMatrix.x[1][2] = s;
-		rotationMatrix.x[2][1] = -s;
-		rotationMatrix.x[2][2] = c;
-
-		*this = *this * rotationMatrix;
-		return *this;
-	}
-
-
-	
-	/// <summary>
-	/// Applique une rotation autour de l'axe Y à la matrice(matrice de Type ROW Major).
-	/// </summary>
-	/// <param name="angleInRadian">L'angle de rotation en radians.</param>
-	/// <returns>Une référence à la matrice modifiée après la rotation.</returns>
-	Matrix44& rotateY(T angleInRadian)
-	{
-		/*
-		Rotation sur l'axe Y :
-
-		R_y(?)= (	cos?	0	sin?	0
-					0		1	0		0
-					?sin?	0	cos?	0
-					0		0	0		1)
-		*/
-		T c = cos(angleInRadian);
-		T s = sin(angleInRadian);
-
-		Matrix44 rotationMatrix;
-		rotationMatrix.x[0][0] = c;
-		rotationMatrix.x[0][2] = -s;
-		rotationMatrix.x[2][0] = s;
-		rotationMatrix.x[2][2] = c;
-
-		*this = *this * rotationMatrix;
-		return *this;
-	}
-
-	/// <summary>
-	/// Applique une rotation autour de l'axe Z à la matrice (matrice de Type ROW Major).
-	/// </summary>
-	/// <param name="angleInRadian">L'angle de rotation en radians.</param>
-	/// <returns>Une référence à la matrice modifiée après la rotation.</returns>
-	Matrix44& rotateZ(T angleInRadian)
-	{
-		/*
-			R_z(0) = (	cos?	sin?	0	0
-						-sin?	cos?	0	0
-						0		0		1	0
-						0		0		0	1)
-		*/
-		T c = cos(angleInRadian);
-		T s = sin(angleInRadian);
-
-		Matrix44 rotationMatrix;
-		rotationMatrix.x[0][0] = c;
-		rotationMatrix.x[0][1] = s;
-		rotationMatrix.x[1][0] = -s;
-		rotationMatrix.x[1][1] = c;
-
-		*this = *this * rotationMatrix;
-		return *this;
-	}
-
-	/// <summary>
-	/// Calcule les angles d'orientation (rotation) à partir de la matrice de transformation de l'objet.
-	/// </summary>
-	/// <typeparam name="S">Le type des composantes du vecteur d'angle retourné (par exemple, float ou double).</typeparam>
-	/// <returns>Un Vec3<S> contenant les angles d'orientation (en degrés) selon les axes x, y et z.</returns>
-	template<typename S>
-	Vec3<S> getAngle()
-	{
-		// Pitch: atan(-m[9] / m[10]) = atan(SxCy/CxCy)
-		// Yaw  : asin(m[8]) = asin(Sy)
-		// Roll : atan(-m[4] / m[0]) = atan(SzCy/CzCy)
-
-		//0 0 0 0			0 3
-		//0 0 0 0			4 7
-		//0 0 0 0			8 11
-		//0 0 0 0
-
-		Vec3f tmp;
-		Matrix44 m(*this);
-
-		tmp.y = -asinf(m[0][2]) * LV3::TO_DEGRE;		// asin donne une valeur entre -89 -> 0 >89
-
-		if (tmp.y > 0 && m[2][2] < 0)
-		{
-			tmp.y = 180 - tmp.y;
-		}
-		else if (tmp.y < 0 && m[2][2] < 0)
-		{
-			tmp.y = -(tmp.y - 180);
-		}
-		else if (tmp.y < 0 && m[2][2] > 0)
-			tmp.y = 360 + tmp.y;
-
-		if (m[0][0] > -LV3::EPSILON_FLOAT && m[0][0] < LV3::EPSILON_FLOAT)
-		{
-			tmp.x = atan2f(m[0][1], m[1][1]) * LV3::TO_DEGRE;
-		}
-		else
-		{
-			tmp.x = atan2f(-m[2][1], m[2][2]) * LV3::TO_DEGRE;
-		}
-		if (tmp.x < 0) tmp.x = 360 + tmp.x;
-
-		tmp.z = atan2f(-m[1][0], m[0][0]) * LV3::TO_DEGRE;
-		if (tmp.z < 0) tmp.z = 360 + tmp.z;
-
-		return tmp;
-	}
-
-};
-
-typedef Matrix44<float> Matrix44f;
-typedef Matrix44<double> Matrix44d;
-
-//[comment]
-// Testing our code. To test the matrix inversion code, we used Maya to output
-// the values of a matrix and its inverse (check the video at the top of this page). Of course this implies
-// that Maya actually does the right thing, but we can probably agree, that is actually does;).
-// These are the values for the input matrix:
-//
-// 0.707107 0 -0.707107 0 -0.331295 0.883452 -0.331295 0 0.624695 0.468521 0.624695 0 4.000574 3.00043 4.000574 1
-//
-// Given the input matrix, the inverse matrix computed by our code should match the following values:
-//
-// 0.707107 -0.331295 0.624695 0 0 0.883452 0.468521 0 -0.707107 -0.331295 0.624695 0 0 0 -6.404043 1
-//[/comment]
-#if 0
-int main(int argc, char **argv)
-{
-	Vec3f v(0, 1, 2);
-	std::cerr << v << std::endl;
-	Matrix44f a, b, c;
-	c = a * b;
-
-	Matrix44f d(0.707107, 0, -0.707107, 0, -0.331295, 0.883452, -0.331295, 0, 0.624695, 0.468521, 0.624695, 0, 4.000574, 3.00043, 4.000574, 1);
-	std::cerr << d << std::endl;
-	d.invert();
-	std::cerr << d << std::endl;
-
-	return 0;
-}
-#endif
+
+    template<typename T>
+    class Matrix44
+    {
+    public:
+        // Stockage row-major : x[row][col]. IdentitÃ© par dÃ©faut.
+        T x[4][4] = { {1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1} };
+
+        constexpr Matrix44() noexcept = default;
+
+        constexpr Matrix44(T a, T b, T c, T d, T e, T f, T g, T h,
+            T i, T j, T k, T l, T m, T n, T o, T p) noexcept
+        {
+            x[0][0] = a; x[0][1] = b; x[0][2] = c; x[0][3] = d;
+            x[1][0] = e; x[1][1] = f; x[1][2] = g; x[1][3] = h;
+            x[2][0] = i; x[2][1] = j; x[2][2] = k; x[2][3] = l;
+            x[3][0] = m; x[3][1] = n; x[3][2] = o; x[3][3] = p;
+        }
+
+        // AccÃ¨s ligne : m[row][col]
+        LV3_FORCEINLINE constexpr const T* operator[](int i) const noexcept { return x[i]; }
+        LV3_FORCEINLINE constexpr T* operator[](int i)       noexcept { return x[i]; }
+
+        // Pointeur brut (16 floats contigus, row-major)
+        LV3_FORCEINLINE const T* data() const noexcept { return &x[0][0]; }
+        LV3_FORCEINLINE T* data()       noexcept { return &x[0][0]; }
+
+        static constexpr Matrix44 Identity() noexcept { return Matrix44(); }
+
+        // --- Produit matriciel (optimisÃ© __restrict) ---
+        Matrix44 operator*(const Matrix44& v) const noexcept
+        {
+            Matrix44 tmp;
+            multiply(*this, v, tmp);
+            return tmp;
+        }
+
+        static void multiply(const Matrix44& a, const Matrix44& b, Matrix44& c) noexcept
+        {
+            const T* __restrict ap = &a.x[0][0];
+            const T* __restrict bp = &b.x[0][0];
+            T* __restrict cp = &c.x[0][0];
+
+            T a0, a1, a2, a3;
+            a0 = ap[0]; a1 = ap[1]; a2 = ap[2]; a3 = ap[3];
+            cp[0] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
+            cp[1] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
+            cp[2] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
+            cp[3] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
+
+            a0 = ap[4]; a1 = ap[5]; a2 = ap[6]; a3 = ap[7];
+            cp[4] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
+            cp[5] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
+            cp[6] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
+            cp[7] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
+
+            a0 = ap[8]; a1 = ap[9]; a2 = ap[10]; a3 = ap[11];
+            cp[8] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
+            cp[9] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
+            cp[10] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
+            cp[11] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
+
+            a0 = ap[12]; a1 = ap[13]; a2 = ap[14]; a3 = ap[15];
+            cp[12] = a0 * bp[0] + a1 * bp[4] + a2 * bp[8] + a3 * bp[12];
+            cp[13] = a0 * bp[1] + a1 * bp[5] + a2 * bp[9] + a3 * bp[13];
+            cp[14] = a0 * bp[2] + a1 * bp[6] + a2 * bp[10] + a3 * bp[14];
+            cp[15] = a0 * bp[3] + a1 * bp[7] + a2 * bp[11] + a3 * bp[15];
+        }
+
+        // --- Transposition ---
+        Matrix44 transposed() const noexcept
+        {
+            return Matrix44(x[0][0], x[1][0], x[2][0], x[3][0],
+                x[0][1], x[1][1], x[2][1], x[3][1],
+                x[0][2], x[1][2], x[2][2], x[3][2],
+                x[0][3], x[1][3], x[2][3], x[3][3]);
+        }
+        Matrix44& transpose() noexcept { *this = transposed(); return *this; }
+
+        // --- Transformation d'un POINT (w=1) : translation incluse, division homogÃ¨ne ---
+        template<typename S>
+        void multVecMatrix(const Vec3<S>& src, Vec3<S>& dst) const noexcept
+        {
+            S a = src[0] * x[0][0] + src[1] * x[1][0] + src[2] * x[2][0] + x[3][0];
+            S b = src[0] * x[0][1] + src[1] * x[1][1] + src[2] * x[2][1] + x[3][1];
+            S c = src[0] * x[0][2] + src[1] * x[1][2] + src[2] * x[2][2] + x[3][2];
+            S w = src[0] * x[0][3] + src[1] * x[1][3] + src[2] * x[2][3] + x[3][3];
+
+            S invW = (w != S(0)) ? S(1) / w : S(1);   // garde anti division par zÃ©ro
+            dst.x = a * invW;
+            dst.y = b * invW;
+            dst.z = c * invW;
+        }
+
+        // --- Transformation d'une DIRECTION / NORMALE (w=0) : bloc 3x3 seul, pas de translation ---
+        template<typename S>
+        void multDirMatrix(const Vec3<S>& src, Vec3<S>& dst) const noexcept
+        {
+            dst.x = src[0] * x[0][0] + src[1] * x[1][0] + src[2] * x[2][0];
+            dst.y = src[0] * x[0][1] + src[1] * x[1][1] + src[2] * x[2][1];
+            dst.z = src[0] * x[0][2] + src[1] * x[1][2] + src[2] * x[2][2];
+        }
+
+        // --- Inverse (Gauss-Jordan). Renvoie l'identitÃ© si singuliÃ¨re. ---
+        Matrix44 inverse() const noexcept
+        {
+            int i, j, k;
+            Matrix44 s;            // identitÃ© (devient l'inverse)
+            Matrix44 t(*this);     // copie de travail
+
+            for (i = 0; i < 3; i++) {
+                int pivot = i;
+                T pivotsize = t[i][i];
+                if (pivotsize < 0) pivotsize = -pivotsize;
+
+                for (j = i + 1; j < 4; j++) {
+                    T tmp = t[j][i];
+                    if (tmp < 0) tmp = -tmp;
+                    if (tmp > pivotsize) { pivot = j; pivotsize = tmp; }
+                }
+                if (pivotsize == 0) return Matrix44(); // singuliÃ¨re
+
+                if (pivot != i) {
+                    for (j = 0; j < 4; j++) {
+                        T tmp;
+                        tmp = t[i][j]; t[i][j] = t[pivot][j]; t[pivot][j] = tmp;
+                        tmp = s[i][j]; s[i][j] = s[pivot][j]; s[pivot][j] = tmp;
+                    }
+                }
+                for (j = i + 1; j < 4; j++) {
+                    T factor = t[j][i] / t[i][i];
+                    for (k = 0; k < 4; k++) { t[j][k] -= factor * t[i][k]; s[j][k] -= factor * s[i][k]; }
+                }
+            }
+            for (i = 3; i >= 0; --i) {
+                T factor;
+                if ((factor = t[i][i]) == 0) return Matrix44(); // singuliÃ¨re
+                for (j = 0; j < 4; j++) { t[i][j] /= factor; s[i][j] /= factor; }
+                for (j = 0; j < i; j++) {
+                    factor = t[j][i];
+                    for (k = 0; k < 4; k++) { t[j][k] -= factor * t[i][k]; s[j][k] -= factor * s[i][k]; }
+                }
+            }
+            return s;
+        }
+        Matrix44& invert() noexcept { *this = inverse(); return *this; }
+
+        // ========================================================
+        //  Constructeurs de transformation (instance, post-multiplication)
+        //  ChaÃ®nÃ©s depuis l'identitÃ© : M.scale(s).rotateX(a).translate(t) = SÂ·RÂ·T
+        // ========================================================
+        template<typename S>
+        Matrix44& translate(const Vec3<S>& v) noexcept
+        {
+            Matrix44 tm;                 // identitÃ©
+            tm.x[3][0] = v.x; tm.x[3][1] = v.y; tm.x[3][2] = v.z;
+            *this = *this * tm;
+            return *this;
+        }
+        template<typename S>
+        Matrix44& scale(const Vec3<S>& v) noexcept
+        {
+            Matrix44 sm;
+            sm.x[0][0] = v.x; sm.x[1][1] = v.y; sm.x[2][2] = v.z;
+            *this = *this * sm;
+            return *this;
+        }
+        Matrix44& rotateX(T rad) noexcept   // RH : +Y -> +Z
+        {
+            T c = std::cos(rad), s = std::sin(rad);
+            Matrix44 rm;
+            rm.x[1][1] = c; rm.x[1][2] = s; rm.x[2][1] = -s; rm.x[2][2] = c;
+            *this = *this * rm;
+            return *this;
+        }
+        Matrix44& rotateY(T rad) noexcept   // RH : +Z -> +X
+        {
+            T c = std::cos(rad), s = std::sin(rad);
+            Matrix44 rm;
+            rm.x[0][0] = c; rm.x[0][2] = -s; rm.x[2][0] = s; rm.x[2][2] = c;
+            *this = *this * rm;
+            return *this;
+        }
+        Matrix44& rotateZ(T rad) noexcept   // RH : +X -> +Y
+        {
+            T c = std::cos(rad), s = std::sin(rad);
+            Matrix44 rm;
+            rm.x[0][0] = c; rm.x[0][1] = s; rm.x[1][0] = -s; rm.x[1][1] = c;
+            *this = *this * rm;
+            return *this;
+        }
+
+        // ========================================================
+        //  Matrices camÃ©ra (statiques) â€” row-major, right-handed
+        // ========================================================
+        // Vue : amÃ¨ne le monde dans le repÃ¨re camÃ©ra. RH -> regarde vers -Z.
+        static Matrix44 LookAt(const Vec3<T>& eye, const Vec3<T>& target, const Vec3<T>& up) noexcept
+        {
+            Vec3<T> f = (target - eye).Normalized();     // forward (vers la cible)
+            Vec3<T> r = f.crossProduct(up).Normalized(); // right
+            Vec3<T> u = r.crossProduct(f);               // up rÃ©-orthogonalisÃ©
+
+            Matrix44 m; // identitÃ©
+            m.x[0][0] = r.x; m.x[0][1] = u.x; m.x[0][2] = -f.x;
+            m.x[1][0] = r.y; m.x[1][1] = u.y; m.x[1][2] = -f.y;
+            m.x[2][0] = r.z; m.x[2][1] = u.z; m.x[2][2] = -f.z;
+            m.x[3][0] = -r.dotProduct(eye);
+            m.x[3][1] = -u.dotProduct(eye);
+            m.x[3][2] = f.dotProduct(eye);
+            return m;
+        }
+
+        // Projection perspective. fovRad = champ de vision VERTICAL en radians.
+        static Matrix44 Perspective(T fovRad, T aspect, T nearZ, T farZ) noexcept
+        {
+            T th = std::tan(fovRad * T(0.5));
+
+            Matrix44 m;                                  // identitÃ©...
+            for (int i = 0; i < 4; ++i)
+                for (int j = 0; j < 4; ++j) m.x[i][j] = T(0);   // ...remise Ã  ZÃ‰RO obligatoire
+
+            m.x[0][0] = T(1) / (aspect * th);
+            m.x[1][1] = T(1) / th;
+            m.x[2][2] = -(farZ + nearZ) / (farZ - nearZ);
+            m.x[2][3] = -T(1);                            // recopie -z dans w
+            m.x[3][2] = -(T(2) * farZ * nearZ) / (farZ - nearZ);
+            return m;                                     // m.x[3][3] = 0 : matrice projective
+        }
+
+        // Projection orthographique.
+        static Matrix44 Orthographic(T l, T r, T b, T t, T n, T f) noexcept
+        {
+            Matrix44 m; // identitÃ©
+            m.x[0][0] = T(2) / (r - l);
+            m.x[1][1] = T(2) / (t - b);
+            m.x[2][2] = -T(2) / (f - n);
+            m.x[3][0] = -(r + l) / (r - l);
+            m.x[3][1] = -(t + b) / (t - b);
+            m.x[3][2] = -(f + n) / (f - n);
+            return m;
+        }
+
+        static constexpr Matrix44 Translation(const Vec3<T>& t) noexcept {
+            Matrix44 m;                                   // identitÃ©
+            m.x[3][0] = t.x; m.x[3][1] = t.y; m.x[3][2] = t.z;   // translation en LIGNE 3
+            return m;
+        }
+
+        static constexpr Matrix44 Scale(const Vec3<T>& s) noexcept {
+            Matrix44 m;
+            m.x[0][0] = s.x; m.x[1][1] = s.y; m.x[2][2] = s.z;
+            return m;
+        }
+        // ========================================================
+        //  Extraction d'angles d'Euler (en degrÃ©s).
+        //  Heuristique sensible Ã  la convention â€” Ã  valider sur tes cas.
+        //  (Anciennement getAngle<S>() ; gÃ©nÃ©ralisÃ© en Vec3<T>.)
+        // ========================================================
+        Vec3<T> getEulerAngles() const noexcept
+        {
+            const T toDeg = static_cast<T>(LV3::TO_DEGRE);
+            const T eps = static_cast<T>(LV3::EPSILON_FLOAT);
+            Vec3<T> a;
+
+            a.y = -std::asin(x[0][2]) * toDeg;
+            if (a.y > 0 && x[2][2] < 0) a.y = T(180) - a.y;
+            else if (a.y < 0 && x[2][2] < 0) a.y = -(a.y - T(180));
+            else if (a.y < 0 && x[2][2] > 0) a.y = T(360) + a.y;
+
+            if (x[0][0] > -eps && x[0][0] < eps)
+                a.x = std::atan2(x[0][1], x[1][1]) * toDeg;
+            else
+                a.x = std::atan2(-x[2][1], x[2][2]) * toDeg;
+            if (a.x < 0) a.x = T(360) + a.x;
+
+            a.z = std::atan2(-x[1][0], x[0][0]) * toDeg;
+            if (a.z < 0) a.z = T(360) + a.z;
+            return a;
+        }
+
+        friend std::ostream& operator<<(std::ostream& s, const Matrix44& m)
+        {
+            std::ios_base::fmtflags old = s.flags();
+            int w = 12;
+            s.precision(5);
+            s.setf(std::ios_base::fixed);
+            s << "[" << std::setw(w) << m[0][0] << " " << std::setw(w) << m[0][1] << " " << std::setw(w) << m[0][2] << " " << std::setw(w) << m[0][3] << "\n"
+                << " " << std::setw(w) << m[1][0] << " " << std::setw(w) << m[1][1] << " " << std::setw(w) << m[1][2] << " " << std::setw(w) << m[1][3] << "\n"
+                << " " << std::setw(w) << m[2][0] << " " << std::setw(w) << m[2][1] << " " << std::setw(w) << m[2][2] << " " << std::setw(w) << m[2][3] << "\n"
+                << " " << std::setw(w) << m[3][0] << " " << std::setw(w) << m[3][1] << " " << std::setw(w) << m[3][2] << " " << std::setw(w) << m[3][3] << "]";
+            s.flags(old);
+            return s;
+        }
+       
+    };
+
+    using Matrix44f = Matrix44<float>;
+    using Matrix44d = Matrix44<double>;
+
+} // namespace LV3

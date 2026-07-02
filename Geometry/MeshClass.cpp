@@ -2,7 +2,7 @@
 #include "MeshClass.h"
 #include "Material.h"
 
-namespace LibV3
+namespace LV3
 {
 
 /// <summary>
@@ -66,7 +66,7 @@ void MeshClass::AddFace(uint32_t i0, uint32_t i1, uint32_t i2, uint16_t matIndex
     const Vec3f& p0=vertexPositions[i0];
     const Vec3f& p1=vertexPositions[i1];
     const Vec3f& p2=vertexPositions[i2];
-    Vec3f n = (p1 - p0).cross(p2 - p0).normalize();
+    Vec3f n = (p1 - p0).crossProduct(p2 - p0).normalize();
     faceNormals.push_back(n);
 
 	// calcul l'AABB de la face à partir des positions des sommets
@@ -100,7 +100,7 @@ void MeshClass::AddFaceQuad(uint32_t i0,uint32_t i1,uint32_t i2,uint32_t i3,uint
     indices.push_back(i3);
     const Vec3f& p0= vertexPositions[i0]; const Vec3f& p1= vertexPositions[i1];
     const Vec3f& p2=vertexPositions[i2]; const Vec3f& p3=vertexPositions[i3];
-    Vec3f n=(p1-p0).cross(p3-p0).normalize();    
+    Vec3f n=(p1-p0).crossProduct(p3-p0).normalize();    
     faceNormals.push_back(n);
 
     AABB3d box;
@@ -129,7 +129,7 @@ void MeshClass::ComputeFaceNormals() noexcept
     for (size_t i=0;i<fc;++i)
     {
         const uint32_t b = static_cast<uint32_t>(i) * vertsPerFace;
-        faceNormals[i] = (vertexPositions[indices[b + 1]] - vertexPositions[indices[b]]).cross(vertexPositions[indices[b + 2]] - vertexPositions[indices[b]]).normalize();
+        faceNormals[i] = (vertexPositions[indices[b + 1]] - vertexPositions[indices[b]]).crossProduct(vertexPositions[indices[b + 2]] - vertexPositions[indices[b]]).normalize();
     }
 }
 
@@ -219,4 +219,4 @@ bool MeshClass::IsValid() const noexcept
 	return true;    // tous les tests de validité passés -> le mesh est considéré comme valide
 }
 
-} // namespace LibV3
+} // namespace LV3
