@@ -142,7 +142,10 @@ namespace LV3
 
 			return newEntity;
 		}
-
+		/// <summary>
+		/// Détruit une entité et libère ses ressources associées.
+		/// </summary>
+		/// <param name="entity">L'entité à détruire.</param>
 		void DestroyEntity(Entity entity)
 		{
 			// Doit notifier TOUS les pools de composants que l'entité est détruite
