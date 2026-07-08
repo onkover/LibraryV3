@@ -20,7 +20,7 @@ namespace LV3
 		virtual ~IComponentStorage() = default;
 		virtual void OnEntityDestroyed(Entity entity) = 0;		// gestion de la suppression d'une entité
 		virtual  size_t Size() const = 0;						// pour trouver le plus petit SparseSet
-		virtual bool ContainsEntity(Entity entity) const = 0;	//pour vérifier Has() de manière polymorphique
+		virtual bool Contains(Entity entity) const = 0;			//pour vérifier de manière polymorphique
 		virtual const std::vector<Entity>& GetDenseEntities() const = 0;	// pour l'itération polymorphique
 	};
 
@@ -67,14 +67,14 @@ namespace LV3
 		/// </summary>
 		/// <param name="entity">Identifiant de l'entité à vérifier.</param>
 		/// <returns>true si l'entité est présente (indice dense valide et correspondance dans m_Entities), sinon false.</returns>
-		bool Has(Entity entity) const
-		{
-			if (entity >= m_Sparse.size())
-				return false;
+		//bool Has(Entity entity) const
+		//{
+		//	if (entity >= m_Sparse.size())
+		//		return false;
 
-			const uint32_t dense_index = m_Sparse[entity];
-			return (dense_index != INVALID_INDEX) && (dense_index < m_Dense.size()) && (m_Entities[dense_index] == entity);
-		}
+		//	const uint32_t dense_index = m_Sparse[entity];
+		//	return (dense_index != INVALID_INDEX) && (dense_index < m_Dense.size()) && (m_Entities[dense_index] == entity);
+		//}
 
 		/// <summary>
 		/// Retourne vrai si l'entité spécifiée est présente.
@@ -86,11 +86,24 @@ namespace LV3
 		ContainsEntity n'est qu'un vernis virtuel par-dessus Has, 
 		nécessaire parce que le code générique (comme Registry::DestroyEntity) manipule des IComponentStorage* sans connaître le type concret, donc sans accès direct à Has().		
 		*/
-		bool ContainsEntity(Entity entity) const override
+		//bool Contains(Entity entity) const override
+		//{
+		//	return Has(entity);
+		//}
+		bool Contains(Entity entity) const override
 		{
-			return Has(entity);
-		}
+			//const std::uint32_t idx = EntityIndex(entity);	==> pour le versionning plus tard
+			//
+			//if (idx >= m_Sparse.size()) 
+			//	return false;
+			
+			if (entity >= m_Sparse.size())
+				return false;
 
+			//const std::uint32_t dense = m_Sparse[idx];==> pour le versionning plus tard
+			const std::uint32_t dense = m_Sparse[entity];
+			return dense != INVALID_INDEX && dense < m_Dense.size() && m_Entities[dense] == entity;
+		}
 
 		/// <summary>
 		/// Retourne une référence mutable au composant associé à l'entité fournie.
@@ -99,7 +112,7 @@ namespace LV3
 		/// <returns>Référence au ComponentType attaché à l'entité, permettant de lire ou modifier le composant. Comportement indéfini si l'entité n'a pas ce composant.</returns>
 		ComponentType& Get(Entity entity)
 		{
-			assert(Has(entity));			// On s'assure quele composant est là.
+			assert(Contains(entity));			// On s'assure quele composant est là.
 											// m_Sparse[entity] peut valoir INVALID_INDEX
 											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
 			return m_Dense[m_Sparse[entity]];
@@ -112,7 +125,7 @@ namespace LV3
 		/// <returns>Référence constante vers le ComponentType associé à l'entité. Comportement indéfini si l'entité n'est pas présente dans le conteneur (l'appel suppose que l'entité a un composant).</returns>
 		const ComponentType& Get(Entity entity) const
 		{
-			assert(Has(entity));			// On s'assure quele composant est là.
+			assert(Contains(entity));			// On s'assure quele composant est là.
 											// m_Sparse[entity] peut valoir INVALID_INDEX
 											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
 			return m_Dense[m_Sparse[entity]];
@@ -128,7 +141,7 @@ namespace LV3
 		{
 			EnsureSparseFits(entity);
 
-			if (Has(entity))
+			if (Contains(entity))
 			{
 				// L'entité a déjà ce composant, on le met à jour
 				Get(entity) = std::move(component);
@@ -149,7 +162,7 @@ namespace LV3
 		/// <param name="entity">L'entité à supprimer. Si elle n'est pas présente dans le conteneur, l'appel est sans effet.</param>
 		void Remove(Entity entity)
 		{
-			if (!Has(entity))
+			if (!Contains(entity))
 				return;
 
 			uint32_t index_to_remove = m_Sparse[entity];
@@ -172,7 +185,7 @@ namespace LV3
 		// --- Fonction override pour la gestion de la destruction d'entités ---
 		void OnEntityDestroyed(Entity entity) override
 		{
-			if (Has(entity))
+			if (Contains(entity))
 				Remove(entity);
 		}
 

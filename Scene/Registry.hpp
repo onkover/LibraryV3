@@ -175,7 +175,7 @@ namespace LV3
 			if (typeID >= m_Storages.size() || !m_Storages[typeID])
 				return false;
 			// Utilise la version const de SparseSet<T>::Has
-			return static_cast<const SparseSet<T>*>(m_Storages[typeID].get())->Has(entity);
+			return static_cast<const SparseSet<T>*>(m_Storages[typeID].get())->Contains(entity);
 		}
 
 

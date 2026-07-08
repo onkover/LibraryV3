@@ -5,6 +5,7 @@
 
 #include "Registry.hpp"
 #include "../Core/EventBus.hpp"
+#include <cassert>
 
 namespace LV3
 {
@@ -150,7 +151,7 @@ namespace LV3
 				UpdateWorldTransforms(registry, Entities[i], worldIdentityMatrix);
 			}
 			else
-				int b = 0;
+				assert(false && "WorldTransformSystem : une entité enfant ne devrait pas être traitée ici, elle sera traitée par la récursion de son parent.");
 		}
 	}
 
