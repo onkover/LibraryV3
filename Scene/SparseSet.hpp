@@ -2,13 +2,13 @@
 
 //#include <string>
 #include <vector>
-#include <iostream>
 #include "Components/Component.hpp"
 
 namespace LV3
 {
-	const size_t MAX_ENTITIES_INIT = 10;
-
+	// pour le SparseSet, taille initiale du tableau sparse (m_sparse)
+	//const size_t MAX_ENTITIES_INIT = 10;
+	inline constexpr size_t MAX_ENTITIES_INIT = 10000;	// inine au lieu de const pour éviter les problèmes de linkage multiple (par unité de compilation à cause du CONST)
 
 	//********************************************************************
 
