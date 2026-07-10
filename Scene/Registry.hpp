@@ -165,6 +165,11 @@ namespace LV3
 			getStorage<T>()->Add(entity, std::move(component));
 		}
 
+		template<typename T, typename... Args>
+		T& emplaceComponent(Entity entity, Args&&... args)
+		{
+			return getStorage<T>()->Emplace(entity, std::forward<Args>(args)...);
+		}
 
 		template <typename T>
 		bool hasComponent(Entity entity) const

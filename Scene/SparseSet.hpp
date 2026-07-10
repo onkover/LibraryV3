@@ -139,6 +139,8 @@ namespace LV3
 		/// <param name="component">Composant à associer à l'entité. Reçu par valeur et déplacé (move) dans le stockage interne.</param>
 		void Add(Entity entity, ComponentType component)
 		{
+			// Versionning entity à intégrer plus tard EntityIndex(entity) 
+
 			EnsureSparseFits(entity);
 
 			if (Contains(entity))
@@ -155,6 +157,36 @@ namespace LV3
 			m_Entities.push_back(entity);
 		}
 
+		/// <summary>
+		/// Construit le composant DIRECTEMENT à sa place finale dans m_Dense, à partir des arguments
+		/// de son constructeur. 
+		/// Contrairement à Add(), aucun objet temporaire n'est créé : les arguments
+		/// sont transmis (forwarding) jusqu'à emplace_back, qui appelle le constructeur de ComponentType
+		/// une seule fois, dans le buffer du vector. Réservé aux entités qui n'ont pas encore le composant.
+		/// </summary>
+		/// <param name="entity">Entité à laquelle attacher le nouveau composant.</param>
+		/// <param name="args">Arguments transmis tels quels au constructeur de ComponentType.</param>
+		/// <returns>Référence vers le composant nouvellement construit.</returns>
+		template<typename... Args>
+		ComponentType& Emplace(Entity entity, Args&&... args)
+		{
+			EnsureSparseFits(entity);
+
+			// Versionning entity à intégrer plus tard EntityIndex(entity) 
+
+			// Contrat : Emplace sert à CRÉER, pas à mettre à jour. Si le composant existe déjà,
+			// c'est un appel incorrect côté système — on le signale plutôt que de l'accepter en silence.
+			assert(!Contains(entity) && "Emplace : le composant existe déjà, utilisez Add() ou Get() pour le modifier");
+
+			const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
+
+			m_Sparse[entity] = dense_index;
+			m_Entities.push_back(entity);
+
+			// emplace_back construit ComponentType(std::forward<Args>(args)...) directement dans le
+			// buffer du vector : zéro copie, zéro déplacement intermédiaire.
+			return m_Dense.emplace_back(std::forward<Args>(args)...);
+		}
 
 		/// <summary>
 		/// Supprime une entité du conteneur sparse/dense. Si l'entité n'existe pas, la fonction ne fait rien. Pour maintenir la compacité, l'élément à supprimer est remplacé par le dernier élément et les index sont mis à jour.
