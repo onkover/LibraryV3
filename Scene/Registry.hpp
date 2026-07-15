@@ -158,7 +158,8 @@ namespace LV3
 			// Ensuite, ajouter l'EntityID à la liste des IDs libres pour recyclage
 			m_FreeEntities.push_back(entity);
 		}
-
+	
+		//********************************************************
 		template <typename T>
 		void addComponent(Entity entity, T component)
 		{
@@ -170,6 +171,7 @@ namespace LV3
 		{
 			return getStorage<T>()->Emplace(entity, std::forward<Args>(args)...);
 		}
+		//********************************************************
 
 		template <typename T>
 		bool hasComponent(Entity entity) const

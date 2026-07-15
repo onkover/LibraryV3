@@ -32,8 +32,8 @@ namespace LV3
 	constexpr float EPSILON_FLOAT = 0.001f;
 	constexpr double EPSILON_DOUBLE = 0.001;
 
-	constexpr float TO_RADIAN = M_PI / 180.0f; //float
-	constexpr float TO_DEGRE = 180.0f / M_PI;	//float
+	constexpr float TO_RADIAN = (float) M_PI / 180.0f; //float
+	constexpr float TO_DEGRE = 180.0f / (float)M_PI;	//float
 
 	constexpr float inchToMm = 25.4f;
 

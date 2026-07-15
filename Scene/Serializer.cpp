@@ -180,7 +180,9 @@ namespace LV3
         }
         if (compJson.contains("scale")) t.m_initialLocalScale = { compJson["scale"][0], compJson["scale"][1], compJson["scale"][2] };
 
-        ctx.registry.addComponent(entity, t);
+        ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
+                                                         // TransformComponent est un POD pur(que des Vec3f / Matrix44f) — le gain est nul ici en pratique, mais l'uniformité du réflexe compte : on prend l'habitude de toujours céder une lvalue locale qu'on ne réutilise plus, sans se demander à chaque fois si le composant est « assez lourd » pour que ça vaille le coup. 
+                                                         // Le compilateur ne te punira jamais pour un move inutile sur un POD.
     }
 
     void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -190,8 +192,6 @@ namespace LV3
 
         std::string meshPath;
         meshPath = compJson.value("model", "");
-
-
 
         MeshComponent m;
         if (compJson.contains("orbitalSpeed")) m.m_orbitalSpeed = compJson["orbitalSpeed"];
@@ -218,7 +218,8 @@ namespace LV3
         //                    m.m_mesh->AABB.resetAABB();
         //                    m.m_mesh->buildAABB(VERTEXSTATE::OBJECT();
 
-        ctx.registry.addComponent(entity, m);
+        ctx.registry.addComponent(entity, std::move(m)); // Transforme la copie forcée en déplacement passer par move(xxx) que passer par xxx
+                                                           // Ici le gain est réel : m_texture est un std::string, et m_mesh un shared_ptr (dont le déplacement évite un incrément/décrément atomique du compteur de références — pas cher, mais pas gratuit non plus).
     }
 
     //***************************************************************************************
@@ -249,7 +250,7 @@ namespace LV3
         if (compJson.contains("color")) l.m_color = Vec3f{ compJson["color"][0], compJson["color"][1], compJson["color"][2] };
         if (compJson.contains("intensity")) l.m_intensity = compJson["intensity"];
 
-        ctx.registry.addComponent(entity, l);
+        ctx.registry.addComponent(entity, std::move(l)); // Transforme la copie forcée en déplacement 
 
     }
 
@@ -263,9 +264,12 @@ namespace LV3
         if (compJson.contains("nearPlane")) c.m_nearPlane = compJson["nearPlane"];
         if (compJson.contains("farPlane")) c.m_farPlane = compJson["farPlane"];
 
-        ctx.registry.addComponent(entity, c);
+        ctx.registry.addComponent(entity, std::move(c)); // Transforme la copie forcée en déplacement 
+                                                        // Vérifie bien : out_activeCamera = entity n'utilise jamais c après le déplacement, donc aucun piège ici. 
+                                                        // CameraComponent est un POD, gain nul mais cohérence.
+
         out_activeCamera = entity;          // sauvegarde l'entité de la caméra
-        // solution simple, c'est la dernière identifiée
+                                            // solution simple, c'est la dernière identifiée
     }
 
     void SceneSerializer::ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -273,16 +277,42 @@ namespace LV3
         const json& compJson = *static_cast<const json*>(pJsonNode);
         if (!compJson.is_object()) return;
 
-        TriggerComponent t;
-        if (compJson.contains("radius")) t.radius = compJson["radius"];
 
-        // Lit les noms des événements à publier
-        if (compJson.contains("onEnterEvent")) t.onEnterEvent = compJson["onEnterEvent"];
-        if (compJson.contains("onStayEvent")) t.onStayEvent = compJson["onStayEvent"];
-        if (compJson.contains("onExitEvent")) t.onExitEvent = compJson["onExitEvent"];
+        // value() lit la clé si présente, sinon retourne le défaut fourni —
+        // remplace élégamment tes if/else répétés
+        const float radius = compJson.value("radius", 1.0f);
+        std::string onEnterEvent = compJson.value("onEnterEvent", std::string{});
+        std::string onStayEvent = compJson.value("onStayEvent", std::string{});
+        std::string onExitEvent = compJson.value("onExitEvent", std::string{});
+        const bool isColliding = compJson.value("isColliding", false);
 
-        ctx.registry.addComponent(entity, t);
-        //    std::cout << "INFO: Entité " << id << " a un trigger de rayon " << t.radius << std::endl;
+        ctx.registry.emplaceComponent<TriggerComponent>(
+            entity,
+            radius,
+            std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
+            std::move(onStayEvent),
+            std::move(onExitEvent),
+            false,						// is_colliding
+            std::set<Entity>{}			// overlapping_entities
+        );
+
+
+        //TriggerComponent t;
+
+
+        //if (compJson.contains("radius"))
+        //    t.radius = compJson["radius"];
+        //else
+        //    t.radius = 1.0f; // valeur par défaut
+
+
+        //// Lit les noms des événements à publier
+        //if (compJson.contains("onEnterEvent")) t.onEnterEvent = compJson["onEnterEvent"];
+        //if (compJson.contains("onStayEvent")) t.onStayEvent = compJson["onStayEvent"];
+        //if (compJson.contains("onExitEvent")) t.onExitEvent = compJson["onExitEvent"];
+
+        //ctx.registry.addComponent(entity, t);
+        std::cout << "INFO: Entité " << entity << " a un trigger de rayon : " << radius << std::endl;
     }
 
     void SceneSerializer::PlayerControl(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -293,7 +323,9 @@ namespace LV3
         PlayerControlComponent t;
         if (compJson.contains("speed")) t.m_speed = compJson["speed"];
 
-        ctx.registry.addComponent(entity, t);
+        ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
+                                                        // POD trivial (float seul) — cohérence du réflexe, encore une fois.
+
     }
 
     void SceneSerializer::ParseHealth(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -304,7 +336,8 @@ namespace LV3
         HealthComponent t;
         if (compJson.contains("maxHealth")) t.m_maxHealth = compJson["maxHealth"];
 
-        ctx.registry.addComponent(entity, t);
+        ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
+		                                                // POD trivial (int seul) — cohérence du réflexe, encore une fois.
     }
 
     bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
@@ -333,6 +366,8 @@ namespace LV3
             Entity rootEntity = ctx.entityMap.at(nodeJson["id"]);
             if (!ctx.registry.hasComponent<HierarchyComponent>(rootEntity))
             {
+                // Ici, rien à changer : HierarchyComponent{ {}, {}, true } est construit directement en argument, donc c'est une prvalue 
+                // le compilateur applique déjà le déplacement (voire l'élision de copie) sans ton intervention. Le std::move explicite n'apporte rien sur un temporaire déjà mouvable. C'est le cas exact où ta vigilance doit distinguer lvalue nommée (a besoin de std::move) de temporaire anonyme (n'en a pas besoin).
                 ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ {}, {},true });
             }
         }

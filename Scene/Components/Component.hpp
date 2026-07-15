@@ -80,13 +80,18 @@ namespace LV3
 
 	//********************************************************************
 
+
+
+//	Attentio,: aucun constructeur explicite, seulement des valeurs par défaut sur certains membres (radius = 1.0f, is_colliding = false).C'est important, car Emplace transmet ses arguments à un constructeur — et TriggerComponent n'a que le constructeur agrégé implicite(agrégat C++).
+// Ça fonctionne, mais avec une règle stricte : l'ordre des arguments doit suivre exactement l'ordre de déclaration des membres
+// L'agrégat ne permet pas de sauter un membre au milieu pour garder le suivant à sa valeur par défaut si tu en fournis un après.
 	struct TriggerComponent
 	{
 	public:
 		//Vec3f halfSize{ 1, 1, 1 }; // Taille de la boîte (demi-dimensions)
 		//bool isColliding = false; // État
 
-		float radius = 1.0f; // La taille de notre trigger sphérique
+		float radius;// = 1.0f; // La taille de notre trigger sphérique
 
 		// Noms des événements que ce trigger publiera
 		std::string onEnterEvent;// = "";
@@ -94,8 +99,22 @@ namespace LV3
 		std::string onExitEvent;// = "";
 
 		// État (mis à jour par le TriggerSystem)
-		bool is_colliding = false;
+		bool is_colliding;// = false;
 		std::set<Entity> overlapping_entities; // Avec qui on collisionne
+
+		// Constructeur explicite : seuls radius et onEnterEvent sont obligatoires
+	/*	explicit TriggerComponent(float r, 
+									std::string onEnter = "", 
+									std::string onStay = "", 
+									std::string onExit = "",
+									bool isColliding)
+									: radius(r), 
+									onEnterEvent(std::move(onEnter)), 
+									onStayEvent(std::move(onStay)), 
+									onExitEvent(std::move(onExit)),
+									is_colliding(isColliding)
+		{
+		}*/
 	};
 
 	//********************************************************************

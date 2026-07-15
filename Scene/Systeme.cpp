@@ -150,8 +150,8 @@ namespace LV3
 				// On peut démarrer l'itération
 				UpdateWorldTransforms(registry, Entities[i], worldIdentityMatrix);
 			}
-			else
-				assert(false && "WorldTransformSystem : une entité enfant ne devrait pas être traitée ici, elle sera traitée par la récursion de son parent.");
+			//else
+				//assert(false && "WorldTransformSystem : une entité enfant ne devrait pas être traitée ici, elle sera traitée par la récursion de son parent.");
 		}
 	}
 
