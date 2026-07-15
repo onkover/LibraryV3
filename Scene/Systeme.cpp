@@ -299,16 +299,30 @@ namespace LV3
 
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
 	{
-		for (Entity entity = 0; entity < registry.getEntityCount(); entity++)
-		{
-			if (registry.hasComponent<TransformComponent>(entity))
+		//for (Entity entity = 0; entity < registry.getEntityCount(); entity++)
+		//{
+		//	if (registry.hasComponent<TransformComponent>(entity))
+		//	{
+		//		if (!registry.hasComponent<HierarchyComponent>(entity) || registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+		//		{
+		//			DebugDisplaySystemRecursive(registry, entity, 0);
+		//		}
+		//	}
+		//}
+
+		registry.ForEachAlive([&](Entity entity)
 			{
-				if (!registry.hasComponent<HierarchyComponent>(entity) || registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+				if (registry.hasComponent<TransformComponent>(entity))
 				{
-					DebugDisplaySystemRecursive(registry, entity, 0);
+					if (!registry.hasComponent<HierarchyComponent>(entity)
+						|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+					{
+						DebugDisplaySystemRecursive(registry, entity, 0);
+					}
 				}
-			}
-		}
+			});
+
+
 	}
 
 

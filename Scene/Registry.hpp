@@ -21,38 +21,38 @@ m_Storages (std::vector<std::unique_ptr<IComponentStorage>>)
 	|
 	+-- Index X [ID du composante YYY]			--> unique_ptr --> SparseSet<YYY> { ... }
 
-Performance d'accès (GetComponent) : O(1).
+Performance d'accÃ¨s (GetComponent) : O(1).
 * GetTypeID<T>() : O(1) (statique)
-* m_Storages[typeID] : O(1) (accès vector)
-* storage->Get(entity) : O(1) (accès sparse set)
+* m_Storages[typeID] : O(1) (accÃ¨s vector)
+* storage->Get(entity) : O(1) (accÃ¨s sparse set)
 
-Performance d'itération (Systèmes) : O(N),
-	où N est le nombre de composants (pas d'entités !).
-	C'est la performance maximale possible grâce à l'accès direct au std::vector dense via la fonction View().
+Performance d'itÃ©ration (SystÃ¨mes) : O(N),
+	oÃ¹ N est le nombre de composants (pas d'entitÃ©s !).
+	C'est la performance maximale possible grÃ¢ce Ã  l'accÃ¨s direct au std::vector dense via la fonction View().
 
-Flux d'une Opération (Ex: registry.addComponent(E_1, TransformComponent{...})) :
+Flux d'une OpÃ©ration (Ex: registry.addComponent(E_1, TransformComponent{...})) :
 	1. Votre code appelle registry.addComponent(E_1, monTransform).
 	2. Le Registry demande au ComponentTypeManager l'ID de TransformComponent (disons que c'est 0).
 	3. Le Registry regarde dans m_Storages[0].
-	4. Il trouve (ou crée si c'est la première fois) le SparseSet<TransformComponent>.
-	5. Le Registry demande à ce SparseSet d'ajouter monTransform pour l'entité E_1.
+	4. Il trouve (ou crÃ©e si c'est la premiÃ¨re fois) le SparseSet<TransformComponent>.
+	5. Le Registry demande Ã  ce SparseSet d'ajouter monTransform pour l'entitÃ© E_1.
 	6. Le SparseSet<TransformComponent> :
-		* Met à jour m_sparse[E_1] pour qu'il pointe vers le nouvel emplacement dans m_dense (par exemple, l'index 2).
-		* Ajoute monTransform à la fin de m_dense.
-		* Ajoute E_1 à la fin de m_entities.
+		* Met Ã  jour m_sparse[E_1] pour qu'il pointe vers le nouvel emplacement dans m_dense (par exemple, l'index 2).
+		* Ajoute monTransform Ã  la fin de m_dense.
+		* Ajoute E_1 Ã  la fin de m_entities.
 
-Flux d'une Opération (Ex: for (auto& transform : registry.View<TransformComponent>())) :
-	1. Votre système appelle registry.View<TransformComponent>().
-	2. Le Registry (via GetStorage) récupère le SparseSet<TransformComponent>.
+Flux d'une OpÃ©ration (Ex: for (auto& transform : registry.View<TransformComponent>())) :
+	1. Votre systÃ¨me appelle registry.View<TransformComponent>().
+	2. Le Registry (via GetStorage) rÃ©cupÃ¨re le SparseSet<TransformComponent>.
 	3. Le Registry appelle sparseSetTransform->GetDenseData().
-	4. Cette fonction retourne directement une référence au m_dense (std::vector<TransformComponent>).
-	5. Votre boucle for parcourt ce std::vector de manière ultra-rapide et contiguë en mémoire.
+	4. Cette fonction retourne directement une rÃ©fÃ©rence au m_dense (std::vector<TransformComponent>).
+	5. Votre boucle for parcourt ce std::vector de maniÃ¨re ultra-rapide et contiguÃ« en mÃ©moire.
 
 **********************************************************
 Exemples d'utilisation
 
-1. Utilisation des données du composants uniquement -> on parcourt le pool de composants Dense
-	2 façons pour obtenir un pool de composants
+1. Utilisation des donnÃ©es du composants uniquement -> on parcourt le pool de composants Dense
+	2 faÃ§ons pour obtenir un pool de composants
 	* soit : auto& mesh = registry.View<MeshComponent>();
 	* soit : SparseSet<PlayerControlComponent>* playerControlStorage = registry.getStorage<PlayerControlComponent>();
 
@@ -62,10 +62,10 @@ Exemples d'utilisation
 				mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
 		}
 
-2. Utilisation de plusieurs componsants -> On choisit d'itérer sur le pool le moins nombreux pour minimiser les itérations 
-	* Recupération du pool de composants : SparseSet<PlayerControlComponent>* playerControlStorage = registry.getStorage<PlayerControlComponent>();
-	* Recupération du son Dense : auto& playerControlComponents = playerControlStorage->GetDenseData();
-	* Recupération de son Entites : auto& playerControlEntitites = playerControlStorage->GetDenseEntities();	// Permet de retrouver l'EntityID
+2. Utilisation de plusieurs componsants -> On choisit d'itÃ©rer sur le pool le moins nombreux pour minimiser les itÃ©rations 
+	* RecupÃ©ration du pool de composants : SparseSet<PlayerControlComponent>* playerControlStorage = registry.getStorage<PlayerControlComponent>();
+	* RecupÃ©ration du son Dense : auto& playerControlComponents = playerControlStorage->GetDenseData();
+	* RecupÃ©ration de son Entites : auto& playerControlEntitites = playerControlStorage->GetDenseEntities();	// Permet de retrouver l'EntityID
 
 		for (size_t i = 0; i < playerControlComponents.size(); i++)
 		{
@@ -91,8 +91,8 @@ namespace LV3
 		template  <typename T>
 		static uint32_t GetTypeID()
 		{
-			// 'static' ici signifie que 'id' n'est initialisé qu'UNE SEULE FOIS pour chaque type 'T'.
-			// A chaque T différent, s_NextNextID est incrémenté, sinon, la valeur demeurera la même pour un T donné
+			// 'static' ici signifie que 'id' n'est initialisÃ© qu'UNE SEULE FOIS pour chaque type 'T'.
+			// A chaque T diffÃ©rent, s_NextNextID est incrÃ©mentÃ©, sinon, la valeur demeurera la mÃªme pour un T donnÃ©
 			static uint32_t id = s_NextNextID++;
 			return id;
 		}
@@ -114,7 +114,7 @@ namespace LV3
 		L'objectif est de "gommer le type" (type erasure) pour pouvoir stocker tous les pools de composants dans un seul std::vector.
 		Pour ce faire, nous avons besoin d'une classe de base non-template (interface) pour que notre Registry puisse contenir des pointeurs vers n'importe quel type de SparseSet.
 			Cette interface est "IComponentStorage"
-		2. Pour un accès en O(1), nous n'allons pas utiliser de std::map avec type_index (qui est en O(log N)). Nous allons attribuer un ID entier unique (0, 1, 2...) à chaque type de composant.
+		2. Pour un accÃ¨s en O(1), nous n'allons pas utiliser de std::map avec type_index (qui est en O(log N)). Nous allons attribuer un ID entier unique (0, 1, 2...) Ã  chaque type de composant.
 
 	*/
 	class Registry
@@ -122,43 +122,72 @@ namespace LV3
 	public:
 		Registry() = default;
 
-		Entity CreateEntity()
+		[[nodiscard]] Entity CreateEntity()
 		{
-			Entity newEntity;
-
-			/*
-			recyclage simple des ID
-			La prochaine version serait de versionner les ID pour identifier après recyclage d'une entité, qu'un script/composant n'utilise pas les anciennes données de l'ancienne entité (qui auraient été concervées par erreur) mais bien les données de la nouvelle entité
-			Dans ce cas, il faudrait travailler non plus avec seulement une variable entité mais un couple entité/version
-			*/
-			if (!m_FreeEntities.empty())
+			std::uint32_t idx;
+			if (!m_FreeIndices.empty())
 			{
-				// On recycle un ID de la liste des IDs libres
-				newEntity = m_FreeEntities.back();	// Prend le dernier ID
-				m_FreeEntities.pop_back();			// Le retire de la liste
+				idx = m_FreeIndices.back();		// LIFO : rÃ©utilise le slot le plus "chaud" (encore en cache)
+				m_FreeIndices.pop_back();
 			}
 			else
-				newEntity = m_EntityCount++;	// Plus d'IDs libres, on génère un nouvel ID
-
-			return newEntity;
-		}
-		/// <summary>
-		/// Détruit une entité et libère ses ressources associées.
-		/// </summary>
-		/// <param name="entity">L'entité à détruire.</param>
-		void DestroyEntity(Entity entity)
-		{
-			// Doit notifier TOUS les pools de composants que l'entité est détruite
-			for (auto& storage : m_Storages)
 			{
-				if (storage)
-					storage->OnEntityDestroyed(entity);
+				idx = static_cast<std::uint32_t>(m_Generations.size());
+				assert(idx < ENTITY_INDEX_MASK && "CapacitÃ© d'entitÃ©s Ã©puisÃ©e (16,7 M) â€” le dernier index est rÃ©servÃ© Ã  NULL_ENTITY");
+				m_Generations.push_back(0u);
+				m_Alive.push_back(false);
 			}
-
-			// Ensuite, ajouter l'EntityID à la liste des IDs libres pour recyclage
-			m_FreeEntities.push_back(entity);
+			m_Alive[idx] = true;
+			++m_AliveCount;
+			return MakeEntity(idx, m_Generations[idx]);
 		}
-	
+
+		[[nodiscard]] bool IsAlive(Entity e) const noexcept
+		{
+			const std::uint32_t idx = EntityIndex(e);
+			return idx < m_Generations.size()
+				&& m_Generations[idx] == EntityGeneration(e);	// le test qui tue le problÃ¨me ABA
+		}
+
+		void DestroyEntity(Entity e)
+		{
+		/*
+		Retiens l'ordre sacrÃ© dans DestroyEntity : 
+		* notification des storages d'abord, 
+		* incrÃ©ment de gÃ©nÃ©ration ensuite. 
+		
+		Inverse-le et OnEntityDestroyed(e) recevra un handle dÃ©jÃ  pÃ©rimÃ© â€” Has(e) rÃ©pondra false, les composants ne seront jamais retirÃ©s, et tu auras crÃ©Ã© des composants fantÃ´mes. 
+		C'est le genre d'inversion qui compile parfaitement et dÃ©truit tout.
+			
+		*/
+
+			assert(IsAlive(e) && "DestroyEntity : double destruction ou handle pÃ©rimÃ©");
+			if (!IsAlive(e))
+				return;										// garde-fou silencieux en Release
+
+			for (auto& storage : m_Storages)				// AVANT d'incrÃ©menter : les storages doivent
+				if (storage)								// encore reconnaÃ®tre l'entitÃ© pour la retirer
+					storage->OnEntityDestroyed(e);
+
+			const std::uint32_t idx = EntityIndex(e);
+			++m_Generations[idx];							// uint8_t : le wrap 255â†’0 est volontaire et assumÃ©
+			m_Alive[idx] = false;
+			--m_AliveCount;
+			m_FreeIndices.push_back(idx);
+		}
+
+		// ItÃ©ration sur les entitÃ©s vivantes â€” remplace la boucle 0..getEntityCount() qui est dÃ©sormais UN BUG
+		template <typename Func>
+		void ForEachAlive(Func&& fn) const
+		{
+			for (std::uint32_t idx = 0; idx < m_Generations.size(); ++idx)
+				if (m_Alive[idx])
+					fn(MakeEntity(idx, m_Generations[idx]));
+		}
+
+		[[nodiscard]] std::uint32_t GetAliveCount() const noexcept { return m_AliveCount; }
+
+
 		//********************************************************
 		template <typename T>
 		void addComponent(Entity entity, T component)
@@ -178,7 +207,7 @@ namespace LV3
 		{
 			uint32_t typeID = ComponentTypeManager::GetTypeID<T>();
 
-			// Si le pool n'a jamais été créé, l'entité ne peut pas l'avoir
+			// Si le pool n'a jamais Ã©tÃ© crÃ©Ã©, l'entitÃ© ne peut pas l'avoir
 			if (typeID >= m_Storages.size() || !m_Storages[typeID])
 				return false;
 			// Utilise la version const de SparseSet<T>::Has
@@ -189,12 +218,12 @@ namespace LV3
 		template <typename T>
 		void removeComponent(Entity entity)
 		{
-			// Seule la version non-const de getStorage peut être utilisée pour la modification
+			// Seule la version non-const de getStorage peut Ãªtre utilisÃ©e pour la modification
 			// Assurez-vous que le storage existe avant d'essayer de supprimer
 			uint32_t typeID = ComponentTypeManager::GetTypeID<T>();
 			if (typeID < m_Storages.size() && m_Storages[typeID]) {
 				SparseSet<T>* storage = static_cast<SparseSet<T>*>(m_Storages[typeID].get());
-				if (storage->Has(entity)) { // Vérifie si le composant existe avant de tenter de le supprimer
+				if (storage->Contains(entity)) { // VÃ©rifie si le composant existe avant de tenter de le supprimer
 					storage->Remove(entity);
 				}
 			}
@@ -202,30 +231,30 @@ namespace LV3
 
 		//************************************************************************
 
-		// Renvoie une référence modifiable au composant.
+		// Renvoie une rÃ©fÃ©rence modifiable au composant.
 		template <typename T>
 		T& getComponent(Entity entity)
 		{
-			// La version non - const peut créer le storage si nécessaire(via getStorage<T>())
-			// Une assertion ou gestion d'erreur si l'entité n'a pas le composant serait utile
+			// La version non - const peut crÃ©er le storage si nÃ©cessaire(via getStorage<T>())
+			// Une assertion ou gestion d'erreur si l'entitÃ© n'a pas le composant serait utile
 			return getStorage<T>()->Get(entity);
 		}
 
-		// Renvoie une référence en lecture seule. Destinée aux contextes où Registry est const.
+		// Renvoie une rÃ©fÃ©rence en lecture seule. DestinÃ©e aux contextes oÃ¹ Registry est const.
 		template <typename T>
 		const T& getComponent(Entity entity) const
 		{
-			// La version const ne peut PAS créer le storage.
-			// Elle doit s'assurer que le storage existe et que le composant est présent.
+			// La version const ne peut PAS crÃ©er le storage.
+			// Elle doit s'assurer que le storage existe et que le composant est prÃ©sent.
 			const SparseSet<T>* storage = getStorage<T>();		// Utilise la version const de getStorage
-			assert(storage && storage->Has(entity));			// Vérification stricte en debug : si absent, c'est une erreur de logique
+			assert(storage && storage->Contains(entity));			// VÃ©rification stricte en debug : si absent, c'est une erreur de logique
 			return storage->Get(entity);
 		}
 
 		//************************************************************************
 		// getStorage<T>() retourne SparseSet<T>*
 
-		// Récupère le stockage pour un type T. Le crée s'il n'existe pas.
+		// RÃ©cupÃ¨re le stockage pour un type T. Le crÃ©e s'il n'existe pas.
 		template <typename ComponentType>
 		SparseSet<ComponentType>* getStorage()
 		{
@@ -238,18 +267,18 @@ namespace LV3
 				m_Storages.resize(typeID + 1);		// Agrandit le vector
 			}
 
-			// 3. Créer le stockage s'il n'existe pas
+			// 3. CrÃ©er le stockage s'il n'existe pas
 			if (!m_Storages[typeID])
 			{
 				m_Storages[typeID] = std::make_unique<SparseSet<ComponentType>>();
 			}
 
-			// 4. "static_cast" est sûr ici. Nous SAVONS que m_Storages[typeID] est un SparseSet<ComponentType> grâce à notre logique.
+			// 4. "static_cast" est sÃ»r ici. Nous SAVONS que m_Storages[typeID] est un SparseSet<ComponentType> grÃ¢ce Ã  notre logique.
 			return static_cast<SparseSet<ComponentType>*>(m_Storages[typeID].get());
 
 		}
 
-		// Récupère le stockage pour un type T ou retourne nullptr s'il n'existe pas (version const).
+		// RÃ©cupÃ¨re le stockage pour un type T ou retourne nullptr s'il n'existe pas (version const).
 		template <typename ComponentType>
 		const SparseSet<ComponentType>* getStorage() const
 		{
@@ -265,19 +294,19 @@ namespace LV3
 
 
 		//************************************************************************
-		// View<T>() : retourne la référence au std::vector<T> dense du SparseSet<T>
-		// itération mono - composant, très rapide
+		// View<T>() : retourne la rÃ©fÃ©rence au std::vector<T> dense du SparseSet<T>
+		// itÃ©ration mono - composant, trÃ¨s rapide
 
-		// Helper pour retourner une référence à un vecteur dense vide et constant. // Utilisez-le UNIQUEMENT pour la version const de View()
+		// Helper pour retourner une rÃ©fÃ©rence Ã  un vecteur dense vide et constant. // Utilisez-le UNIQUEMENT pour la version const de View()
 		template <typename T>
 		static const std::vector<T>& GetEmptyDenseVector() {
 			static const std::vector<T> empty_vec; // Un vecteur vide statique par type T
 			return empty_vec;
 		}
 
-		// Donne un accès direct au vector dense pour une itération. 100% "cache-friendly".
+		// Donne un accÃ¨s direct au vector dense pour une itÃ©ration. 100% "cache-friendly".
 		template <typename T>
-		std::vector<T>& View()	// Cette View reste pour les itérations mono-composant
+		std::vector<T>& View()	// Cette View reste pour les itÃ©rations mono-composant
 		{
 			return getStorage<T>()->GetDenseData();
 		}
@@ -287,7 +316,7 @@ namespace LV3
 		{
 			const SparseSet<T>* storage = getStorage<T>();
 
-			// Si le storage n'existe pas, retourne une référence à un vecteur vide constant.
+			// Si le storage n'existe pas, retourne une rÃ©fÃ©rence Ã  un vecteur vide constant.
 			if (!storage) {
 				return GetEmptyDenseVector<T>();
 			}
@@ -295,21 +324,21 @@ namespace LV3
 		}
 
 		//************************************************************************
-		// ComponentView est un helper(range) pour itérer efficacement sur un groupe de composants : il choisit le SparseSet le plus petit comme base et filtre les entités qui possèdent tous les composants requis.
+		// ComponentView est un helper(range) pour itÃ©rer efficacement sur un groupe de composants : il choisit le SparseSet le plus petit comme base et filtre les entitÃ©s qui possÃ¨dent tous les composants requis.
 		/*
-		•	Lambda capture : [&] { ... }
-			•	[&] capture toutes variables locales par référence(utilisé ici pour idx, m_componentTypeIDs, registry, etc.).
-			•	[=] capturerait par valeur.Tu peux aussi écrire[this], [&idx], etc.
-			•	Appel immédiat de la lambda : ()
-			•	La lambda est définie et immédiatement appelée pour chaque type de composant dans ComponentTypes...
+		â€¢	Lambda capture : [&] { ... }
+			â€¢	[&] capture toutes variables locales par rÃ©fÃ©rence(utilisÃ© ici pour idx, m_componentTypeIDs, registry, etc.).
+			â€¢	[=] capturerait par valeur.Tu peux aussi Ã©crire[this], [&idx], etc.
+			â€¢	Appel immÃ©diat de la lambda : ()
+			â€¢	La lambda est dÃ©finie et immÃ©diatement appelÃ©e pour chaque type de composant dans ComponentTypes...
 
-		•	Fold expression / / coma-fold : (expr, ...)
-			•	Cette syntaxe est une "fold expression" introduite en C++17.
-			•	Elle permet d'appliquer une opération (ici, l'appel de la lambda) à chaque élément d'un parameter pack.
-			•	Dans ce cas, pour chaque type de composant dans ComponentTypes..., la lambda est appelée avec le type actuel.
-			•	(expr(), ...) appelle expr() pour chaque élément du pack.
+		â€¢	Fold expression / / coma-fold : (expr, ...)
+			â€¢	Cette syntaxe est une "fold expression" introduite en C++17.
+			â€¢	Elle permet d'appliquer une opÃ©ration (ici, l'appel de la lambda) Ã  chaque Ã©lÃ©ment d'un parameter pack.
+			â€¢	Dans ce cas, pour chaque type de composant dans ComponentTypes..., la lambda est appelÃ©e avec le type actuel.
+			â€¢	(expr(), ...) appelle expr() pour chaque Ã©lÃ©ment du pack.
 
-		•	f(args...) où args... est une expansion, ou des formes comme (... , expression) pour appliquer une expression à tous les éléments (fold expression).
+		â€¢	f(args...) oÃ¹ args... est une expansion, ou des formes comme (... , expression) pour appliquer une expression Ã  tous les Ã©lÃ©ments (fold expression).
 
 		Exemple : auto printAll = [](auto... xs){ ( (std::cout << xs << '\n'), ... ); };
 
@@ -318,43 +347,43 @@ namespace LV3
 		template<typename... ComponentTypes>
 		class ComponentView
 		{
-			friend class Registry; // Permet au Registry d'accéder au constructeur privé
+			friend class Registry; // Permet au Registry d'accÃ©der au constructeur privÃ©
 			Registry* m_registry; // Pointeur vers le Registry parent
 
-			// Tuple de pointeurs vers les SparseSet<ComponentTypes> spécifiques. Permet un accès typé et rapide aux stockages individuels.
+			// Tuple de pointeurs vers les SparseSet<ComponentTypes> spÃ©cifiques. Permet un accÃ¨s typÃ© et rapide aux stockages individuels.
 			std::tuple<SparseSet<ComponentTypes>*...> m_storages_ptr_tuple;
 
-			// Pointeur vers le SparseSet choisi comme base d'itération (le plus petit). Il est de type IComponentStorage* pour le polymorphisme.
+			// Pointeur vers le SparseSet choisi comme base d'itÃ©ration (le plus petit). Il est de type IComponentStorage* pour le polymorphisme.
 			const IComponentStorage* m_mainStorage = nullptr;
 
-			// Contient les IDs IDs des composants (obtenus via ComponentTypeManager::GetTypeID<T>()) correspondant à chaque type de composant du ComponentView.
-			// Utile pour diagnostics ou comparaisons directes (vérifications d'ID directes).
+			// Contient les IDs IDs des composants (obtenus via ComponentTypeManager::GetTypeID<T>()) correspondant Ã  chaque type de composant du ComponentView.
+			// Utile pour diagnostics ou comparaisons directes (vÃ©rifications d'ID directes).
 			std::array<uint32_t, sizeof...(ComponentTypes)> m_componentTypeIDs;
 
-			// Constructeur privé : seule la méthode View du Registry peut créer un ComponentView
-			ComponentView(Registry* registry) // <-- Le paramètre est Registry* non-const
+			// Constructeur privÃ© : seule la mÃ©thode View du Registry peut crÃ©er un ComponentView
+			ComponentView(Registry* registry) // <-- Le paramÃ¨tre est Registry* non-const
 				: m_registry(registry),
-				m_storages_ptr_tuple(registry->template getStorage<ComponentTypes>()...)			// Ici registry->getStorage<ComponentTypes>()... est une expansion de pack : pour chaque ComponentType on appelle getStorage<X>(); le résultat(pointeurs possiblement nuls) est stocké dans un std::tuple<SparseSet<ComponentTypes>*...>.
+				m_storages_ptr_tuple(registry->template getStorage<ComponentTypes>()...)			// Ici registry->getStorage<ComponentTypes>()... est une expansion de pack : pour chaque ComponentType on appelle getStorage<X>(); le rÃ©sultat(pointeurs possiblement nuls) est stockÃ© dans un std::tuple<SparseSet<ComponentTypes>*...>.
 			{
 
 				// 2. Initialiser m_componentTypeIDs
-				// fold - expression + appel immédiat d'une lambda pour chaque type du pack. Pour chaque ComponentType on stocke son ID dans le tableau en incrémentant idx.
-				// cette forme est un pattern courant pour exécuter un bloc pour chaque élément d'un parameter pack.
+				// fold - expression + appel immÃ©diat d'une lambda pour chaque type du pack. Pour chaque ComponentType on stocke son ID dans le tableau en incrÃ©mentant idx.
+				// cette forme est un pattern courant pour exÃ©cuter un bloc pour chaque Ã©lÃ©ment d'un parameter pack.
 				size_t idx = 0;
 				([&]
 					{
 						m_componentTypeIDs[idx++] = ComponentTypeManager::GetTypeID<ComponentTypes>();
 					}(), ...);
 
-				// 3. Trouver le stockage le plus petit pour m_mainStorage (base d'itération)
+				// 3. Trouver le stockage le plus petit pour m_mainStorage (base d'itÃ©ration)
 				size_t min_size = (std::numeric_limits<size_t>::max)();
-				bool any_storage_null = false; // Pour détecter si un composant requis n'a pas de storage
+				bool any_storage_null = false; // Pour dÃ©tecter si un composant requis n'a pas de storage
 
-				// std::apply permet d'appeler une lambda avec les éléments du tuple
-				// Déplie un std::tuple en arguments d'une lambda/fonction : std::apply(lambda, tuple).
+				// std::apply permet d'appeler une lambda avec les Ã©lÃ©ments du tuple
+				// DÃ©plie un std::tuple en arguments d'une lambda/fonction : std::apply(lambda, tuple).
 				std::apply([&](auto... storages)
 					{
-						// Cette fold expression va itérer sur chaque 'storage' (qui est un SparseSet<T>*)
+						// Cette fold expression va itÃ©rer sur chaque 'storage' (qui est un SparseSet<T>*)
 						([&](auto* storage_ptr)
 							{
 								if (storage_ptr)
@@ -370,11 +399,11 @@ namespace LV3
 									any_storage_null = true;	// Si un des stockages n'existe pas, la vue est vide. On marque qu'un storage est null et on peut court-circuiter.
 								}
 
-							}(storages), ...); // Exécute la lambda pour chaque élément du pack 'storages'
+							}(storages), ...); // ExÃ©cute la lambda pour chaque Ã©lÃ©ment du pack 'storages'
 
-					}, m_storages_ptr_tuple);	// std::apply([&](auto... storages){ (...) }, m_storages_ptr_tuple); déroule la tuple en arguments storages.
+					}, m_storages_ptr_tuple);	// std::apply([&](auto... storages){ (...) }, m_storages_ptr_tuple); dÃ©roule la tuple en arguments storages.
 
-				// Si un des stockages était nul, la vue est vide.
+				// Si un des stockages Ã©tait nul, la vue est vide.
 				if (any_storage_null)
 				{
 					m_mainStorage = nullptr;
@@ -382,37 +411,37 @@ namespace LV3
 			}
 
 		public:
-			// --- CLASSE ITERATOR (L'itérateur pour ComponentView) ---
+			// --- CLASSE ITERATOR (L'itÃ©rateur pour ComponentView) ---
 			/*
-				Itère sur le vecteur d'entités denses du m_mainStorage : m_currentDenseIndex
-				L'itération parcourt le pool le plus petit et vérifie la présence des autres composants sur chaque entité candidate (donc sensiblement : O(M * K) où M = taille du plus petit pool, K = nombre de composants à vérifier ; chaque vérif est O(1)).
+				ItÃ¨re sur le vecteur d'entitÃ©s denses du m_mainStorage : m_currentDenseIndex
+				L'itÃ©ration parcourt le pool le plus petit et vÃ©rifie la prÃ©sence des autres composants sur chaque entitÃ© candidate (donc sensiblement : O(M * K) oÃ¹ M = taille du plus petit pool, K = nombre de composants Ã  vÃ©rifier ; chaque vÃ©rif est O(1)).
 			*/
 			class Iterator
 			{
 				const ComponentView* m_view; // Pointeur vers la ComponentView parente
-				size_t m_currentDenseIndex;  // Index actuel dans le tableau dense d'entités du m_mainStorage : m_mainStorage->GetDenseEntities() 
+				size_t m_currentDenseIndex;  // Index actuel dans le tableau dense d'entitÃ©s du m_mainStorage : m_mainStorage->GetDenseEntities() 
 
-				// Méthode clé : avance l'itérateur jusqu'à la prochaine entité valide (jusqu'à trouver une entité qui possède effectivement tous les composants requis)
+				// MÃ©thode clÃ© : avance l'itÃ©rateur jusqu'Ã  la prochaine entitÃ© valide (jusqu'Ã  trouver une entitÃ© qui possÃ¨de effectivement tous les composants requis)
 				void SkipInvalidEntities()
 				{
-					// Si la vue est invalide (pas de mainStorage ou mainStorage est vide), l'itérateur est à la fin
+					// Si la vue est invalide (pas de mainStorage ou mainStorage est vide), l'itÃ©rateur est Ã  la fin
 					if (!m_view->m_mainStorage || m_currentDenseIndex >= m_view->m_mainStorage->GetDenseEntities().size()) {
-						m_currentDenseIndex = m_view->m_mainStorage ? m_view->m_mainStorage->GetDenseEntities().size() : 0; // Positionne à la fin
+						m_currentDenseIndex = m_view->m_mainStorage ? m_view->m_mainStorage->GetDenseEntities().size() : 0; // Positionne Ã  la fin
 						return;
 					}
 
 					const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
-					const size_t mainSize = mainEntities.size(); // Utilise la taille réelle du vecteur d'entités
+					const size_t mainSize = mainEntities.size(); // Utilise la taille rÃ©elle du vecteur d'entitÃ©s
 
 					while (m_currentDenseIndex < mainSize)
 					{
 						Entity currentEntity = mainEntities[m_currentDenseIndex];
 
 						bool allComponentsPresent = true;
-						// Utilise une fold expression pour vérifier la présence de TOUS les ComponentTypes
+						// Utilise une fold expression pour vÃ©rifier la prÃ©sence de TOUS les ComponentTypes
 						// Important : utilise la version const de hasComponent
-						// •	Pour chaque entité candidate, on effectue : ([&] { if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity)) allComponentsPresent = false; }(), ...);
-						// •	Ce test utilise la version const de hasComponent<T>() (O(1) par composant).
+						// â€¢	Pour chaque entitÃ© candidate, on effectue : ([&] { if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity)) allComponentsPresent = false; }(), ...);
+						// â€¢	Ce test utilise la version const de hasComponent<T>() (O(1) par composant).
 						([&]
 							{
 								if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity))
@@ -423,29 +452,29 @@ namespace LV3
 
 						if (allComponentsPresent)
 						{
-							break; // Trouvé une entité qui a TOUS les composants requis
+							break; // TrouvÃ© une entitÃ© qui a TOUS les composants requis
 						}
-						m_currentDenseIndex++; // Entité non valide, passer à la suivante
+						m_currentDenseIndex++; // EntitÃ© non valide, passer Ã  la suivante
 					}
 				}
 
 			public:
-				// Typedefs standards pour un itérateur C++
+				// Typedefs standards pour un itÃ©rateur C++
 				using value_type = std::tuple<Entity, ComponentTypes&...>;
 				using reference = value_type&; // On retourne le tuple par valeur (RVO optimisera cela)
 
-				// Constructeur de l'itérateur
+				// Constructeur de l'itÃ©rateur
 				Iterator(const ComponentView* view, size_t startIndex)
 					: m_view(view), m_currentDenseIndex(startIndex)
-					// PAS BESOIN D'INITIALISER m_currentTuple ici, std::optional le gère.
+					// PAS BESOIN D'INITIALISER m_currentTuple ici, std::optional le gÃ¨re.
 				{
-					SkipInvalidEntities(); // Avancer au premier élément valide (ou à la fin)
+					SkipInvalidEntities(); // Avancer au premier Ã©lÃ©ment valide (ou Ã  la fin)
 				}
 
 				/*
-				•	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des références aux composants.
-				•	Problème de durée de vie : on ne peut pas retourner une référence vers un tuple tempora.
-						=> Solution du code : mutable std::optional<value_type> m_currentTuple; est rempli (emplace) puis on retourne *m_currentTuple par référence.
+				â€¢	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des rÃ©fÃ©rences aux composants.
+				â€¢	ProblÃ¨me de durÃ©e de vie : on ne peut pas retourner une rÃ©fÃ©rence vers un tuple tempora.
+						=> Solution du code : mutable std::optional<value_type> m_currentTuple; est rempli (emplace) puis on retourne *m_currentTuple par rÃ©fÃ©rence.
 				*/
 				reference operator*() const
 				{
@@ -459,15 +488,15 @@ namespace LV3
 					return *m_currentTuple; // ou return m_currentTuple si pas optional
 				}
 
-				// Opérateur d'incrémentation (pré-incrément : ++it)
+				// OpÃ©rateur d'incrÃ©mentation (prÃ©-incrÃ©ment : ++it)
 				Iterator& operator++()
 				{
 					m_currentDenseIndex++;
-					SkipInvalidEntities(); // Avancer au prochain élément valide (ou à la fin)
+					SkipInvalidEntities(); // Avancer au prochain Ã©lÃ©ment valide (ou Ã  la fin)
 					return *this;
 				}
 
-				// Opérateur d'incrémentation (post-incrément : it++)
+				// OpÃ©rateur d'incrÃ©mentation (post-incrÃ©ment : it++)
 				Iterator operator++(int)
 				{
 					Iterator temp = *this;
@@ -475,7 +504,7 @@ namespace LV3
 					return temp;
 				}
 
-				// Opérateurs de comparaison (pour savoir quand la boucle for-each doit s'arrêter)
+				// OpÃ©rateurs de comparaison (pour savoir quand la boucle for-each doit s'arrÃªter)
 				bool operator==(const Iterator& other) const {
 					return m_currentDenseIndex == other.m_currentDenseIndex && m_view == other.m_view;
 				}
@@ -484,20 +513,20 @@ namespace LV3
 				}
 
 			private:
-				// Il stockera le tuple de références que operator*() retournera par référence
-				mutable std::optional<value_type> m_currentTuple;	// "mutable" permet à cette donnée d'être modifiée même dans une méthode const operator*().
+				// Il stockera le tuple de rÃ©fÃ©rences que operator*() retournera par rÃ©fÃ©rence
+				mutable std::optional<value_type> m_currentTuple;	// "mutable" permet Ã  cette donnÃ©e d'Ãªtre modifiÃ©e mÃªme dans une mÃ©thode const operator*().
 
 			}; // Fin de la classe Iterator
 
-			// Méthodes begin() et end() : nécessaires pour que ComponentView soit un range utilisable dans for-each
+			// MÃ©thodes begin() et end() : nÃ©cessaires pour que ComponentView soit un range utilisable dans for-each
 			Iterator begin() const
 			{
-				return Iterator(this, 0); // Démarre l'itérateur au début
+				return Iterator(this, 0); // DÃ©marre l'itÃ©rateur au dÃ©but
 			}
 
 			Iterator end() const
 			{
-				// L'itérateur de fin pointe juste après le dernier élément valide
+				// L'itÃ©rateur de fin pointe juste aprÃ¨s le dernier Ã©lÃ©ment valide
 				// Si m_mainStorage est nullptr (vue invalide), la fin est 0 pour que begin() == end().
 				return Iterator(this, m_mainStorage ? m_mainStorage->GetDenseEntities().size() : 0);
 			}
@@ -505,22 +534,21 @@ namespace LV3
 		}; // Fin de la classe ComponentView
 
 		//************************************************************************
-		// ViewGroup<...>() construit et retourne un ComponentView<ComponentTypes...> pour itérations multi - composants.
+		// ViewGroup<...>() construit et retourne un ComponentView<ComponentTypes...> pour itÃ©rations multi - composants.
 		template<typename... ComponentTypes>
 		ComponentView<ComponentTypes...> ViewGroup() {
 			return ComponentView<ComponentTypes...>(this);
 		}
 
-		uint32_t getEntityCount() const
-		{
-			return m_EntityCount;
-		}
-
 	private:
-		Entity m_EntityCount = 0;
+		std::vector<std::unique_ptr<IComponentStorage>> m_Storages;		// Le conteneur principal de pointeurs sur un SparseSet<T> pour un type T. O(1) pour l'accÃ¨s par index.
 
-		std::vector<std::unique_ptr<IComponentStorage>> m_Storages;		// Le conteneur principal de pointeurs sur un SparseSet<T> pour un type T. O(1) pour l'accès par index.
-		std::vector<Entity> m_FreeEntities;	// Liste des EntityIDs disponibles pour recyclage
+		// gÃ©nÃ©ration d'entitÃ© : 8 bits pour la gÃ©nÃ©ration, 24 bits pour l'index
+		std::vector<std::uint8_t>  m_Generations;	// gÃ©nÃ©ration courante de chaque slot
+		std::vector<bool>          m_Alive;			// slot occupÃ© ? (sert Ã  l'itÃ©ration par index)
+													// m_Alive est redondant pour IsAlive â€” la comparaison de gÃ©nÃ©ration suffit, car un slot dÃ©truit a dÃ©jÃ  sa gÃ©nÃ©ration incrÃ©mentÃ©e, donc aucun handle Ã©mis ne peut la matcher tant qu'on n'a pas recrÃ©Ã©. m_Alive existe pour un autre besoin : itÃ©rer tous les slots vivants sans consulter la free-list en O(N).
+		std::vector<std::uint32_t> m_FreeIndices;	// indices recyclables (LIFO)
+		std::uint32_t              m_AliveCount = 0;
 	};
 
 }

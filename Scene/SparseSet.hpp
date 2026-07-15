@@ -8,20 +8,20 @@ namespace LV3
 {
 	// pour le SparseSet, taille initiale du tableau sparse (m_sparse)
 	//const size_t MAX_ENTITIES_INIT = 10;
-	inline constexpr size_t MAX_ENTITIES_INIT = 10000;	// inine au lieu de const pour éviter les problèmes de linkage multiple (par unité de compilation à cause du CONST)
+	inline constexpr size_t MAX_ENTITIES_INIT = 10000;	// inine au lieu de const pour Ã©viter les problÃ¨mes de linkage multiple (par unitÃ© de compilation Ã  cause du CONST)
 
 	//********************************************************************
 
 	// interface de base / de stockage pour le "type erasure"
-	// Permet de stocker différents SparseSet<T> dans un vector de pointeurs de base.
+	// Permet de stocker diffÃ©rents SparseSet<T> dans un vector de pointeurs de base.
 	class IComponentStorage
 	{
 	public:
 		virtual ~IComponentStorage() = default;
-		virtual void OnEntityDestroyed(Entity entity) = 0;		// gestion de la suppression d'une entité
+		virtual void OnEntityDestroyed(Entity entity) = 0;		// gestion de la suppression d'une entitÃ©
 		virtual  size_t Size() const = 0;						// pour trouver le plus petit SparseSet
-		virtual bool Contains(Entity entity) const = 0;			//pour vérifier de manière polymorphique
-		virtual const std::vector<Entity>& GetDenseEntities() const = 0;	// pour l'itération polymorphique
+		virtual bool Contains(Entity entity) const = 0;			//pour vÃ©rifier de maniÃ¨re polymorphique
+		virtual const std::vector<Entity>& GetDenseEntities() const = 0;	// pour l'itÃ©ration polymorphique
 	};
 
 	//********************************************************************
@@ -29,27 +29,27 @@ namespace LV3
 	Les Stockages de Composants (SparseSets) :
 		Il y a un SparseSet par type de composant(un SparseSet<TransformComponent>, un SparseSet<NameComponent>, etc.).
 
-		m_sparse (Le "dictionnaire d'entités") : C'est un grand tableau où l'index est l'EntityID. La valeur à cet index est l'emplacement réel du composant de cette entité dans m_dense. S'il n'y a pas de composant, l'entrée est "invalide".
-		m_dense (Le "coffre aux trésors compact") : C'est un std::vector qui contient les composants eux-mêmes, empilés les uns après les autres sans trous. C'est le rêve du cache CPU !
-		m_entities (Le "miroir des entités") : C'est un std::vector qui garde la trace de quelle entité possède le composant à l'index correspondant dans m_dense.
+		m_sparse (Le "dictionnaire d'entitÃ©s") : C'est un grand tableau oÃ¹ l'index est l'EntityID. La valeur Ã  cet index est l'emplacement rÃ©el du composant de cette entitÃ© dans m_dense. S'il n'y a pas de composant, l'entrÃ©e est "invalide".
+		m_dense (Le "coffre aux trÃ©sors compact") : C'est un std::vector qui contient les composants eux-mÃªmes, empilÃ©s les uns aprÃ¨s les autres sans trous. C'est le rÃªve du cache CPU !
+		m_entities (Le "miroir des entitÃ©s") : C'est un std::vector qui garde la trace de quelle entitÃ© possÃ¨de le composant Ã  l'index correspondant dans m_dense.
 
 		Les Stockages de Composants (SparseSets) :
-		Un SparseSet est une structure de données optimisée pour stocker des composants dans un ECS.
+		Un SparseSet est une structure de donnÃ©es optimisÃ©e pour stocker des composants dans un ECS.
 		Il y a un SparseSet par type de composant (ex: SparseSet<TransformComponent>).
 
-		m_sparse (Le "dictionnaire d'entités") :
-			- C'est un grand tableau où l'index est l'EntityID.
-			- La valeur à cet index est l'emplacement réel du composant de cette entité dans m_Dense.
-			- Si l'entité n'a pas de composant, l'entrée est INVALID_INDEX.
-			- Permet un accès en O(1) pour vérifier l'existence ou obtenir un composant par EntityID.
+		m_sparse (Le "dictionnaire d'entitÃ©s") :
+			- C'est un grand tableau oÃ¹ l'index est l'EntityID.
+			- La valeur Ã  cet index est l'emplacement rÃ©el du composant de cette entitÃ© dans m_Dense.
+			- Si l'entitÃ© n'a pas de composant, l'entrÃ©e est INVALID_INDEX.
+			- Permet un accÃ¨s en O(1) pour vÃ©rifier l'existence ou obtenir un composant par EntityID.
 
-		m_Dense (Le "coffre aux trésors compact") :
-			- C'est un std::vector qui contient les composants eux-mêmes, empilés les uns après les autres sans trous.
-			- Offre une excellente localité cache et permet une itération ultra-rapide en O(N) où N est le nombre de composants de ce type.
+		m_Dense (Le "coffre aux trÃ©sors compact") :
+			- C'est un std::vector qui contient les composants eux-mÃªmes, empilÃ©s les uns aprÃ¨s les autres sans trous.
+			- Offre une excellente localitÃ© cache et permet une itÃ©ration ultra-rapide en O(N) oÃ¹ N est le nombre de composants de ce type.
 
-		m_Entities (Le "miroir des entités") :
-			- C'est un std::vector qui garde la trace de quelle EntityID possède le composant à l'index correspondant dans m_Dense.
-			- Utilisé lors de la suppression d'un composant pour mettre à jour m_Sparse correctement après un "swap-and-pop".
+		m_Entities (Le "miroir des entitÃ©s") :
+			- C'est un std::vector qui garde la trace de quelle EntityID possÃ¨de le composant Ã  l'index correspondant dans m_Dense.
+			- UtilisÃ© lors de la suppression d'un composant pour mettre Ã  jour m_Sparse correctement aprÃ¨s un "swap-and-pop".
 
 	*/
 
@@ -63,10 +63,10 @@ namespace LV3
 		}
 
 		/// <summary>
-		/// Détermine si une entité donnée est présente dans la structure (vérification via les tableaux sparse/dense).
+		/// DÃ©termine si une entitÃ© donnÃ©e est prÃ©sente dans la structure (vÃ©rification via les tableaux sparse/dense).
 		/// </summary>
-		/// <param name="entity">Identifiant de l'entité à vérifier.</param>
-		/// <returns>true si l'entité est présente (indice dense valide et correspondance dans m_Entities), sinon false.</returns>
+		/// <param name="entity">Identifiant de l'entitÃ© Ã  vÃ©rifier.</param>
+		/// <returns>true si l'entitÃ© est prÃ©sente (indice dense valide et correspondance dans m_Entities), sinon false.</returns>
 		//bool Has(Entity entity) const
 		//{
 		//	if (entity >= m_Sparse.size())
@@ -77,163 +77,197 @@ namespace LV3
 		//}
 
 		/// <summary>
-		/// Retourne vrai si l'entité spécifiée est présente.
+		/// Retourne vrai si l'entitÃ© spÃ©cifiÃ©e est prÃ©sente.
 		/// </summary>
-		/// <param name="entity">L'entité à vérifier.</param>
-		/// <returns>true si l'entité est présente (Has(entity) est vraie), sinon false.</returns>
+		/// <param name="entity">L'entitÃ© Ã  vÃ©rifier.</param>
+		/// <returns>true si l'entitÃ© est prÃ©sente (Has(entity) est vraie), sinon false.</returns>
 		
 		/*
 		ContainsEntity n'est qu'un vernis virtuel par-dessus Has, 
-		nécessaire parce que le code générique (comme Registry::DestroyEntity) manipule des IComponentStorage* sans connaître le type concret, donc sans accès direct à Has().		
+		nÃ©cessaire parce que le code gÃ©nÃ©rique (comme Registry::DestroyEntity) manipule des IComponentStorage* sans connaÃ®tre le type concret, donc sans accÃ¨s direct Ã  Has().		
 		*/
 		//bool Contains(Entity entity) const override
 		//{
 		//	return Has(entity);
 		//}
+
+
+		//bool Has(Entity entity) const
+		//{
+		//	const std::uint32_t idx = EntityIndex(entity);
+		//	if (idx >= m_Sparse.size())
+		//		return false;
+
+		//	const std::uint32_t dense = m_Sparse[idx];
+		//	return dense != INVALID_INDEX
+		//		&& dense < m_Dense.size()
+		//		&& m_Entities[dense] == entity;		// comparaison COMPLÃˆTE : index ET gÃ©nÃ©ration, en un seul '=='
+		//}
+
 		bool Contains(Entity entity) const override
 		{
-			//const std::uint32_t idx = EntityIndex(entity);	==> pour le versionning plus tard
-			//
-			//if (idx >= m_Sparse.size()) 
-			//	return false;
-			
-			if (entity >= m_Sparse.size())
+			const std::uint32_t idx = EntityIndex(entity);
+			if (idx >= m_Sparse.size()) 
 				return false;
+			
+			//if (entity >= m_Sparse.size())
+			//	return false;
+			//const std::uint32_t dense = m_Sparse[entity];
 
-			//const std::uint32_t dense = m_Sparse[idx];==> pour le versionning plus tard
-			const std::uint32_t dense = m_Sparse[entity];
-			return dense != INVALID_INDEX && dense < m_Dense.size() && m_Entities[dense] == entity;
+			const std::uint32_t dense = m_Sparse[idx];
+			return dense != INVALID_INDEX 
+				&& dense < m_Dense.size() 
+				&& m_Entities[dense] == entity;
 		}
 
 		/// <summary>
-		/// Retourne une référence mutable au composant associé à l'entité fournie.
+		/// Retourne une rÃ©fÃ©rence mutable au composant associÃ© Ã  l'entitÃ© fournie.
 		/// </summary>
-		/// <param name="entity">Identifiant de l'entité dont on souhaite obtenir le composant.</param>
-		/// <returns>Référence au ComponentType attaché à l'entité, permettant de lire ou modifier le composant. Comportement indéfini si l'entité n'a pas ce composant.</returns>
+		/// <param name="entity">Identifiant de l'entitÃ© dont on souhaite obtenir le composant.</param>
+		/// <returns>RÃ©fÃ©rence au ComponentType attachÃ© Ã  l'entitÃ©, permettant de lire ou modifier le composant. Comportement indÃ©fini si l'entitÃ© n'a pas ce composant.</returns>
 		ComponentType& Get(Entity entity)
 		{
-			assert(Contains(entity));			// On s'assure quele composant est là.
+			assert(Contains(entity));			// On s'assure quele composant est lÃ .
 											// m_Sparse[entity] peut valoir INVALID_INDEX
 											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
-			return m_Dense[m_Sparse[entity]];
+			return m_Dense[m_Sparse[EntityIndex(entity)]];
 		}
 
 		/// <summary>
-		/// Retourne une référence constante au composant associé à l'entité fournie.
+		/// Retourne une rÃ©fÃ©rence constante au composant associÃ© Ã  l'entitÃ© fournie.
 		/// </summary>
-		/// <param name="entity">Identifiant de l'entité dont on souhaite obtenir le composant.</param>
-		/// <returns>Référence constante vers le ComponentType associé à l'entité. Comportement indéfini si l'entité n'est pas présente dans le conteneur (l'appel suppose que l'entité a un composant).</returns>
+		/// <param name="entity">Identifiant de l'entitÃ© dont on souhaite obtenir le composant.</param>
+		/// <returns>RÃ©fÃ©rence constante vers le ComponentType associÃ© Ã  l'entitÃ©. Comportement indÃ©fini si l'entitÃ© n'est pas prÃ©sente dans le conteneur (l'appel suppose que l'entitÃ© a un composant).</returns>
 		const ComponentType& Get(Entity entity) const
 		{
-			assert(Contains(entity));			// On s'assure quele composant est là.
+			assert(Contains(entity));			// On s'assure quele composant est lÃ .
 											// m_Sparse[entity] peut valoir INVALID_INDEX
 											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
-			return m_Dense[m_Sparse[entity]];
+			return m_Dense[m_Sparse[EntityIndex(entity)]];		// mÃªme bug, mÃªme correction dans la version const
+		
 		}
 
 
 		/// <summary>
-		/// Ajoute un composant pour une entité : réserve l'espace si nécessaire, met à jour le composant existant si l'entité en possède déjà, sinon insère le composant et l'entité dans les structures de stockage sparse/dense.
+		/// Ajoute un composant pour une entitÃ© : rÃ©serve l'espace si nÃ©cessaire, met Ã  jour le composant existant si l'entitÃ© en possÃ¨de dÃ©jÃ , sinon insÃ¨re le composant et l'entitÃ© dans les structures de stockage sparse/dense.
 		/// </summary>
-		/// <param name="entity">Identifiant de l'entité pour laquelle le composant doit être ajouté ou mis à jour.</param>
-		/// <param name="component">Composant à associer à l'entité. Reçu par valeur et déplacé (move) dans le stockage interne.</param>
+		/// <param name="entity">Identifiant de l'entitÃ© pour laquelle le composant doit Ãªtre ajoutÃ© ou mis Ã  jour.</param>
+		/// <param name="component">Composant Ã  associer Ã  l'entitÃ©. ReÃ§u par valeur et dÃ©placÃ© (move) dans le stockage interne.</param>
 		void Add(Entity entity, ComponentType component)
 		{
-			// Versionning entity à intégrer plus tard EntityIndex(entity) 
-
-			EnsureSparseFits(entity);
+			const std::uint32_t idx = EntityIndex(entity);
+			EnsureSparseFits(idx);
 
 			if (Contains(entity))
 			{
-				// L'entité a déjà ce composant, on le met à jour
+				// L'entitÃ© a dÃ©jÃ  ce composant, on le met Ã  jour
 				Get(entity) = std::move(component);
 				return;
 			}
 
+			// Contrat : si Contains() est faux, le slot sparse DOIT Ãªtre vierge. S'il pointe encore quelque part,
+			// c'est qu'un composant d'une gÃ©nÃ©ration prÃ©cÃ©dente n'a pas Ã©tÃ© nettoyÃ© â†’ DestroyEntity a fautÃ©.
+			assert(m_Sparse[idx] == INVALID_INDEX && "Composant fantÃ´me d'une gÃ©nÃ©ration antÃ©rieure dÃ©tectÃ©");
+
 			uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
 
-			m_Sparse[entity] = dense_index;
+			m_Sparse[idx] = dense_index;
 			m_Dense.push_back(std::move(component));
 			m_Entities.push_back(entity);
 		}
 
 		/// <summary>
-		/// Construit le composant DIRECTEMENT à sa place finale dans m_Dense, à partir des arguments
+		/// Construit le composant DIRECTEMENT Ã  sa place finale dans m_Dense, Ã  partir des arguments
 		/// de son constructeur. 
-		/// Contrairement à Add(), aucun objet temporaire n'est créé : les arguments
-		/// sont transmis (forwarding) jusqu'à emplace_back, qui appelle le constructeur de ComponentType
-		/// une seule fois, dans le buffer du vector. Réservé aux entités qui n'ont pas encore le composant.
+		/// Contrairement Ã  Add(), aucun objet temporaire n'est crÃ©Ã© : les arguments
+		/// sont transmis (forwarding) jusqu'Ã  emplace_back, qui appelle le constructeur de ComponentType
+		/// une seule fois, dans le buffer du vector. RÃ©servÃ© aux entitÃ©s qui n'ont pas encore le composant.
 		/// </summary>
-		/// <param name="entity">Entité à laquelle attacher le nouveau composant.</param>
+		/// <param name="entity">EntitÃ© Ã  laquelle attacher le nouveau composant.</param>
 		/// <param name="args">Arguments transmis tels quels au constructeur de ComponentType.</param>
-		/// <returns>Référence vers le composant nouvellement construit.</returns>
+		/// <returns>RÃ©fÃ©rence vers le composant nouvellement construit.</returns>
 		template<typename... Args>
 		ComponentType& Emplace(Entity entity, Args&&... args)
 		{
-			EnsureSparseFits(entity);
+			const std::uint32_t idx = EntityIndex(entity);
+			EnsureSparseFits(idx);
 
-			// Versionning entity à intégrer plus tard EntityIndex(entity) 
-
-			// Contrat : Emplace sert à CRÉER, pas à mettre à jour. Si le composant existe déjà,
-			// c'est un appel incorrect côté système — on le signale plutôt que de l'accepter en silence.
-			assert(!Contains(entity) && "Emplace : le composant existe déjà, utilisez Add() ou Get() pour le modifier");
+			// Contrat : Emplace sert Ã  CRÃ‰ER, pas Ã  mettre Ã  jour. Si le composant existe dÃ©jÃ ,
+			// c'est un appel incorrect cÃ´tÃ© systÃ¨me â€” on le signale plutÃ´t que de l'accepter en silence.
+			assert(!Contains(entity) && "Emplace : le composant existe dÃ©jÃ , utilisez Add() ou Get() pour le modifier"); // attend un handle complet (index + gÃ©nÃ©ration empaquetÃ©s), pas un index nu
 
 			const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
 
-			m_Sparse[entity] = dense_index;
-			m_Entities.push_back(entity);
+			m_Sparse[idx] = dense_index;		// le sparse s'indexe par index brut â€” correct, ne change pa
+			m_Entities.push_back(entity);		// le miroir stocke le HANDLE COMPLET â€” gÃ©nÃ©ration incluse
 
 			// emplace_back construit ComponentType(std::forward<Args>(args)...) directement dans le
-			// buffer du vector : zéro copie, zéro déplacement intermédiaire.
+			// buffer du vector : zÃ©ro copie, zÃ©ro dÃ©placement intermÃ©diaire.
 			return m_Dense.emplace_back(std::forward<Args>(args)...);
 		}
 
 		/// <summary>
-		/// Supprime une entité du conteneur sparse/dense. Si l'entité n'existe pas, la fonction ne fait rien. Pour maintenir la compacité, l'élément à supprimer est remplacé par le dernier élément et les index sont mis à jour.
+		/// Supprime une entitÃ© du conteneur sparse/dense. Si l'entitÃ© n'existe pas, la fonction ne fait rien. Pour maintenir la compacitÃ©, l'Ã©lÃ©ment Ã  supprimer est remplacÃ© par le dernier Ã©lÃ©ment et les index sont mis Ã  jour.
 		/// </summary>
-		/// <param name="entity">L'entité à supprimer. Si elle n'est pas présente dans le conteneur, l'appel est sans effet.</param>
+		/// <param name="entity">L'entitÃ© Ã  supprimer. Si elle n'est pas prÃ©sente dans le conteneur, l'appel est sans effet.</param>
 		void Remove(Entity entity)
 		{
 			if (!Contains(entity))
 				return;
 
-			uint32_t index_to_remove = m_Sparse[entity];
-			uint32_t last_index = static_cast<uint32_t>(m_Dense.size() - 1);
-			Entity last_entity = m_Entities[last_index];
+			const std::uint32_t idx = EntityIndex(entity);
+			const std::uint32_t toRemove = m_Sparse[idx];
+			const std::uint32_t lastIdx = static_cast<std::uint32_t>(m_Dense.size() - 1);
 
-			// Swap
-			m_Dense[index_to_remove] = std::move(m_Dense[last_index]);
-			m_Entities[index_to_remove] = last_entity;
+			if (toRemove != lastIdx)						// Ã©vite le self-move quand on retire le dernier
+			{
+				const Entity lastEntity = m_Entities[lastIdx];
+				m_Dense[toRemove] = std::move(m_Dense[lastIdx]);
+				m_Entities[toRemove] = lastEntity;
+				m_Sparse[EntityIndex(lastEntity)] = toRemove;	// â† EntityIndex, pas l'entitÃ© brute !
+			}
 
-			// Pop
 			m_Dense.pop_back();
 			m_Entities.pop_back();
+			m_Sparse[idx] = INVALID_INDEX;
 
-			// Mettre à jour sparse pour l'entité déplacée et invalider l'entité supprimée
-			m_Sparse[last_entity] = index_to_remove;
-			m_Sparse[entity] = INVALID_INDEX;
+			//uint32_t index_to_remove = m_Sparse[entity];
+			//uint32_t last_index = static_cast<uint32_t>(m_Dense.size() - 1);
+			//Entity last_entity = m_Entities[last_index];
+
+			//// Swap
+			//m_Dense[index_to_remove] = std::move(m_Dense[last_index]);
+			//m_Entities[index_to_remove] = last_entity;
+
+			//// Pop
+			//m_Dense.pop_back();
+			//m_Entities.pop_back();
+
+			//// Mettre Ã  jour sparse pour l'entitÃ© dÃ©placÃ©e et invalider l'entitÃ© supprimÃ©e
+			//m_Sparse[last_entity] = index_to_remove;
+			//m_Sparse[entity] = INVALID_INDEX;
 		}
 
-		// --- Fonction override pour la gestion de la destruction d'entités ---
+		// --- Fonction override pour la gestion de la destruction d'entitÃ©s ---
 		void OnEntityDestroyed(Entity entity) override
 		{
 			if (Contains(entity))
 				Remove(entity);
 		}
 
-		// Retourne le nombre de composants stockés
+		// Retourne le nombre de composants stockÃ©s
 		size_t Size() const override
 		{
 			return m_Dense.size();
 		}
 
-		// --- Fonctions clés pour les Systèmes (accès direct aux données denses) ---
+		// --- Fonctions clÃ©s pour les SystÃ¨mes (accÃ¨s direct aux donnÃ©es denses) ---
 		std::vector<ComponentType>& GetDenseData()
 		{
 			return m_Dense;
 		}
 
-		// Version non-const pour l'accès interne ou direct si nécessaire
+		// Version non-const pour l'accÃ¨s interne ou direct si nÃ©cessaire
 		const std::vector<ComponentType>& GetDenseData() const
 		{
 			return m_Dense;
@@ -244,27 +278,27 @@ namespace LV3
 			return m_Entities;
 		}
 
-		// Version const pour l'itération polymorphique dans ComponentView
+		// Version const pour l'itÃ©ration polymorphique dans ComponentView
 		const std::vector<Entity>& GetDenseEntities() const override
 		{
 			return m_Entities;
 		}
 
 	private:
-		std::vector<uint32_t> m_Sparse;				// Indexé par Entity. Donne l'indice dans 'm_dense'.
-		std::vector<Entity> m_Entities;				// Indexé par Entity. Miroir de m_dense, stocke l'ID de l'entité.
+		std::vector<uint32_t> m_Sparse;				// IndexÃ© par Entity. Donne l'indice dans 'm_dense'.
+		std::vector<Entity> m_Entities;				// IndexÃ© par Entity. Miroir de m_dense, stocke l'ID de l'entitÃ©.
 		std::vector<ComponentType> m_Dense;			// Stockage compact des composants. Son index provient de m_Sparse
 
 		static constexpr uint32_t INVALID_INDEX = UINT32_MAX;	// const uint32_t INVALID_INDEX = UINT32_MAX;
-																// évite de résever 4 octects pour rien
+																// Ã©vite de rÃ©sever 4 octects pour rien
 
 
-		// Helper pour redimensionner m_sparse si nécessaire
-		void EnsureSparseFits(Entity entity)
+		// Helper pour redimensionner m_sparse si nÃ©cessaire
+		void EnsureSparseFits(Entity idx)
 		{
-			if (entity >= m_Sparse.size())
+			if (idx >= m_Sparse.size())
 			{
-				m_Sparse.resize(entity + 1, INVALID_INDEX);	// Redimensionne et initialise avec la valeur invalide
+				m_Sparse.resize(idx + 1, INVALID_INDEX);	// Redimensionne et initialise avec la valeur invalide
 			}
 		}
 	};

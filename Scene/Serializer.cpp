@@ -101,7 +101,7 @@ namespace LV3
 			}
 
 			Logger::log("\033[32mDeuxième passe terminée. Hiérarchie assemblée. \033[0m");
-			Logger::log("\033[32mBuildSceneGraph (ECS) terminé. " + std::to_string(registry.getEntityCount()) + " entités créées. \033[0m");
+			Logger::log("\033[32mBuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées. \033[0m");
 			Logger::log("\033[32mConstruction de la scène terminée avec succès.\033[0m");
 
 		}
