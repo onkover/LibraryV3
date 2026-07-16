@@ -183,6 +183,8 @@ namespace LV3
 		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée (si on joint juste 't' en déplacement grace à std::move(t)
 														 // TransformComponent est un POD pur (que des Vec3f / Matrix44f) — le gain est nul ici en pratique, mais l'uniformité du réflexe compte : on prend l'habitude de toujours céder une lvalue locale qu'on ne réutilise plus, sans se demander à chaque fois si le composant est « assez lourd » pour que ça vaille le coup. 
 														 // Le compilateur ne te punira jamais pour un move inutile sur un POD.
+
+
 	}
 
 	void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)

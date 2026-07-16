@@ -89,6 +89,14 @@ namespace LV3
 
 			// --- 3. Composition et mise à jour de la matrice locale ---
 			transform.m_localTransform = scaleMatrix * RotationQuat.ToMatrix44() * translationMatrix;
+
+			std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
+			std::cout << "\n" << std::endl;
+			
+			std::cout << "raw angles: " << transform.m_initialLocalRotation
+				<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
+			std::cout << "\n" << std::endl;
+
 		}
 
 
