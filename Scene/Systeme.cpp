@@ -130,8 +130,8 @@ namespace LV3
 	/// <param name="registry">Référence au registre d'entités et de composants.</param>
 	void WorldTransformSystem(Registry& registry, Matrix44f& worldIdentityMatrix)
 	{
-		//	Matrix44f worldIdentityMatrix;
-		worldIdentityMatrix.rotateX(45 * TO_RADIAN);
+//		Matrix44f worldIdentityMatrix2;
+//		worldIdentityMatrix.rotateX(45 * TO_RADIAN);
 
 		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
 		auto& Transforms = TransformComponentsPool->GetDenseData();
@@ -299,28 +299,29 @@ namespace LV3
 
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
 	{
-		//for (Entity entity = 0; entity < registry.getEntityCount(); entity++)
-		//{
-		//	if (registry.hasComponent<TransformComponent>(entity))
-		//	{
-		//		if (!registry.hasComponent<HierarchyComponent>(entity) || registry.getComponent<HierarchyComponent>(entity).m_isRoot)
-		//		{
-		//			DebugDisplaySystemRecursive(registry, entity, 0);
-		//		}
-		//	}
-		//}
-
-		registry.ForEachAlive([&](Entity entity)
+		for (Entity entity = 0; entity < registry.GetAliveCount(); entity++)
+		{
+			if (registry.hasComponent<TransformComponent>(entity))
 			{
-				if (registry.hasComponent<TransformComponent>(entity))
+				if (!registry.hasComponent<HierarchyComponent>(entity) 
+					|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
 				{
-					if (!registry.hasComponent<HierarchyComponent>(entity)
-						|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
-					{
-						DebugDisplaySystemRecursive(registry, entity, 0);
-					}
+					DebugDisplaySystemRecursive(registry, entity, 0);
 				}
-			});
+			}
+		}
+
+		//registry.ForEachAlive([&](Entity entity)
+		//	{
+		//		if (registry.hasComponent<TransformComponent>(entity))
+		//		{
+		//			if (!registry.hasComponent<HierarchyComponent>(entity)
+		//				|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+		//			{
+		//				DebugDisplaySystemRecursive(registry, entity, 0);
+		//			}
+		//		}
+		//	});
 
 
 	}
