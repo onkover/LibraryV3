@@ -128,8 +128,8 @@ namespace LV3
 		ComponentType& Get(Entity entity)
 		{
 			assert(Contains(entity));			// On s'assure quele composant est là.
-											// m_Sparse[entity] peut valoir INVALID_INDEX
-											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
+												// m_Sparse[entity] peut valoir INVALID_INDEX
+												//  Asserty = gratuit en Release, fatal et bruyant en Debug.
 			return m_Dense[m_Sparse[EntityIndex(entity)]];
 		}
 
@@ -141,8 +141,8 @@ namespace LV3
 		const ComponentType& Get(Entity entity) const
 		{
 			assert(Contains(entity));			// On s'assure quele composant est là.
-											// m_Sparse[entity] peut valoir INVALID_INDEX
-											//  Asserty = gratuit en Release, fatal et bruyant en Debug.
+												// m_Sparse[entity] peut valoir INVALID_INDEX
+												//  Asserty = gratuit en Release, fatal et bruyant en Debug.
 			return m_Dense[m_Sparse[EntityIndex(entity)]];		// même bug, même correction dans la version const
 		
 		}
@@ -294,7 +294,14 @@ namespace LV3
 
 
 		// Helper pour redimensionner m_sparse si nécessaire
-		void EnsureSparseFits(Entity idx)
+		//void EnsureSparseFits(Entity idx)
+		//{
+		//	if (idx >= m_Sparse.size())
+		//	{
+		//		m_Sparse.resize(idx + 1, INVALID_INDEX);	// Redimensionne et initialise avec la valeur invalide
+		//	}
+		//}
+		void EnsureSparseFits(std::uint32_t idx)
 		{
 			if (idx >= m_Sparse.size())
 			{
