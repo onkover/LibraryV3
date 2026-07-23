@@ -1,4 +1,3 @@
-#pragma once
 #include "pch.h"          // ? première ligne, toujours
 #include <map>	// pour le debug
 #include <set>
@@ -138,8 +137,6 @@ namespace LV3
 	/// <param name="registry">Référence au registre d'entités et de composants.</param>
 	void WorldTransformSystem(Registry& registry, Matrix44f& worldIdentityMatrix)
 	{
-//		Matrix44f worldIdentityMatrix2;
-//		worldIdentityMatrix.rotateX(45 * TO_RADIAN);
 
 		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
 		auto& Transforms = TransformComponentsPool->GetDenseData();

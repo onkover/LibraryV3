@@ -12,7 +12,6 @@
 namespace LV3
 {
 	//********************************************************************
-
 	// L'ancienne hiérarchie de `node` dans les anciennes vesion du scène graph devient un simple composant ici
 	struct HierarchyComponent
 	{
