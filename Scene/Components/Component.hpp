@@ -90,15 +90,15 @@ namespace LV3
 		//Vec3f halfSize{ 1, 1, 1 }; // Taille de la boîte (demi-dimensions)
 		//bool isColliding = false; // État
 
-		float radius;// = 1.0f; // La taille de notre trigger sphérique
+		float radius = 1.0f; // La taille de notre trigger sphérique
 
 		// Noms des événements que ce trigger publiera
-		std::string onEnterEvent;// = "";
-		std::string onStayEvent;// = "";
-		std::string onExitEvent;// = "";
+		std::string onEnterEvent = "";
+		std::string onStayEvent = "";
+		std::string onExitEvent = "";
 
 		// État (mis à jour par le TriggerSystem)
-		bool is_colliding;// = false;
+		bool is_colliding =false;
 		std::set<Entity> overlapping_entities; // Avec qui on collisionne
 
 		// Constructeur explicite : seuls radius et onEnterEvent sont obligatoires

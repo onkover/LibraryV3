@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <optional>	// c++ v17
+//#include <optional>	// c++ v17
 #include <array>
 #include <utility>
 #include "Components/Component.hpp"
@@ -422,6 +422,42 @@ namespace LV3
 				size_t m_currentDenseIndex;  // Index actuel dans le tableau dense d'entités du m_mainStorage : m_mainStorage->GetDenseEntities() 
 
 				// Méthode clé : avance l'itérateur jusqu'à la prochaine entité valide (jusqu'à trouver une entité qui possède effectivement tous les composants requis)
+				//void SkipInvalidEntities()
+				//{
+				//	// Si la vue est invalide (pas de mainStorage ou mainStorage est vide), l'itérateur est à la fin
+				//	if (!m_view->m_mainStorage || m_currentDenseIndex >= m_view->m_mainStorage->GetDenseEntities().size()) {
+				//		m_currentDenseIndex = m_view->m_mainStorage ? m_view->m_mainStorage->GetDenseEntities().size() : 0; // Positionne à la fin
+				//		return;
+				//	}
+
+				//	const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
+				//	const size_t mainSize = mainEntities.size(); // Utilise la taille réelle du vecteur d'entités
+
+				//	while (m_currentDenseIndex < mainSize)
+				//	{
+				//		Entity currentEntity = mainEntities[m_currentDenseIndex];
+
+				//		bool allComponentsPresent = true;
+				//		// Utilise une fold expression pour vérifier la présence de TOUS les ComponentTypes
+				//		// Important : utilise la version const de hasComponent
+				//		// •	Pour chaque entité candidate, on effectue : ([&] { if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity)) allComponentsPresent = false; }(), ...);
+				//		// •	Ce test utilise la version const de hasComponent<T>() (O(1) par composant).
+				//		([&]
+				//			{
+				//				if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity))
+				//				{
+				//					allComponentsPresent = false;
+				//				}
+				//			}(), ...);
+
+				//		if (allComponentsPresent)
+				//		{
+				//			break; // Trouvé une entité qui a TOUS les composants requis
+				//		}
+				//		m_currentDenseIndex++; // Entité non valide, passer à la suivante
+				//	}
+				//}
+
 				void SkipInvalidEntities()
 				{
 					// Si la vue est invalide (pas de mainStorage ou mainStorage est vide), l'itérateur est à la fin
@@ -437,18 +473,17 @@ namespace LV3
 					{
 						Entity currentEntity = mainEntities[m_currentDenseIndex];
 
-						bool allComponentsPresent = true;
-						// Utilise une fold expression pour vérifier la présence de TOUS les ComponentTypes
-						// Important : utilise la version const de hasComponent
-						// •	Pour chaque entité candidate, on effectue : ([&] { if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity)) allComponentsPresent = false; }(), ...);
-						// •	Ce test utilise la version const de hasComponent<T>() (O(1) par composant).
-						([&]
+						// CORRECTION F3 : on interroge directement les pointeurs typés capturés dans
+						// m_storages_ptr_tuple — plus aucun passage par le Registry (pas de GetTypeID,
+						// pas de bounds check sur m_Storages, pas de static_cast répété par entité).
+						// std::apply déplie le tuple en arguments, la fold expression "&&" court-circuite
+						// dès le premier Has() faux.
+						const bool allComponentsPresent = std::apply(
+							[currentEntity](auto*... storages)
 							{
-								if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity))
-								{
-									allComponentsPresent = false;
-								}
-							}(), ...);
+								return (storages->Contains(currentEntity) && ...);
+							},
+							m_view->m_storages_ptr_tuple);
 
 						if (allComponentsPresent)
 						{
@@ -461,8 +496,14 @@ namespace LV3
 			public:
 				// Typedefs standards pour un itérateur C++
 				using value_type = std::tuple<Entity, ComponentTypes&...>;
-				using reference = value_type&; // On retourne le tuple par valeur (RVO optimisera cela)
-
+				//using reference = value_type&; // On retourne le tuple par valeur (RVO optimisera cela)
+				using reference = value_type;	// CORRECTION F3 : itérateur PROXY, retour PAR VALEUR
+												// (comme std::vector<bool>) — le tuple contient de vraies
+												// références vers le dense, mais l'enveloppe elle-même
+												// est une valeur neuve à chaque appel. Plus besoin d'un
+												// membre mutable pour prolonger sa durée de vie.
+				 
+				
 				// Constructeur de l'itérateur
 				Iterator(const ComponentView* view, size_t startIndex)
 					: m_view(view), m_currentDenseIndex(startIndex)
@@ -471,22 +512,41 @@ namespace LV3
 					SkipInvalidEntities(); // Avancer au premier élément valide (ou à la fin)
 				}
 
+
 				/*
 				•	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des références aux composants.
 				•	Problème de durée de vie : on ne peut pas retourner une référence vers un tuple tempora.
 						=> Solution du code : mutable std::optional<value_type> m_currentTuple; est rempli (emplace) puis on retourne *m_currentTuple par référence.
 				*/
+				/*
+				•	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des références aux composants.
+				•	CORRECTION F3 : Get() est appelé directement sur les pointeurs typés du tuple capturé
+					— plus de passage par m_registry->getComponent<T>(), donc plus de GetTypeID/bounds
+					check/static_cast répétés. std::apply construit le tuple final en une seule expression.
+				*/
 				reference operator*() const
 				{
 					const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
-					Entity currentEntity = mainEntities[m_currentDenseIndex]; // currentEntity est une copie par valeur
+					const Entity currentEntity = mainEntities[m_currentDenseIndex];
 
-					m_currentTuple.emplace( // Utilise emplace() si m_currentTuple est optional, sinon =
-						currentEntity, // <-- Passera la valeur de currentEntity
-						m_view->m_registry->template getComponent<ComponentTypes>(currentEntity)...
-					);
-					return *m_currentTuple; // ou return m_currentTuple si pas optional
+					return std::apply(
+						[currentEntity](auto*... storages)
+						{
+							return value_type{ currentEntity, storages->Get(currentEntity)... };
+						},
+						m_view->m_storages_ptr_tuple);
 				}
+				//reference operator*() const
+				//{
+				//	const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
+				//	Entity currentEntity = mainEntities[m_currentDenseIndex]; // currentEntity est une copie par valeur
+
+				//	m_currentTuple.emplace( // Utilise emplace() si m_currentTuple est optional, sinon =
+				//		currentEntity, // <-- Passera la valeur de currentEntity
+				//		m_view->m_registry->template getComponent<ComponentTypes>(currentEntity)...
+				//	);
+				//	return *m_currentTuple; // ou return m_currentTuple si pas optional
+				//}
 
 				// Opérateur d'incrémentation (pré-incrément : ++it)
 				Iterator& operator++()
@@ -514,7 +574,7 @@ namespace LV3
 
 			private:
 				// Il stockera le tuple de références que operator*() retournera par référence
-				mutable std::optional<value_type> m_currentTuple;	// "mutable" permet à cette donnée d'être modifiée même dans une méthode const operator*().
+			//	mutable std::optional<value_type> m_currentTuple;	// "mutable" permet à cette donnée d'être modifiée même dans une méthode const operator*().
 
 			}; // Fin de la classe Iterator
 

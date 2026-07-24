@@ -205,7 +205,7 @@ namespace LV3
 		if (compJson.contains("model")) 
 		{
 			OBJLoadOptions  opts;
-			opts.flipUVsVertically = true;
+			opts.flipUVsVertically = false;
 			opts.generateNormalsIfMissing = true;
 			hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
 		}

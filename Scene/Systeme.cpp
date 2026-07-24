@@ -17,7 +17,7 @@ namespace LV3
 	void AnimationSystem(Registry& registry, float deltaTime)
 	{
 		// On utilise la ViewGroup (ComponentView) qui retourne (Entity, Component&...)
-		for (auto& [entity, mesh] : registry.ViewGroup<MeshComponent>())
+		for (auto&& [entity, mesh] : registry.ViewGroup<MeshComponent>())
 		{
 			mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
 			mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
@@ -89,12 +89,12 @@ namespace LV3
 			// --- 3. Composition et mise à jour de la matrice locale ---
 			transform.m_localTransform = scaleMatrix * RotationQuat.ToMatrix44() * translationMatrix;
 
-			std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
-			std::cout << "\n" << std::endl;
-			
-			std::cout << "raw angles: " << transform.m_initialLocalRotation
-				<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
-			std::cout << "\n" << std::endl;
+			//std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
+			//std::cout << "\n" << std::endl;
+			//
+			//std::cout << "raw angles: " << transform.m_initialLocalRotation
+			//	<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
+			//std::cout << "\n" << std::endl;
 
 		}
 
@@ -171,7 +171,7 @@ namespace LV3
 	// Doit s'exécuter avant que la matrice locale finale ne soit construite.
 	void CameraSystem(Registry& registry, float deltaTime)
 	{
-		for (auto& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
+		for (auto&& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
 		{
 			// La cible est la position statique définie dans le JSON
 			const Vec3f& targetPos = transform.m_initialLocalPosition;
@@ -200,7 +200,7 @@ namespace LV3
 	// doit s'exécuter en dernier, après que toutes les worldTransform finales ont été calculées.
 	void TriggerSystem(Registry& registry, EventBus& eventBus)
 	{
-		for (auto& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
 			Vec3f pos1 = Vec3f{ transform1.m_worldTransform[3][0],
 			transform1.m_worldTransform[3][1],
@@ -211,7 +211,7 @@ namespace LV3
 
 			// 2. Boucle N*N pour trouver les collisions
 
-			for (auto& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+			for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 			{
 				if (entity1 == entity2) continue;
 
@@ -304,29 +304,29 @@ namespace LV3
 
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
 	{
-		for (Entity entity = 0; entity < registry.GetAliveCount(); entity++)
-		{
-			if (registry.hasComponent<TransformComponent>(entity))
-			{
-				if (!registry.hasComponent<HierarchyComponent>(entity) 
-					|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
-				{
-					DebugDisplaySystemRecursive(registry, entity, 0);
-				}
-			}
-		}
-
-		//registry.ForEachAlive([&](Entity entity)
+		//for (Entity entity = 0; entity < registry.GetAliveCount(); entity++)
+		//{
+		//	if (registry.hasComponent<TransformComponent>(entity))
 		//	{
-		//		if (registry.hasComponent<TransformComponent>(entity))
+		//		if (!registry.hasComponent<HierarchyComponent>(entity) 
+		//			|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
 		//		{
-		//			if (!registry.hasComponent<HierarchyComponent>(entity)
-		//				|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
-		//			{
-		//				DebugDisplaySystemRecursive(registry, entity, 0);
-		//			}
+		//			DebugDisplaySystemRecursive(registry, entity, 0);
 		//		}
-		//	});
+		//	}
+		//}
+
+		registry.ForEachAlive([&](Entity entity)
+			{
+				if (registry.hasComponent<TransformComponent>(entity))
+				{
+					if (!registry.hasComponent<HierarchyComponent>(entity)
+						|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+					{
+						DebugDisplaySystemRecursive(registry, entity, 0);
+					}
+				}
+			});
 
 
 	}
@@ -389,7 +389,7 @@ namespace LV3
 	//********************************************************************
 	void PlayerInputSystem(Registry& registry, float deltaTime) {
 
-		for (auto& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) {
+		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) {
 			// 'control' et 'transform' sont des références directes et MODIFIABLES
 			// Aucune vérification 'hasComponent' ou 'getComponent' dans la boucle.
 			// Itération dense et optimisée.
