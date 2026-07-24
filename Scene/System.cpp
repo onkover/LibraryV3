@@ -123,7 +123,9 @@ namespace LV3
 		// --- 4. MISE À JOUR RÉCURSIVE DES ENFANTS ---
 		if (registry.hasComponent<HierarchyComponent>(entity))
 		{
-			HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity);
+			// F6 optim : HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity); // HierarchyComponent children = ... copie la struct entière — donc son std::vector<Entity> m_children — à chaque nœud, à chaque frame, dans une récursion.
+			const auto& children = registry.getComponent<HierarchyComponent>(entity);   // référence, zéro copie
+
 			for (Entity childID : children.m_children)
 			{
 				UpdateWorldTransforms(registry, childID, transform.m_worldTransform);
@@ -135,7 +137,7 @@ namespace LV3
 	/// Parcourt les composants de transformation et initie la mise à jour des matrices de transformation mondiales pour les entités racines (ou sans parent) en appelant UpdateWorldTransforms avec une matrice identité.
 	/// </summary>
 	/// <param name="registry">Référence au registre d'entités et de composants.</param>
-	void WorldTransformSystem(Registry& registry, Matrix44f& worldIdentityMatrix)
+	void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix)
 	{
 
 		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
@@ -144,8 +146,6 @@ namespace LV3
 
 		for (size_t i = 0; i < Transforms.size(); i++)
 		{
-			//TransformComponent& transform = Transforms[i];
-			//Entity entity = Entities[i];
 
 			// On ne prend que les entités qui n'ont pas de parent, afin de démarrer le calcul récursif des matrices à partir d'elles
 			// 1. les entités solitaires (pas de hiérarchie). La transformation de ces entités ne dépend pas d'autruit (comme un astéroide ou un vaisseau spatial par exemple)
@@ -198,6 +198,23 @@ namespace LV3
 	//********************************************************************
 
 	// doit s'exécuter en dernier, après que toutes les worldTransform finales ont été calculées.
+
+	/*
+	TODO : optimiser la détection de collision naïve O(N²) en utilisant une broad-phase spatiale (grille, quadtree, etc.) pour réduire le nombre de comparaisons.
+	la boucle N² imbriquée(for entity1 ... for entity2 ...) construit - elle deux fois la vue à chaque itération externe, comme je le redoutais dans l'audit initial ? Non — regarde bien : la boucle externe for (auto&& [entity1, ...] : registry.ViewGroup<...>()) crée une vue, et la boucle interne en crée une seconde, mais celle-ci est construite une fois par entité externe, pas par paire. C'est du O(N²) en nombre de comparaisons(normal et attendu pour une détection de collision naïve), mais chaque construction de ComponentView interne est O(K) pour trouver le pivot(K = nombre de types, ici 2) — négligeable comparé au travail de la boucle elle - même.Ce n'est pas le C5d de l'audit initial dans toute sa gravité; le vrai gain serait de passer à une broad - phase spatiale plus tard(grille, quadtree), mais ça sort du cadre de F6 — c'est un chantier d'optimisation algorithmique à part entière, pas une hygiène de code.
+
+	Le coût algorithmique est mal placé. Une détection de collision en O(N²) n'est pas fautive en soi — même Unity fait du N² à petite échelle. Le vrai problème, c'est qu'aucune étape de tri grossier ne précède le test précis. Chaque paire d'entités, même à l'autre bout de la scène, subit le calcul complet de distance et de rayon combiné. Un moteur professionnel sépare toujours en deux phases : une broad-phase rapide et approximative qui élimine 95 % des paires impossibles (grille spatiale, quadtree, ou même un simple tri par axe), puis une narrow-phase précise (ton test sphère-sphère actuel) qui ne s'applique qu'aux survivants. Tu as la seconde, pas la première.
+
+	Le double parcours recrée deux fois le même travail de filtrage. La boucle interne reconstruit une vue ViewGroup<TriggerComponent, TransformComponent> identique à la boucle externe — le pivot est recalculé, mais surtout le contenu est le même ensemble d'entités. Rien ne t'empêcherait de matérialiser ce contenu une seule fois (positions + rayons dans un std::vector plat) avant la double boucle, ce qui coûte une seule passe de filtrage au lieu de N.
+
+	La sémantique événementielle est mélangée à la détection géométrique. Ta boucle fait trois métiers à la fois : trouver les collisions, comparer à l'état précédent, publier des événements. C'est lisible aujourd'hui parce que le système est petit, mais le jour où tu voudras des triggers asymétriques (un trigger qui ne réagit qu'à certains tags, par exemple des ennemis mais pas des astéroïdes), cette fonction devra être réécrite en profondeur plutôt qu'étendue.
+
+	Où ça mène, sans s'y engager aujourd'hui
+
+	Le design cible ressemblerait à ceci : une passe de collecte (entity, position, radius) dans un vecteur local — profitant au passage du fait que ce vecteur serait contigu et cache-friendly — suivie d'un partitionnement spatial (une grille uniforme suffit largement à ton échelle, pas besoin d'un quadtree hiérarchique pour une scène de jeu simple), puis la narrow-phase uniquement sur les paires dans la même cellule ou des cellules voisines. La logique ON_ENTER/ON_STAY/ON_EXIT resterait identique — c'est une bonne nouvelle, cette partie de ton code est déjà propre et n'a pas besoin d'être repensée.
+
+	*/
+
 	void TriggerSystem(Registry& registry, EventBus& eventBus)
 	{
 		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
@@ -335,10 +352,12 @@ namespace LV3
 	void RenderSystem(Registry& registry, Entity activeCamera)
 	{
 		// 1. Obtenir la matrice de Vue
-		//Matrix44f viewMatrix(1.0f);
-		//if (registry.hasComponent<TransformComponent>(activeCamera)) {
-		//	viewMatrix = glm::inverse(registry.getComponent<TransformComponent>(activeCamera).worldTransform);
-		//}
+		 
+		// TODO: calculer la matrice de vue via l'inverse de activeCamera.worldTransform
+			//Matrix44f viewMatrix(1.0f);
+			//if (registry.hasComponent<TransformComponent>(activeCamera)) {
+			//	viewMatrix = glm::inverse(registry.getComponent<TransformComponent>(activeCamera).worldTransform);
+			//}		
 
 		// (Ici, calculer la matrice de Projection...)
 		// ...

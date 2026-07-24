@@ -419,44 +419,7 @@ namespace LV3
 			class Iterator
 			{
 				const ComponentView* m_view; // Pointeur vers la ComponentView parente
-				size_t m_currentDenseIndex;  // Index actuel dans le tableau dense d'entités du m_mainStorage : m_mainStorage->GetDenseEntities() 
-
-				// Méthode clé : avance l'itérateur jusqu'à la prochaine entité valide (jusqu'à trouver une entité qui possède effectivement tous les composants requis)
-				//void SkipInvalidEntities()
-				//{
-				//	// Si la vue est invalide (pas de mainStorage ou mainStorage est vide), l'itérateur est à la fin
-				//	if (!m_view->m_mainStorage || m_currentDenseIndex >= m_view->m_mainStorage->GetDenseEntities().size()) {
-				//		m_currentDenseIndex = m_view->m_mainStorage ? m_view->m_mainStorage->GetDenseEntities().size() : 0; // Positionne à la fin
-				//		return;
-				//	}
-
-				//	const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
-				//	const size_t mainSize = mainEntities.size(); // Utilise la taille réelle du vecteur d'entités
-
-				//	while (m_currentDenseIndex < mainSize)
-				//	{
-				//		Entity currentEntity = mainEntities[m_currentDenseIndex];
-
-				//		bool allComponentsPresent = true;
-				//		// Utilise une fold expression pour vérifier la présence de TOUS les ComponentTypes
-				//		// Important : utilise la version const de hasComponent
-				//		// •	Pour chaque entité candidate, on effectue : ([&] { if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity)) allComponentsPresent = false; }(), ...);
-				//		// •	Ce test utilise la version const de hasComponent<T>() (O(1) par composant).
-				//		([&]
-				//			{
-				//				if (!m_view->m_registry->template hasComponent<ComponentTypes>(currentEntity))
-				//				{
-				//					allComponentsPresent = false;
-				//				}
-				//			}(), ...);
-
-				//		if (allComponentsPresent)
-				//		{
-				//			break; // Trouvé une entité qui a TOUS les composants requis
-				//		}
-				//		m_currentDenseIndex++; // Entité non valide, passer à la suivante
-				//	}
-				//}
+				size_t m_currentDenseIndex;  // Index actuel dans le tableau dense d'entités du m_mainStorage : m_mainStorage->GetDenseEntities() 				
 
 				void SkipInvalidEntities()
 				{
@@ -515,11 +478,6 @@ namespace LV3
 
 				/*
 				•	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des références aux composants.
-				•	Problème de durée de vie : on ne peut pas retourner une référence vers un tuple tempora.
-						=> Solution du code : mutable std::optional<value_type> m_currentTuple; est rempli (emplace) puis on retourne *m_currentTuple par référence.
-				*/
-				/*
-				•	Construit et retourne un std::tuple<Entity, ComponentTypes&...> contenant l'Entity et des références aux composants.
 				•	CORRECTION F3 : Get() est appelé directement sur les pointeurs typés du tuple capturé
 					— plus de passage par m_registry->getComponent<T>(), donc plus de GetTypeID/bounds
 					check/static_cast répétés. std::apply construit le tuple final en une seule expression.
@@ -536,17 +494,6 @@ namespace LV3
 						},
 						m_view->m_storages_ptr_tuple);
 				}
-				//reference operator*() const
-				//{
-				//	const auto& mainEntities = m_view->m_mainStorage->GetDenseEntities();
-				//	Entity currentEntity = mainEntities[m_currentDenseIndex]; // currentEntity est une copie par valeur
-
-				//	m_currentTuple.emplace( // Utilise emplace() si m_currentTuple est optional, sinon =
-				//		currentEntity, // <-- Passera la valeur de currentEntity
-				//		m_view->m_registry->template getComponent<ComponentTypes>(currentEntity)...
-				//	);
-				//	return *m_currentTuple; // ou return m_currentTuple si pas optional
-				//}
 
 				// Opérateur d'incrémentation (pré-incrément : ++it)
 				Iterator& operator++()

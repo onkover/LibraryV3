@@ -13,7 +13,7 @@ namespace LV3
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 	void CameraSystem(Registry& registry, float deltaTime);
 	//void WorldTransformSystem(Registry& registry);
-	void WorldTransformSystem(Registry& registry, Matrix44f& worldIdentityMatrix);
+	void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix);
 	//void WorldTransformSystem(Registry& registry);
 
 	void LocalTransformSystem(Registry& registry);

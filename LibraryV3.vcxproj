@@ -200,7 +200,7 @@
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />
     <ClCompile Include="Scene\Serializer.cpp" />
-    <ClCompile Include="Scene\Systeme.cpp" />
+    <ClCompile Include="Scene\System.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="LibraryV3.rc" />

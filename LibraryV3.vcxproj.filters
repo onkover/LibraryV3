@@ -151,7 +151,7 @@
     <ClCompile Include="Scene\Serializer.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Systeme.cpp">
+    <ClCompile Include="Scene\System.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Ressources\MTLLoader.cpp">
