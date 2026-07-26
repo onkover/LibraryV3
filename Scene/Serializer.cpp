@@ -202,18 +202,32 @@ namespace LV3
 		const std::string fullPath = ResolvePath(ctx.baseDir, meshPath);
 
 		MeshHandle hMesh;
-		if (compJson.contains("model")) 
+		if (compJson.contains("model"))
 		{
 			OBJLoadOptions  opts;
 			opts.flipUVsVertically = false;
 			opts.generateNormalsIfMissing = true;
-			hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
+			//hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
+			auto meshResult = ctx.pRM.LoadMeshChecked(compJson["model"].get<std::string>(), opts);
+
+
+			if (!meshResult.has_value())
+			{
+				const char* reason = meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
+														: meshResult.error() == EMeshLoadError::ParseFailed ? "échec de parsing OBJ"
+														: "mesh vide";
+				Logger::error("\033[31mSceneSerializer::ParseMesh — " + std::string(reason) + " : " + fullPath + "");
+				return;
+			}
+			hMesh = *meshResult;
 		}
-		if (!hMesh.IsValid())
-		{
-			Logger::error("\033[31mSceneSerializer::ParseMesh — échec du chargement du mesh : " + fullPath + " \033[0m");
-			return;
-		}
+
+
+		//if (!hMesh.IsValid())
+		//{
+		//	Logger::error("\033[31mSceneSerializer::ParseMesh — échec du chargement du mesh : " + fullPath + " \033[0m");
+		//	return;
+		//}
 		
 		//if (compJson.contains("texture")) m.m_texture = compJson["texture"];
 

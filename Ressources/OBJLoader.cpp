@@ -54,8 +54,9 @@ namespace {
             return h;
         }
     };
-} // anon
+}
 
+//***********************************************************************************************
 /// <summary>
 /// Charge un fichier OBJ, charge les matériaux associés et construit un MeshHandle.
 /// </summary>
@@ -70,6 +71,10 @@ MeshHandle OBJLoader::Load(const std::string& filepath, ResourceManager& rm, con
     if (!ParseFile(filepath, parsedDataOBJ))
         return MeshHandle::Invalid();
 
+
+    // à piori, on ne tombera jamais sur ce cas
+    // ParseFile ne retourne true que si !out.rawVertex.empty() && !out.rawFaces.empty() — donc si on arrive après le premier if, parsedDataOBJ.rawFaces est garanti non vide
+	// to do : optimiser la gestion des erreurs : si le fichier est vide ou ne contient pas de vertex/faces, on pourrait retourner un MeshHandle invalide plus tôt, mais pour l'instant on laisse passer cette vérification ici
     if (parsedDataOBJ.rawFaces.empty())
         return MeshHandle::Invalid();
 
@@ -93,9 +98,8 @@ MeshHandle OBJLoader::Load(const std::string& filepath, ResourceManager& rm, con
 bool OBJLoader::ParseFile(const std::string& filepath, ParseResult& out)
 {
     std::ifstream file(filepath);
-
     if (!file.is_open())
-        return false;
+        return false;   // fichier introuvable/inaccessible
     
 	// Réserve de la capacité pour éviter les reallocations fréquentes lors de l'ajout d'éléments
     out.rawVertex.reserve(8192);
@@ -212,7 +216,7 @@ bool OBJLoader::ParseFile(const std::string& filepath, ParseResult& out)
     }
 
     file.close();  // ← Fermeture explicite
-    return !out.rawVertex.empty() && !out.rawFaces.empty();
+	return !out.rawVertex.empty() && !out.rawFaces.empty(); // Retourne true si le fichier a été parsé avec succès et contient au moins un vertex et une face
 }
 
 //***************************************************************************************

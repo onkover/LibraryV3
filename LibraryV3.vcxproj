@@ -175,6 +175,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="Ressources\CommunFunctions.h" />
     <ClInclude Include="Ressources\json.hpp" />
     <ClInclude Include="Ressources\MTLLoader.h" />
     <ClInclude Include="Ressources\OBJLoader.h" />
@@ -196,6 +197,7 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Ressources\CommunFunctions.cpp" />
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />

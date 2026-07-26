@@ -140,6 +140,9 @@
     <ClInclude Include="Maths\MathTypes.h">
       <Filter>Maths</Filter>
     </ClInclude>
+    <ClInclude Include="Ressources\CommunFunctions.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -168,6 +171,9 @@
     </ClCompile>
     <ClCompile Include="Maths\Transform.cpp">
       <Filter>Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="Ressources\CommunFunctions.cpp">
+      <Filter>Ressources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

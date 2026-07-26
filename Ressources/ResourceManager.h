@@ -3,6 +3,7 @@
 #include <string>
 
 #include <unordered_map>
+#include <expected>	
 #include "ResourceHandle.h"
 #include "OBJLoader.h"
 #include "OBJLoadOptions.h" 
@@ -15,6 +16,15 @@ namespace LV3 {
     class MeshClass;
     class Material;
    
+
+    enum class EMeshLoadError : std::uint8_t
+    {
+        FileNotFound,
+        ParseFailed,
+        EmptyMesh
+    };
+
+
     class ResourceManager {
     public:
         ResourceManager()  = default;
@@ -39,12 +49,16 @@ namespace LV3 {
         ResourceManager& operator=(ResourceManager&&) noexcept;
 
         // ── Meshes ────────────────────────────────────────────
-        MeshHandle       LoadMesh(const std::string& filepath, const OBJLoadOptions& opt={});
+//        MeshHandle       LoadMesh(const std::string& filepath, const OBJLoadOptions& opt={});
         [[nodiscard]] const MeshClass* GetMesh(MeshHandle h) const;
         [[nodiscard]]       MeshClass* GetMesh(MeshHandle h);
         [[nodiscard]] MeshHandle       FindMesh(const std::string& filepath) const;
         [[nodiscard]] bool             IsMeshLoaded(const std::string& filepath) const;
+        // Nouvelle méthode, canal d'erreur explicite — coexiste avec LoadMesh() pour ne pas casser les appelants existants qui se contentent d'un MeshHandle invalide.
+        [[nodiscard]] std::expected<MeshHandle, EMeshLoadError> LoadMeshChecked(const std::string& filepath, const OBJLoadOptions& opt = {});
+
         void UnloadMesh(MeshHandle h);
+
 
         // ── Matériaux ─────────────────────────────────────────
         [[nodiscard]] MaterialHandle   FindMaterialByName(const std::string& name) const;
@@ -59,6 +73,9 @@ namespace LV3 {
         [[nodiscard]] size_t GetMeshCount()     const noexcept;
         [[nodiscard]] size_t GetMaterialCount() const noexcept;
 
+
+        // todo créer la map inverse des matériaux
+
 		// ── UnloadAll : décharge toutes les ressources (meshes et matériaux) et vide les caches
         void UnloadAll();
 
@@ -66,12 +83,17 @@ namespace LV3 {
 		uint32_t m_nextMeshId = 1u; // Compteur pour générer des handles uniques pour les meshes
 		std::unordered_map<uint32_t, std::unique_ptr<MeshClass>>    m_meshes;   // Carte des handles vers les meshes
         std::unordered_map<std::string, MeshHandle>                 m_pathToMesh;   // Carte des chemins vers les handles de mesh
+		std::unordered_map<uint32_t, std::string>                   m_meshIdToPath;   // Carte des chemins inverse pour retrouver rapidement le chemin d'un mesh à partir de son handle sans parcourir toute la map inutilement
+		                                                                              // optimisation pour UnloadMesh() : on peut retrouver le chemin du mesh à partir de son handle en O(1) au lieu de faire un scan linéaire de m_pathToMesh        
         MeshHandle     AllocateMeshHandle()     noexcept;
 
 		uint32_t m_nextMaterialId = 1u; // Compteur pour générer des handles uniques pour les matériaux
         std::unordered_map<uint32_t,    std::unique_ptr<Material>>  m_materials;
         std::unordered_map<std::string, MaterialHandle>             m_nameToMaterial;        
         MaterialHandle AllocateMaterialHandle() noexcept;
+
+
+
     };
 
 } // namespace LV3
