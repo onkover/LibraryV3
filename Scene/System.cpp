@@ -5,6 +5,8 @@
 #include "Registry.hpp"
 #include "../Core/EventBus.hpp"
 #include <cassert>
+#include "../Ressources/ResourceManager.h"
+
 
 namespace LV3
 {
@@ -348,8 +350,8 @@ namespace LV3
 
 	}
 
-
-	void RenderSystem(Registry& registry, Entity activeCamera)
+	
+	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager)
 	{
 		// 1. Obtenir la matrice de Vue
 		 
@@ -376,14 +378,31 @@ namespace LV3
 			{
 				auto& transform = Transforms[tr];
 				auto& name = registry.getComponent<NameComponent>(Entities[tr]);
+				auto& meshComp = registry.getComponent<MeshComponent>(Entities[tr]);
+
+				// Résolution du handle EN CE POINT PRÉCIS, jamais stockée ailleurs.
+				// Le ResourceManager reste l'unique propriétaire : on obtient un pointeur d'observation, valable pour la durée de cette frame seulement.
+				//  Recherche l'intérieur de la boucle, à chaque frame — ce n'est pas un gaspillage : c'est une recherche dans une unordered_map (O(1) amorti), et surtout c'est la garantie que si le mesh a été déchargé entre deux frames(UnloadMesh appelé ailleurs), le système le détecte immédiatement au lieu de déréférencer un pointeur mort.
+				const MeshClass* mesh = resourceManager.GetMesh(meshComp.m_meshHandle);
+
+				if (!mesh)	// GetMesh peut retourner nullptr 
+				{
+					// Handle invalide ou périmé (mesh déchargé entre-temps) : on ignore
+					// cette entité plutôt que de déréférencer un pointeur nul.
+					std::cout << " - " << name.m_id << " [mesh introuvable, handle invalide]" << std::endl;
+					continue;
+				}
 
 				Vec3f worldPosition = Vec3f(transform.m_worldTransform[3][0], transform.m_worldTransform[3][1], transform.m_worldTransform[3][2]);
 
 				std::cout << " - " << name.m_id
 					<< " [Pos : " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "]" << std::endl;
 
-				// Appel réel du rendu:
-				// monMoteur->dessiner(mesh.model, transform.worldTransform, viewMatrix);
+
+				// Appel réel du rendu, une fois le pointeur résolu :
+					// monMoteur->dessiner(*mesh, transform.m_worldTransform, viewMatrix);
+					// Chaque SubMesh de *mesh porte déjà son propre MaterialHandle (submesh.material) —
+					// résolu à son tour via resourceManager.GetMaterial(submesh.material) au moment du dessin.
 
 			}
 

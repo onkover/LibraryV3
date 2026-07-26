@@ -215,13 +215,25 @@ namespace LV3
 			return;
 		}
 		
-		if (compJson.contains("texture")) m.m_texture = compJson["texture"];
+		//if (compJson.contains("texture")) m.m_texture = compJson["texture"];
 
 		//                    m.m_mesh->AABB.resetAABB();
 		//                    m.m_mesh->buildAABB(VERTEXSTATE::OBJECT();
 
-		ctx.registry.addComponent(entity, std::move(m)); // Transforme la copie forcée en déplacement passer par move(xxx) que passer par xxx
+		//ctx.registry.addComponent(entity, std::move(m)); // Transforme la copie forcée en déplacement passer par move(xxx) que passer par xxx
 														   // Ici le gain est réel : m_texture est un std::string, et m_mesh un shared_ptr (dont le déplacement évite un incrément/décrément atomique du compteur de références — pas cher, mais pas gratuit non plus).
+
+		ctx.registry.emplaceComponent<MeshComponent>(
+			entity,
+			hMesh,                                        // m_mesh
+			compJson.value("orbitalSpeed", 0.0f),          // m_orbitalSpeed
+			compJson.value("rotationSpeed", 0.0f),         // m_rotationSpeed
+			0.0f,                                          // m_currentOrbitAngle
+			0.0f                                           // m_currentRotationAngle
+		);
+
+		// contrôle de cohérence : MeshComponent est un POD pur, donc trivially copyable. Si tu ajoutes un std::string ou un std::vector dedans, le compilateur te le signalera ici.
+		static_assert(std::is_trivially_copyable_v<MeshComponent>);
 	}
 
 	//***************************************************************************************

@@ -8,7 +8,9 @@
 #include "Entity.hpp"
 
 #include "Lighting/LightTypes.h"
-#include "Geometry/MeshClass.h"
+//#include "Geometry/MeshClass.h"
+#include "../../Ressources/ResourceHandle.h"
+
 namespace LV3
 {
 	//********************************************************************
@@ -44,15 +46,22 @@ namespace LV3
 	};
 
 	//********************************************************************
-
+	/* 
+	RÉFÉRENCE, pas de propriété : le ResourceManager reste l'unique propriétaire.
+	Résolution : resourceManager.GetMesh(m_mesh) au moment de l'usage (rendu, culling, etc.)
+	Les matériaux ne sont PAS dupliqués ici : chaque MeshClass::SubMesh porte déjà son
+	propre MaterialHandle (voir SubMesh.h) — un mesh multi-matériaux fonctionne nativement.
+	*/
 	struct MeshComponent
 	{
+		// optilisation au profit du ressourcemanager : on ne stocke pas le MeshClass ici, juste un handle vers le ResourceManager
+//		std::shared_ptr<MeshClass> m_mesh;
+//		std::string m_texture;
+		MeshHandle m_meshHandle;
+
 		// Données pour l'animation
 		float m_orbitalSpeed = 0.0f;
 		float m_rotationSpeed = 0.0f;
-
-		std::shared_ptr<MeshClass> m_mesh;
-		std::string m_texture;
 
 		// Les variables d'état (angles)
 		float m_currentOrbitAngle = 0.0f;

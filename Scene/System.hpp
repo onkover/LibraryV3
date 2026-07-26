@@ -18,7 +18,9 @@ namespace LV3
 
 	void LocalTransformSystem(Registry& registry);
 	void AnimationSystem(Registry& registry, float deltaTime);
-	void RenderSystem(Registry& registry, Entity activeCamera);
+//	void RenderSystem(Registry& registry, Entity activeCamera);
+	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
+
 
 	class HealthSystem
 	{
