@@ -52,13 +52,6 @@ namespace LV3
 		std::vector<std::unique_ptr<Page>> m_pages;	// chaque page : 4096 * 4 = 16 Ko, allouée à la demande
 	};
 
-
-
-
-	// pour le SparseSet, taille initiale du tableau sparse (m_sparse)
-	//const size_t MAX_ENTITIES_INIT = 10;
-//	inline constexpr size_t MAX_ENTITIES_INIT = 10000;	// inine au lieu de const pour éviter les problèmes de linkage multiple (par unité de compilation à cause du CONST)
-
 	//********************************************************************
 
 	// interface de base / de stockage pour le "type erasure"
@@ -110,14 +103,6 @@ namespace LV3
 
 		bool Contains(Entity entity) const override
 		{
-			//const std::uint32_t idx = EntityIndex(entity);
-			//if (idx >= m_Sparse.size()) 
-			//	return false;
-			//
-			//const std::uint32_t dense = m_Sparse[idx];
-			//return dense != INVALID_INDEX 
-			//	&& dense < m_Dense.size() 
-			//	&& m_Entities[dense] == entity;
 
 			const std::uint32_t idx = EntityIndex(entity);
 			const std::uint32_t dense = m_Sparse.Get(idx);		// était : m_Sparse[idx]
@@ -133,12 +118,10 @@ namespace LV3
 		/// <returns>Référence au ComponentType attaché à l'entité, permettant de lire ou modifier le composant. Comportement indéfini si l'entité n'a pas ce composant.</returns>
 		ComponentType& Get(Entity entity)
 		{
-			//assert(Contains(entity));			// On s'assure quele composant est là.
-			//									// m_Sparse[entity] peut valoir INVALID_INDEX
-			//									//  Asserty = gratuit en Release, fatal et bruyant en Debug.
-			//return m_Dense[m_Sparse[EntityIndex(entity)]];
+			assert(Contains(entity));			// On s'assure quele composant est là.
+												// m_Sparse[entity] peut valoir INVALID_INDEX
+												// Assert = gratuit en Release, fatal et bruyant en Debug.
 
-			assert(Contains(entity));
 			return m_Dense[m_Sparse.Get(EntityIndex(entity))];		// était : m_Sparse[EntityIndex(entity)]
 
 		}
@@ -150,10 +133,9 @@ namespace LV3
 		/// <returns>Référence constante vers le ComponentType associé à l'entité. Comportement indéfini si l'entité n'est pas présente dans le conteneur (l'appel suppose que l'entité a un composant).</returns>
 		const ComponentType& Get(Entity entity) const
 		{
-			//assert(Contains(entity));			// On s'assure quele composant est là.
-			//									// m_Sparse[entity] peut valoir INVALID_INDEX
-			//									//  Asserty = gratuit en Release, fatal et bruyant en Debug.
-			//return m_Dense[m_Sparse[EntityIndex(entity)]];		// même bug, même correction dans la version const
+			assert(Contains(entity));			// On s'assure quele composant est là.
+												// m_Sparse[entity] peut valoir INVALID_INDEX
+												// Assert = gratuit en Release, fatal et bruyant en Debug.
 
 			assert(Contains(entity));
 			return m_Dense[m_Sparse.Get(EntityIndex(entity))];
@@ -166,36 +148,17 @@ namespace LV3
 		/// <param name="entity">Identifiant de l'entité pour laquelle le composant doit être ajouté ou mis à jour.</param>
 		/// <param name="component">Composant à associer à l'entité. Reçu par valeur et déplacé (move) dans le stockage interne.</param>
 		void Add(Entity entity, ComponentType component)
-		{
-			//const std::uint32_t idx = EntityIndex(entity);
-			//EnsureSparseFits(idx);
-
-			//if (Contains(entity))
-			//{
-			//	// L'entité a déjà ce composant, on le met à jour
-			//	Get(entity) = std::move(component);
-			//	return;
-			//}
-
-			//// Contrat : si Contains() est faux, le slot sparse DOIT être vierge. S'il pointe encore quelque part,
-			//// c'est qu'un composant d'une génération précédente n'a pas été nettoyé → DestroyEntity a fauté.
-			//assert(m_Sparse[idx] == INVALID_INDEX && "Composant fantôme d'une génération antérieure détecté");
-
-			//uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
-
-			//m_Sparse[idx] = dense_index;
-			//m_Dense.push_back(std::move(component));
-			//m_Entities.push_back(entity);
-
+		{					
 			const std::uint32_t idx = EntityIndex(entity);
-			// EnsureSparseFits(idx) supprimé — Set() gère l'allocation de page elle-même
-
+			
 			if (Contains(entity))
 			{
 				Get(entity) = std::move(component);
 				return;
 			}
 
+			// Contrat : si Contains() est faux, le slot sparse DOIT être vierge. S'il pointe encore quelque part,
+			// c'est qu'un composant d'une génération précédente n'a pas été nettoyé → DestroyEntity a fauté.
 			assert(m_Sparse.Get(idx) == INVALID_INDEX && "Composant fantôme d'une génération antérieure détecté");
 
 			const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
@@ -217,22 +180,12 @@ namespace LV3
 		template<typename... Args>
 		ComponentType& Emplace(Entity entity, Args&&... args)
 		{
-			//const std::uint32_t idx = EntityIndex(entity);
-			//EnsureSparseFits(idx);
-
-			//// Contrat : Emplace sert à CRÉER, pas à mettre à jour. Si le composant existe déjà,
-			//// c'est un appel incorrect côté système — on le signale plutôt que de l'accepter en silence.
-			//assert(!Contains(entity) && "Emplace : le composant existe déjà, utilisez Add() ou Get() pour le modifier"); // attend un handle complet (index + génération empaquetés), pas un index nu
-
-			//const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
-
-			//m_Sparse[idx] = dense_index;		// le sparse s'indexe par index brut — correct, ne change pa
-			//m_Entities.push_back(entity);		// le miroir stocke le HANDLE COMPLET — génération incluse
-
-			//// emplace_back construit ComponentType(std::forward<Args>(args)...) directement dans le
-			//// buffer du vector : zéro copie, zéro déplacement intermédiaire.
-			//return m_Dense.emplace_back(std::forward<Args>(args)...);
-
+		
+			// Contrat : Emplace sert à CRÉER, pas à mettre à jour. Si le composant existe déjà,
+			// c'est un appel incorrect côté système — on le signale plutôt que de l'accepter en silence.			
+			// emplace_back construit ComponentType(std::forward<Args>(args)...) directement dans le
+			// buffer du vector : zéro copie, zéro déplacement intermédiaire.
+			
 			const std::uint32_t idx = EntityIndex(entity);
 			assert(!Contains(entity) && "Emplace : le composant existe déjà");
 
@@ -248,32 +201,13 @@ namespace LV3
 		/// <param name="entity">L'entité à supprimer. Si elle n'est pas présente dans le conteneur, l'appel est sans effet.</param>
 		void Remove(Entity entity)
 		{
-			//if (!Contains(entity))
-			//	return;
-
-			//const std::uint32_t idx = EntityIndex(entity);
-			//const std::uint32_t toRemove = m_Sparse[idx];
-			//const std::uint32_t lastIdx = static_cast<std::uint32_t>(m_Dense.size() - 1);
-
-			//if (toRemove != lastIdx)						// évite le self-move quand on retire le dernier
-			//{
-			//	const Entity lastEntity = m_Entities[lastIdx];
-			//	m_Dense[toRemove] = std::move(m_Dense[lastIdx]);
-			//	m_Entities[toRemove] = lastEntity;
-			//	m_Sparse[EntityIndex(lastEntity)] = toRemove;	// ← EntityIndex, pas l'entité brute !
-			//}
-
-			//m_Dense.pop_back();
-			//m_Entities.pop_back();
-			//m_Sparse[idx] = INVALID_INDEX;
-
 			if (!Contains(entity)) return;
 
 			const std::uint32_t idx = EntityIndex(entity);
 			const std::uint32_t toRemove = m_Sparse.Get(idx);		// était : m_Sparse[idx]
 			const std::uint32_t lastIdx = static_cast<std::uint32_t>(m_Dense.size() - 1);
 
-			if (toRemove != lastIdx)
+			if (toRemove != lastIdx)							// évite le self-move quand on retire le dernier
 			{
 				const Entity lastEntity = m_Entities[lastIdx];
 				m_Dense[toRemove] = std::move(m_Dense[lastIdx]);
@@ -334,15 +268,6 @@ namespace LV3
 		static constexpr uint32_t INVALID_INDEX = UINT32_MAX;	// const uint32_t INVALID_INDEX = UINT32_MAX;
 																// évite de résever 4 octects pour rien
 
-
-		// Helper pour redimensionner m_sparse si nécessaire
-		//void EnsureSparseFits(std::uint32_t idx)
-		//{
-		//	if (idx >= m_Sparse.size())
-		//	{
-		//		m_Sparse.resize(idx + 1, INVALID_INDEX);	// Redimensionne et initialise avec la valeur invalide
-		//	}
-		//}
 	};
 
 }

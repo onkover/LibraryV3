@@ -4,7 +4,6 @@
 
 #include "Registry.hpp"
 #include "../Core/EventBus.hpp"
-#include <cassert>
 #include "../Ressources/ResourceManager.h"
 
 
@@ -323,18 +322,6 @@ namespace LV3
 
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
 	{
-		//for (Entity entity = 0; entity < registry.GetAliveCount(); entity++)
-		//{
-		//	if (registry.hasComponent<TransformComponent>(entity))
-		//	{
-		//		if (!registry.hasComponent<HierarchyComponent>(entity) 
-		//			|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
-		//		{
-		//			DebugDisplaySystemRecursive(registry, entity, 0);
-		//		}
-		//	}
-		//}
-
 		registry.ForEachAlive([&](Entity entity)
 			{
 				if (registry.hasComponent<TransformComponent>(entity))
