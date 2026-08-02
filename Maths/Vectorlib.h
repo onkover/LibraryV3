@@ -10,11 +10,11 @@
 // ============================================================
 
 #include "../Core/Compiler.h"
-#include <cmath>
-#include <iostream>
-#include <algorithm>
-//#include <cstdint>
-
+#include <cmath>          // ← std::sqrt, std::atan2, std::acos
+#include <cmath>          // ← std::sqrt, std::atan2, std::acos
+#include <cstdint>        // ← uint8_t & co
+#include <algorithm>      // ← std::min, std::max, std::clamp
+#include <iostream>       // ← operator<< (candidat au retrait plus tard)
 
 namespace LV3
 {
@@ -180,9 +180,8 @@ namespace LV3
         static constexpr Vec3 Down()    noexcept { return { T(0), T(-1), T(0) }; }
         static constexpr Vec3 Right()   noexcept { return { T(1), T(0), T(0) }; }
         static constexpr Vec3 Left()    noexcept { return { T(-1), T(0), T(0) }; }
-        static constexpr Vec3 Forward() noexcept { return { T(0), T(0), T(1) }; }  // axe monde +Z
-        static constexpr Vec3 Back()    noexcept { return { T(0), T(0), T(-1) }; } // vue RH regarde vers -Z
-
+        static constexpr Vec3 Forward() noexcept { return { T(0), T(0), T(-1) }; }  // main droite : la vue regarde vers -Z
+        static constexpr Vec3 Back()    noexcept { return { T(0), T(0), T(1) }; }  // +Z sort de l'ecran vers l'observateur
         // Interpolation linéaire
         static constexpr Vec3 Lerp(const Vec3& a, const Vec3& b, T t) noexcept { return a + (b - a) * t; }
 
@@ -197,6 +196,17 @@ namespace LV3
     using Vec3d = Vec3<double>;
     using Vec3f = Vec3<float>;
     using Vec3i = Vec3<int>;
+
+    // ============================================================
+    //  Verrou de convention — vérifié À LA COMPILATION.
+    //  Si quelqu'un touche à Forward(), Right() ou crossProduct(),
+    //  le projet refuse de compiler. Aucun bug silencieux possible.
+    // ============================================================
+    static_assert(Vec3f::Forward().z < 0.0f, "LV3 : main DROITE -> Forward() doit valoir -Z");
+    static_assert(Vec3f::Right().crossProduct(Vec3f::Forward()) == Vec3f::Up(), "LV3 : repere incoherent -> Right x Forward doit valoir Up");
+    static_assert(Vec3f::Forward().crossProduct(Vec3f::Up()) == Vec3f::Right(), "LV3 : repere incoherent -> Forward x Up doit valoir Right");
+
+
 
     // ============================================================
     //  Vec4<T>  — coordonnées homogènes

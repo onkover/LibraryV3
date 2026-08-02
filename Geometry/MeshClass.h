@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "../Maths/Vectorlib.h"
-#include "../Maths/AABB3d.h"
+#include "../Maths/geometry/AABB3d.h"
 #include "../Core/Types.h"
 
 #include "FaceView.h"

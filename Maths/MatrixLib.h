@@ -4,7 +4,7 @@
 //  Maths/MatrixLib.h — Matrices 4x4 templatées du moteur LibraryV3
 //  Convention : row-major (x[row][col]), vecteur-ligne (v' = v·M),
 //               composition S·R·T, translation en LIGNE 3,
-//               right-handed, NDC z ∈ [-1, 1].
+//               right-handed, NDC z ∈ [0,1], reverse-Z
 //  Standardisée Leçon 02 : scoping LV3, code mort retiré,
 //  noexcept, ajout des matrices caméra (LookAt/Perspective/Ortho).
 //  Dépend de Vectorlib.h (LV3::Vec3<T> et ses méthodes héritées
@@ -217,51 +217,51 @@ namespace LV3
         //  Matrices caméra (statiques) — row-major, right-handed
         // ========================================================
         // Vue : amène le monde dans le repère caméra. RH -> regarde vers -Z.
-        static Matrix44 LookAt(const Vec3<T>& eye, const Vec3<T>& target, const Vec3<T>& up) noexcept
-        {
-            Vec3<T> f = (target - eye).Normalized();     // forward (vers la cible)
-            Vec3<T> r = f.crossProduct(up).Normalized(); // right
-            Vec3<T> u = r.crossProduct(f);               // up ré-orthogonalisé
+        //static Matrix44 LookAt(const Vec3<T>& eye, const Vec3<T>& target, const Vec3<T>& up) noexcept
+        //{
+        //    Vec3<T> f = (target - eye).Normalized();     // forward (vers la cible)
+        //    Vec3<T> r = f.crossProduct(up).Normalized(); // right
+        //    Vec3<T> u = r.crossProduct(f);               // up ré-orthogonalisé
 
-            Matrix44 m; // identité
-            m.x[0][0] = r.x; m.x[0][1] = u.x; m.x[0][2] = -f.x;
-            m.x[1][0] = r.y; m.x[1][1] = u.y; m.x[1][2] = -f.y;
-            m.x[2][0] = r.z; m.x[2][1] = u.z; m.x[2][2] = -f.z;
-            m.x[3][0] = -r.dotProduct(eye);
-            m.x[3][1] = -u.dotProduct(eye);
-            m.x[3][2] = f.dotProduct(eye);
-            return m;
-        }
+        //    Matrix44 m; // identité
+        //    m.x[0][0] = r.x; m.x[0][1] = u.x; m.x[0][2] = -f.x;
+        //    m.x[1][0] = r.y; m.x[1][1] = u.y; m.x[1][2] = -f.y;
+        //    m.x[2][0] = r.z; m.x[2][1] = u.z; m.x[2][2] = -f.z;
+        //    m.x[3][0] = -r.dotProduct(eye);
+        //    m.x[3][1] = -u.dotProduct(eye);
+        //    m.x[3][2] = f.dotProduct(eye);
+        //    return m;
+        //}
 
         // Projection perspective. fovRad = champ de vision VERTICAL en radians.
-        static Matrix44 Perspective(T fovRad, T aspect, T nearZ, T farZ) noexcept
-        {
-            T th = std::tan(fovRad * T(0.5));
+        //static Matrix44 Perspective(T fovRad, T aspect, T nearZ, T farZ) noexcept
+        //{
+        //    T th = std::tan(fovRad * T(0.5));
 
-            Matrix44 m;                                  // identité...
-            for (int i = 0; i < 4; ++i)
-                for (int j = 0; j < 4; ++j) m.x[i][j] = T(0);   // ...remise à ZÉRO obligatoire
+        //    Matrix44 m;                                  // identité...
+        //    for (int i = 0; i < 4; ++i)
+        //        for (int j = 0; j < 4; ++j) m.x[i][j] = T(0);   // ...remise à ZÉRO obligatoire
 
-            m.x[0][0] = T(1) / (aspect * th);
-            m.x[1][1] = T(1) / th;
-            m.x[2][2] = -(farZ + nearZ) / (farZ - nearZ);
-            m.x[2][3] = -T(1);                            // recopie -z dans w
-            m.x[3][2] = -(T(2) * farZ * nearZ) / (farZ - nearZ);
-            return m;                                     // m.x[3][3] = 0 : matrice projective
-        }
+        //    m.x[0][0] = T(1) / (aspect * th);
+        //    m.x[1][1] = T(1) / th;
+        //    m.x[2][2] = -(farZ + nearZ) / (farZ - nearZ);
+        //    m.x[2][3] = -T(1);                            // recopie -z dans w
+        //    m.x[3][2] = -(T(2) * farZ * nearZ) / (farZ - nearZ);
+        //    return m;                                     // m.x[3][3] = 0 : matrice projective
+        //}
 
-        // Projection orthographique.
-        static Matrix44 Orthographic(T l, T r, T b, T t, T n, T f) noexcept
-        {
-            Matrix44 m; // identité
-            m.x[0][0] = T(2) / (r - l);
-            m.x[1][1] = T(2) / (t - b);
-            m.x[2][2] = -T(2) / (f - n);
-            m.x[3][0] = -(r + l) / (r - l);
-            m.x[3][1] = -(t + b) / (t - b);
-            m.x[3][2] = -(f + n) / (f - n);
-            return m;
-        }
+        //// Projection orthographique.
+        //static Matrix44 Orthographic(T l, T r, T b, T t, T n, T f) noexcept
+        //{
+        //    Matrix44 m; // identité
+        //    m.x[0][0] = T(2) / (r - l);
+        //    m.x[1][1] = T(2) / (t - b);
+        //    m.x[2][2] = -T(2) / (f - n);
+        //    m.x[3][0] = -(r + l) / (r - l);
+        //    m.x[3][1] = -(t + b) / (t - b);
+        //    m.x[3][2] = -(f + n) / (f - n);
+        //    return m;
+        //}
 
         static constexpr Matrix44 Translation(const Vec3<T>& t) noexcept {
             Matrix44 m;                                   // identité
@@ -314,7 +314,26 @@ namespace LV3
             s.flags(old);
             return s;
         }
-       
+
+
+        // Inverse d'une transformation RIGIDE (rotation + translation, sans scale).
+        // Row-major / vecteur-ligne : R = bloc 3x3, t = LIGNE 3.
+        //   M   = [ R  | 0 ]        M⁻¹ = [  Rᵀ    | 0 ]
+        //         [ t  | 1 ]              [ -t·Rᵀ  | 1 ]
+        Matrix44 inverseRigid() const noexcept
+        {
+            Matrix44 r;
+            r.x[0][0] = x[0][0]; r.x[0][1] = x[1][0]; r.x[0][2] = x[2][0];   // transposée 3x3
+            r.x[1][0] = x[0][1]; r.x[1][1] = x[1][1]; r.x[1][2] = x[2][1];
+            r.x[2][0] = x[0][2]; r.x[2][1] = x[1][2]; r.x[2][2] = x[2][2];
+
+            r.x[3][0] = -(x[3][0] * r.x[0][0] + x[3][1] * r.x[1][0] + x[3][2] * r.x[2][0]);
+            r.x[3][1] = -(x[3][0] * r.x[0][1] + x[3][1] * r.x[1][1] + x[3][2] * r.x[2][1]);
+            r.x[3][2] = -(x[3][0] * r.x[0][2] + x[3][1] * r.x[1][2] + x[3][2] * r.x[2][2]);
+
+            r.x[0][3] = r.x[1][3] = r.x[2][3] = T(0); r.x[3][3] = T(1);
+            return r;
+        }
     };
 
     using Matrix44f = Matrix44<float>;

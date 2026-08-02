@@ -28,9 +28,15 @@ namespace LV3
 	constexpr float INV_PI = 0.31830988618379067153777f;
 	constexpr float INV_2PI = 0.15915494309189533576888f;
 
-	constexpr float EPSILON = 0.01f;
-	constexpr float EPSILON_FLOAT = 0.001f;
+	constexpr float EPSILON = 0.01f;    // tolérance géométrique grossière
+	constexpr float EPSILON_FLOAT = 0.001f;   // tolérance géométrique fine
 	constexpr double EPSILON_DOUBLE = 0.001;
+
+	// Garde ANTI-DIVISION. Ce n'est PAS une tolérance : ne l'utilise
+	// jamais pour comparer deux grandeurs, uniquement pour vérifier
+	// qu'un dénominateur n'est pas nul.
+	constexpr float NEAR_ZERO_SQ = 1e-30f;     // sur une longueur au carré
+	constexpr float NEAR_ZERO = 1e-15f;     // sur une longueur
 
 	constexpr float TO_RADIAN = (float) M_PI / 180.0f; //float
 	constexpr float TO_DEGRE = 180.0f / (float)M_PI;	//float

@@ -152,7 +152,6 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h" />
     <ClInclude Include="Core\Compiler.h" />
     <ClInclude Include="Core\config.h" />
     <ClInclude Include="Core\CoreTypes.h" />
@@ -167,14 +166,19 @@
     <ClInclude Include="Geometry\SubMesh.h" />
     <ClInclude Include="Geometry\Texture.h" />
     <ClInclude Include="Lighting\LightTypes.h" />
+    <ClInclude Include="Maths\Geometry\AABB3d.h" />
+    <ClInclude Include="Maths\Geometry\Frustum.h" />
+    <ClInclude Include="Maths\Geometry\Plane.h" />
     <ClInclude Include="Maths\MathTypes.h" />
     <ClInclude Include="Maths\MatrixLib.h" />
+    <ClInclude Include="Maths\Projection.h" />
     <ClInclude Include="Maths\QuaternionLib.h" />
     <ClInclude Include="Maths\Transform.h" />
     <ClInclude Include="Maths\Vectorlib.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendering\Renderer.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
+    <ClInclude Include="Rendering\Viewport.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Ressources\CommunFunctions.h" />
     <ClInclude Include="Ressources\json.hpp" />
@@ -194,6 +198,8 @@
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp" />
     <ClCompile Include="Geometry\MeshClass.cpp" />
+    <ClCompile Include="Maths\Geometry\Frustum.cpp" />
+    <ClCompile Include="Maths\Projection.cpp" />
     <ClCompile Include="Maths\Transform.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -211,6 +217,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="engine.json" />
+    <None Include="Maths\Geometry\AABB3d.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

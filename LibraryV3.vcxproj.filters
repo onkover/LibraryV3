@@ -32,6 +32,9 @@
     <Filter Include="Lighting">
       <UniqueIdentifier>{000e546a-3ed2-4fa6-be69-e510ea0ada24}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Maths\Geometry">
+      <UniqueIdentifier>{6ccc448b-9080-466b-88dd-225a6696ead7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Logger.h">
@@ -101,9 +104,6 @@
     <ClInclude Include="Core\EventBus.hpp">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="..\LibrairieV2.1\LibraryV2.1\Maths\AABB3d.h">
-      <Filter>Maths</Filter>
-    </ClInclude>
     <ClInclude Include="Core\CoreTypes.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -146,6 +146,21 @@
     <ClInclude Include="Rendering\Renderer.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Maths\Projection.h">
+      <Filter>Maths</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Geometry\AABB3d.h">
+      <Filter>Maths\Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Geometry\Plane.h">
+      <Filter>Maths\Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths\Geometry\Frustum.h">
+      <Filter>Maths\Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Viewport.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -181,6 +196,12 @@
     <ClCompile Include="Rendering\Renderer.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="Maths\Projection.cpp">
+      <Filter>Maths</Filter>
+    </ClCompile>
+    <ClCompile Include="Maths\Geometry\Frustum.cpp">
+      <Filter>Maths\Geometry</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="LibraryV3.rc">
@@ -189,5 +210,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="engine.json" />
+    <None Include="Maths\Geometry\AABB3d.inl">
+      <Filter>Maths\Geometry</Filter>
+    </None>
   </ItemGroup>
 </Project>
