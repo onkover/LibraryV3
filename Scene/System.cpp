@@ -20,6 +20,7 @@ namespace LV3
 		// On utilise la ViewGroup (ComponentView) qui retourne (Entity, Component&...)
 		for (auto&& [entity, mesh] : registry.ViewGroup<MeshComponent>())
 		{
+			if (!ctrl.m_isEnabled) continue;
 			mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
 			mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
 		}
@@ -39,6 +40,8 @@ namespace LV3
 
 		for (size_t i = 0; i < Transforms.size(); i++)
 		{
+			if (!ctrl.m_isEnabled) continue;
+
 			TransformComponent& transform = Transforms[i];
 			Entity entity = Entities[i];
 
@@ -124,6 +127,8 @@ namespace LV3
 		// --- 4. MISE À JOUR RÉCURSIVE DES ENFANTS ---
 		if (registry.hasComponent<HierarchyComponent>(entity))
 		{
+			if (!ctrl.m_isEnabled) continue;
+
 			// F6 optim : HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity); // HierarchyComponent children = ... copie la struct entière — donc son std::vector<Entity> m_children — à chaque nœud, à chaque frame, dans une récursion.
 			const auto& children = registry.getComponent<HierarchyComponent>(entity);   // référence, zéro copie
 
@@ -147,6 +152,7 @@ namespace LV3
 
 		for (size_t i = 0; i < Transforms.size(); i++)
 		{
+			if (!ctrl.m_isEnabled) continue;
 
 			// On ne prend que les entités qui n'ont pas de parent, afin de démarrer le calcul récursif des matrices à partir d'elles
 			// 1. les entités solitaires (pas de hiérarchie). La transformation de ces entités ne dépend pas d'autruit (comme un astéroide ou un vaisseau spatial par exemple)
@@ -174,6 +180,8 @@ namespace LV3
 	{
 		for (auto&& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
 		{
+			if (!ctrl.m_isEnabled) continue;
+
 			// La cible est la position statique définie dans le JSON
 			const Vec3f& targetPos = transform.m_initialLocalPosition;
 			const Quatf targetRot = Quatf(transform.m_initialLocalRotation, false);
@@ -195,6 +203,82 @@ namespace LV3
 
 		}
 	}
+	//********************************************************************
+	void CameraFollowSystem::Update(Registry& reg, float dt)
+	{
+		for (auto& [e, follow, tr] : reg.ViewGroup<CameraFollowComponent, TransformComponent>())
+		{
+			if (!ctrl.m_isEnabled) continue;
+
+			const TransformComponent* target = reg.TryGet<TransformComponent>(follow.m_target);
+			if (!target) continue;
+
+			const Vec3f targetPos{ target->m_worldMatrix[3][0],
+									target->m_worldMatrix[3][1],
+									target->m_worldMatrix[3][2] };
+
+			const Vec3f wanted = targetPos + target->m_local.rotation.rotate(follow.m_offset);
+			const Quatf look = Quatf::LookAt(wanted, targetPos);
+
+			if (!follow.m_isInitialized) {
+				follow.m_smoothedPos = wanted;
+				follow.m_smoothedRot = look;
+				follow.m_isInitialized = true;
+			}
+			else {
+				// Lissage INDÉPENDANT du framerate. Un simple lerp(a, b, speed*dt)
+				// donne un comportement différent à 30 et à 144 Hz.
+				const float t = 1.0f - std::exp(-follow.m_smoothSpeed * dt);
+				follow.m_smoothedPos = Vec3f::Lerp(follow.m_smoothedPos, wanted, t);
+				follow.m_smoothedRot = Slerp(follow.m_smoothedRot, look, t);
+			}
+
+			tr.m_local.position = follow.m_smoothedPos;
+			tr.m_local.rotation = follow.m_smoothedRot;
+			tr.m_dirty = true;
+		}
+	}
+
+	//********************************************************************
+	void FPSControllerSystem::Update(Registry& reg, const InputState& in, float dt)
+	{
+		for (auto& [e, ctrl, tr] : reg.ViewGroup<FPSControllerComponent, TransformComponent>())
+		{
+			if (!ctrl.m_isEnabled) continue;
+
+			// --- 1. ORIENTATION : le delta souris N'EST PAS multiplié par dt ---
+			//     C'est un déplacement, pas une vitesse. (bug B6 de l'audit)
+			ctrl.m_yawDeg -= in.mouseDeltaX * ctrl.m_mouseSensitivity;
+			ctrl.m_pitchDeg -= in.mouseDeltaY * ctrl.m_mouseSensitivity;
+			ctrl.m_pitchDeg = std::clamp(ctrl.m_pitchDeg, -ctrl.m_pitchLimitDeg, ctrl.m_pitchLimitDeg);
+
+			Quatf qYaw;   qYaw.SetAxisAngle(Vec3f::Up(), ctrl.m_yawDeg * TO_RADIAN);
+			Quatf qPitch; qPitch.SetAxisAngle(Vec3f::Right(), ctrl.m_pitchDeg * TO_RADIAN);
+			const Quatf rot = qYaw * qPitch;        // yaw monde PUIS pitch local — l'ordre compte
+
+			// --- 2. DÉPLACEMENT : lui EST multiplié par dt ---
+			Vec3f dir;
+			if (in.forward)  dir += rot.rotate(Vec3f::Forward());
+			if (in.backward) dir -= rot.rotate(Vec3f::Forward());
+			if (in.right)    dir += rot.rotate(Vec3f::Right());
+			if (in.left)     dir -= rot.rotate(Vec3f::Right());
+
+			if (ctrl.m_lockVertical)
+				dir.y = 0.0f;                       // FPS au sol
+			else {                                  // vol libre
+				if (in.up)   dir.y += 1.0f;
+				if (in.down) dir.y -= 1.0f;
+			}
+			if (dir.norm() > 0.0f)
+				dir = dir.Normalized() * (ctrl.m_moveSpeed * dt);   // diagonale non accélérée
+
+			// --- 3. Écriture. C'est TOUT ce que fait un contrôleur. ---
+			tr.m_local.position += dir;
+			tr.m_local.rotation = rot;
+			tr.m_dirty = true;
+		}
+	}
+
 
 	//********************************************************************
 
@@ -220,6 +304,8 @@ namespace LV3
 	{
 		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
+			if (!ctrl.m_isEnabled) continue;
+
 			Vec3f pos1 = Vec3f{ transform1.m_worldTransform[3][0],
 			transform1.m_worldTransform[3][1],
 			transform1.m_worldTransform[3][2] };
@@ -414,7 +500,10 @@ namespace LV3
 	//********************************************************************
 	void PlayerInputSystem(Registry& registry, float deltaTime) {
 
-		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) {
+		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) 
+		{
+			if (!ctrl.m_isEnabled) continue;
+
 			// 'control' et 'transform' sont des références directes et MODIFIABLES
 			// Aucune vérification 'hasComponent' ou 'getComponent' dans la boucle.
 			// Itération dense et optimisée.

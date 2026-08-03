@@ -8,8 +8,9 @@
 #include "Entity.hpp"
 
 #include "Lighting/LightTypes.h"
-//#include "Geometry/MeshClass.h"
 #include "../../Ressources/ResourceHandle.h"
+#include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
+
 
 namespace LV3
 {
@@ -29,20 +30,102 @@ namespace LV3
 		std::string m_id;
 	};
 
+	
 	//********************************************************************
+	/*
+		LA LENTILLE, et rien d'autre.
 
+		Aucune position, aucune rotation, aucune matrice : c'est le
+		TransformComponent qui porte le placement, exactement comme pour
+		n'importe quelle autre entité. Une caméra est un objet de la scène
+		équipé d'un objectif — pas une classe à part.
+
+		Aucun état dérivé non plus : view, projection et frustum sont
+		recalculés chaque frame par le CameraSystem dans un ViewData.
+		Ce composant est une donnée d'AUTEUR, pure et sérialisable.
+	*/
 	struct CameraComponent
 	{
-		float m_fov = 45.0f;
-		float m_nearPlane = 0.01f;
-		float m_farPlane = 1000.0f;
+		//float m_fov = 45.0f;
+		//float m_nearPlane = 0.01f;
+		//float m_farPlane = 1000.0f;
 
-		float smoothSpeed = 5.0f; // Vitesse du lissage
+		//float smoothSpeed = 5.0f; // Vitesse du lissage
 
-		// Données d'état (mises à jour par le CameraSystem)
-		Vec3f currentSmoothedPos;
-		Quatf currentSmoothedRot;
-		bool isInitialized = false;
+		//// Données d'état (mises à jour par le CameraSystem)
+		//Vec3f currentSmoothedPos;
+		//Quatf currentSmoothedRot;
+		//bool isInitialized = false;
+
+		// --- Type de projection ---
+		EProjectionType m_projection = EProjectionType::Perspective;		// projection par défaut de type Perspective
+
+		// --- Plans de clipping (communs aux deux projections) ---
+		float m_nearPlane = 0.1f;					// plan proche, en unités monde
+		float m_farPlane = 1000.0f;					// plan lointain, en unités monde
+		bool  m_infiniteFar = false;				// ignore m_farPlane : plus aucune limite lointaine
+
+		// --- Perspective : paramétrage ---
+		ELensModel m_lensModel = ELensModel::FieldOfView;
+
+		//   ... modèle FieldOfView
+		float m_fovYDeg = 45.0f;          // VERTICAL, en degrés (convention moteur)
+
+		//   ... modèle Filmback (sténopé). m_fovYDeg en est alors dérivé.
+		float    m_focalLengthMm = 35.0f;		// 1.378" — focale standard
+		float    m_filmWidthMm = 24.892f;		// 0.980" — 35 mm Full Aperture
+		float    m_filmHeightMm = 18.669f;		// 0.735"
+		EGateFit m_gateFit = EGateFit::Fill;	// Fill = la pellicule tient dans la fenêtre (on rogne), 
+												// Overscan = la pellicule déborde de la fenêtre (on remplit)
+
+		// --- Orthographique ---
+		float m_orthoHeight = 10.0f;      // hauteur visible en unités monde
+
+		// --- Sélection ---
+		bool m_isActive = true;	
+		int  m_priority = 0;              // la plus haute gagne quand plusieurs sont actives
+
+	};
+
+	// Verrou : ce composant doit rester 
+	// * une donnée brute, 
+	// * copiable sans logique, 
+	// * sérialisable telle quelle.
+	static_assert(std::is_aggregate_v<CameraComponent>, "CameraComponent doit rester un agregat : aucune logique dedans");
+	static_assert(std::is_trivially_copyable_v<CameraComponent>, "CameraComponent doit rester trivialement copiable");
+
+
+
+	//********************************************************************
+	/*
+		L'état de lissage sort de la caméra : c'est du CONTRÔLEUR.
+		Unity : Camera + Cinemachine.  Unreal : UCameraComponent + APlayerCameraManager. Jamais dans la même classe.
+
+		Ce composant se pose sur la même entité que CameraComponent, ou pas du tout — une caméra libre n'en a pas besoin.
+	*/
+	struct CameraFollowComponent
+	{
+		bool m_isEnabled = true;
+		Entity m_target;
+		Vec3f  m_offset{ 0.0f, 2.0f, -6.0f };   // en espace local de la cible
+		float  m_smoothSpeed = 5.0f;
+
+		// État (mis à jour par le CameraFollowSystem)
+		Vec3f m_smoothedPos;
+		Quatf m_smoothedRot;
+		bool  m_isInitialized = false;
+	};
+
+	//********************************************************************
+	struct FPSControllerComponent
+	{
+		bool m_isEnabled = true;
+		float m_moveSpeed = 5.0f;    // unités monde par SECONDE
+		float m_mouseSensitivity = 0.15f;   // DEGRÉS par pixel
+		float m_yawDeg = 0.0f;
+		float m_pitchDeg = 0.0f;
+		float m_pitchLimitDeg = 89.0f;
+		bool  m_lockVertical = true;    // true = FPS au sol | false = vol libre 6 DoF
 	};
 
 	//********************************************************************
@@ -70,19 +153,23 @@ namespace LV3
 	};
 
 	//********************************************************************
+	struct Transform { Vec3f position; Quatf rotation; Vec3f scale; };
 
 	struct TransformComponent
 	{
 	public:
 		// Données statiques
-		Vec3f m_initialLocalPosition{ 0.0f };
-		//Quatf m_initialLocalRotation;
-		Vec3f m_initialLocalRotation{ 0.0f };
-		Vec3f m_initialLocalScale{ 1.0f };
+		//Vec3f m_initialLocalPosition{ 0.0f };
+		////Quatf m_initialLocalRotation;
+		//Vec3f m_initialLocalRotation{ 0.0f };
+		//Vec3f m_initialLocalScale{ 1.0f };
 
 		// Transformations
 		Matrix44f m_localTransform;
 		Matrix44f m_worldTransform;
+		Transform m_local;                  // position + Quatf + scale : L'ÉTAT
+
+		bool      m_dirty = true;           // évite de reconstruire les matrices pour rien
 
 	};
 

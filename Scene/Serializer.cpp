@@ -30,6 +30,31 @@ namespace LV3
 		return p.lexically_normal().string();
 	}
 
+	// Lit un tableau JSON de 3 nombres et retourne un Vec3f. Si la clé est absente ou invalide, retourne la valeur par défaut.
+	Vec3f ReadVec3(const json& j, const char* key, const Vec3f& def) noexcept
+	{
+		if (!j.contains(key)) return def;
+		const json& a = j[key];
+		if (!a.is_array() || a.size() < 3) return def;
+		if (!a[0].is_number() || !a[1].is_number() || !a[2].is_number()) return def;
+		return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+	}
+
+
+	EProjectionType ReadProjection(const json& j, const char* key) noexcept
+	{
+		const std::string s = j.value(key, std::string("perspective"));
+		return (s == "orthographic" || s == "ortho")
+			? EProjectionType::Orthographic
+			: EProjectionType::Perspective;
+	}
+
+	/**********************************************
+
+	Fin Helper
+
+	**********************************************/
+
 
 
 	bool SceneSerializer::LoadSceneGraph(const std::string& sceneFilePath,
@@ -144,6 +169,9 @@ namespace LV3
 
 				else if (compName == "Camera")
 					ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
+				
+				else if (compName == "CameraFollow")
+					ParseCameraFollow(&compJson, ctx, entity, ctx.out_activeCamera);
 
 				else if (compName == "Trigger")
 
@@ -281,25 +309,123 @@ namespace LV3
 		ctx.registry.addComponent(entity, std::move(l)); // Transforme la copie forcée en déplacement 
 
 	}
-
+	//********************************************************************
 	void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
-		if (!compJson.is_object()) return;
+		//const json& compJson = *static_cast<const json*>(pJsonNode);
+		//if (!compJson.is_object()) return;
+
+		//CameraComponent c;
+		//if (compJson.contains("fov")) c.m_fovYDeg = compJson["fov"];
+		//if (compJson.contains("nearPlane")) c.m_nearPlane = compJson["nearPlane"];
+		//if (compJson.contains("farPlane")) c.m_farPlane = compJson["farPlane"];
+
+		//ctx.registry.addComponent(entity, std::move(c)); // Transforme la copie forcée en déplacement 
+		//												// Vérifie bien : out_activeCamera = entity n'utilise jamais c après le déplacement, donc aucun piège ici. 
+		//												// CameraComponent est un POD, gain nul mais cohérence.
+
+		//out_activeCamera = entity;          // sauvegarde l'entité de la caméra
+		//									// solution simple, c'est la dernière identifiée
+	
+		const json& j = *static_cast<const json*>(pJsonNode);
+		if (!j.is_object()) return;
 
 		CameraComponent c;
-		if (compJson.contains("fov")) c.m_fov = compJson["fov"];
-		if (compJson.contains("nearPlane")) c.m_nearPlane = compJson["nearPlane"];
-		if (compJson.contains("farPlane")) c.m_farPlane = compJson["farPlane"];
+		c.m_projection = ReadProjection(j, "projection");
+		c.m_nearPlane = j.value("near", 0.1f);
+		c.m_farPlane = j.value("far", 1000.0f);
+		c.m_infiniteFar = j.value("infiniteFar", false);
+		c.m_isActive = j.value("active", true);
+		c.m_priority = j.value("priority", 0);
 
-		ctx.registry.addComponent(entity, std::move(c)); // Transforme la copie forcée en déplacement 
-														// Vérifie bien : out_activeCamera = entity n'utilise jamais c après le déplacement, donc aucun piège ici. 
-														// CameraComponent est un POD, gain nul mais cohérence.
+		// --- Perspective : FOV direct, ou modèle sténopé ---
+		if (j.contains("focalLength"))
+		{
+			c.m_lensModel = ELensModel::Filmback;
+			c.m_focalLengthMm = j.value("focalLength", 35.0f);
+			c.m_filmWidthMm = j.value("filmWidth", 24.892f);
+			c.m_filmHeightMm = j.value("filmHeight", 18.669f);
+			c.m_gateFit = (j.value("gateFit", std::string("fill")) == "overscan")
+				? EGateFit::Overscan : EGateFit::Fill;
+		}
+		else
+		{
+			c.m_lensModel = ELensModel::FieldOfView;
+			c.m_fovYDeg = j.value("fov", 45.0f);       // VERTICAL, en degrés
+		}
 
-		out_activeCamera = entity;          // sauvegarde l'entité de la caméra
-											// solution simple, c'est la dernière identifiée
+		c.m_orthoHeight = j.value("orthoHeight", 10.0f);
+
+		// --- Garde-fous : une scène mal écrite ne doit pas casser le rendu ---
+		if (c.m_nearPlane <= 0.0f)            c.m_nearPlane = 0.1f;
+		if (c.m_farPlane <= c.m_nearPlane)   c.m_farPlane = c.m_nearPlane * 1000.0f;
+		c.m_fovYDeg = std::clamp(c.m_fovYDeg, 1.0f, 179.0f);
+
+		ctx.registry.addComponent(entity, c);
+
+		// Sélection : la plus haute priorité gagne, pas "la dernière lue".
+		if (c.m_isActive)
+		{
+			const CameraComponent* current = (out_activeCamera != Entity{})
+				? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
+				: nullptr;
+			if (!current || c.m_priority >= current->m_priority)
+				out_activeCamera = entity;
+		}
+
+	}
+	//********************************************************************
+	void SceneSerializer::ParseCameraFPS(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	{
+		const json& j = *static_cast<const json*>(pJsonNode);
+		if (!j.is_object()) return;
+
+		FPSControllerComponent c;
+		c.m_isEnabled = j.value("enabled", true);
+		c.m_moveSpeed = j.value("moveSpeed", 5.0f);
+		c.m_mouseSensitivity = j.value("mouseSensitivity", 0.15f);
+		c.m_lockVertical = j.value("lockVertical", true);
+		c.m_pitchLimitDeg = j.value("pitchLimit", 89.0f);
+
+		// Angles initiaux dérivés du Transform déjà parsé, sinon la caméra
+		// saute à (0,0) à la première frame.
+		if (const TransformComponent* tr = ctx.registry.TryGet<TransformComponent>(entity))
+		{
+			const Vec3f fwd = tr->m_local.rotation.rotate(Vec3f::Forward());
+			c.m_yawDeg = std::atan2(fwd.x, -fwd.z) * TO_DEGRE;
+			c.m_pitchDeg = std::asin(std::clamp(fwd.y, -1.0f, 1.0f)) * TO_DEGRE;
+		}
+
+		c.m_pitchLimitDeg = std::clamp(c.m_pitchLimitDeg, 1.0f, 89.9f);
+		ctx.registry.addComponent(entity, c);
 	}
 
+	//********************************************************************
+	void SceneSerializer::ParseCameraFollow(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	{
+		const json& j = *static_cast<const json*>(pJsonNode);
+		if (!j.is_object()) return;
+
+		CameraFollowComponent c;
+		c.m_isEnabled = j.value("enabled", true);
+		c.m_offset = ReadVec3(j, "offset", Vec3f(0.0f, 2.0f, -6.0f));
+		c.m_smoothSpeed = j.value("smoothSpeed", 5.0f);
+		c.m_lookAtHeight = j.value("lookAtHeight", 0.0f);   // vise un peu au-dessus des pieds
+
+		c.m_smoothSpeed = std::max(c.m_smoothSpeed, 0.0f); // 0 = suivi rigide, pas de lissage
+		c.m_isInitialized = false;                          // le système fera un snap à la 1re frame
+
+		// --- La cible est une RÉFÉRENCE AVANT : résolution différée ---
+		const std::string targetName = j.value("target", std::string(""));
+		ctx.registry.addComponent(entity, c);
+
+		if (!targetName.empty())
+			ctx.pendingFollowTargets.push_back({ entity, targetName });
+		else
+			LV3_LOG_WARN("CameraFollow sans 'target' sur l'entite %u", entity.Index());
+	}
+
+	//********************************************************************
 	void SceneSerializer::ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
 		const json& compJson = *static_cast<const json*>(pJsonNode);
@@ -433,5 +559,26 @@ namespace LV3
 		// Retrouve le parent (nouvellement créé ou pas) pour référencer son enfant
 		registry.getComponent<HierarchyComponent>(parent).m_children.push_back(child);
 	}
+
+
+	//Attention au piège de ta scène : ton entité a "parent" : "Earth" et "target" : "Earth".Une caméra enfant de sa propre cible se déplace déjà avec elle — le contrôleur de suivi ajoutera son offset par - dessus le mouvement hérité.Tu obtiendras un décalage double.Pour une caméra de suivi, la règle est : pas de parent, ou parent = racine.Le suivi est le mécanisme d'attachement.
+	void SceneSerializer::ResolveDeferredReferences(ParseContext& ctx)
+	{
+		for (const PendingEntityRef& ref : ctx.pendingFollowTargets)
+		{
+			const auto it = ctx.entityMap.find(ref.targetName);
+			if (it == ctx.entityMap.end())
+			{
+				LV3_LOG_WARN("CameraFollow : cible '%s' introuvable", ref.targetName.c_str());
+				if (auto* f = ctx.registry.TryGet<CameraFollowComponent>(ref.owner))
+					f->m_isEnabled = false;             // on desactive plutot que de crasher
+				continue;
+			}
+			if (auto* f = ctx.registry.TryGet<CameraFollowComponent>(ref.owner))
+				f->m_target = it->second;
+		}
+		ctx.pendingFollowTargets.clear();
+	}
+
 
 }

@@ -5,8 +5,7 @@ namespace LV3::Projection
 {
     namespace {
         // Une matrice de projection perspective n'est PAS l'identité modifiée :
-        // il faut partir de zéro, sinon m[3][3] reste à 1 et la division par w
-        // ne se fait jamais.
+        // il faut partir de zéro, sinon m[3][3] reste à 1 et la division par w ne se fait jamais.
         Matrix44f Zeroed() noexcept
         {
             Matrix44f m;
@@ -41,12 +40,14 @@ namespace LV3::Projection
         return m;
     }
 
+
     Matrix44f Perspective(float fovYRad, float aspect, float n, float f) noexcept
     {
-        const float t = std::tan(fovYRad * 0.5f) * n;   // demi-hauteur au near
-        const float r = t * aspect;                     // demi-largeur au near
-        return PerspectiveOffCenter(-r, r, -t, t, n, f);
+        const float t = std::tan(fovYRad * 0.5f) * n;         // demi-hauteur au near
+        const float r = t * aspect;                           // demi-largeur au near
+		return PerspectiveOffCenter(-r, r, -t, t, n, f);      // main droite, reverse-Z
     }
+
 
     Matrix44f PerspectiveInfinite(float fovYRad, float aspect, float n) noexcept
     {

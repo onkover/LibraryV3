@@ -20,8 +20,17 @@
 
 namespace LV3
 {
-    // Comment la fenêtre "coupe" la pellicule quand leurs ratios diffèrent.
-    // Terminologie Maya, conservée depuis LibV2.
+	// Type de projection : perspective ou orthographique.
+    enum class EProjectionType : uint8_t { Perspective, Orthographic };
+
+    // Comment paramétrer la perspective : angle simple, ou modèle sténopé.
+    enum class ELensModel : uint8_t
+    {
+        FieldOfView,   // fovY en degrés — vocabulaire jeu (Unity, Godot)
+        Filmback       // focale + pellicule — vocabulaire film (Maya, CineCamera)
+    };
+
+    // Comment la fenêtre "coupe" la pellicule quand leurs ratios diffèrent. Terminologie Maya
     enum class EGateFit : uint8_t
     {
         Fill,       // la pellicule tient dans la fenêtre (on rogne)
@@ -29,11 +38,11 @@ namespace LV3
     };
 }
 
+//**********************************************
 namespace LV3::Projection
 {
     // --- Perspective ----------------------------------------------------
-    // Frustum asymétrique : la primitive. Sert aux cascades d'ombres,
-    // à la VR (décentrement par œil) et aux portails.
+    // Frustum asymétrique : la primitive. Sert aux cascades d'ombres, à la VR (décentrement par œil) et aux portails.
     [[nodiscard]] Matrix44f PerspectiveOffCenter(float l, float r, float b, float t,
         float nearZ, float farZ) noexcept;
 
@@ -52,12 +61,14 @@ namespace LV3::Projection
         float nearZ, float farZ,
         EGateFit fit = EGateFit::Fill) noexcept;
 
+
     // --- Orthographique -------------------------------------------------
     [[nodiscard]] Matrix44f Orthographic(float l, float r, float b, float t,
         float nearZ, float farZ) noexcept;
 
     [[nodiscard]] Matrix44f OrthographicCentered(float height, float aspect,
         float nearZ, float farZ) noexcept;
+
 
     // --- Conversions sténopé (inline, sans .cpp) ------------------------
     [[nodiscard]] inline float FovYFromFocal(float focalMm, float filmHeightMm) noexcept
