@@ -49,6 +49,20 @@ namespace LV3
 			: EProjectionType::Perspective;
 	}
 
+	// Étiquette lisible d'une entité pour les diagnostics.
+	// Entity étant un uint32_t empaqueté, l'afficher brut donne 16777218
+	// au lieu de « index 2, génération 1 » — illisible.
+	std::string EntityLabel(Registry& reg, Entity e)
+	{
+		if (e == NULL_ENTITY) return "<NULL_ENTITY>";
+
+		const std::string name = reg.hasComponent<NameComponent>(e)
+			? reg.getComponent<NameComponent>(e).m_id
+			: std::string("<sans nom>");
+
+		return name + " (idx " + std::to_string(EntityIndex(e))
+			+ ", gen " + std::to_string(EntityGeneration(e)) + ")";
+	}
 	/**********************************************
 
 	Fin Helper
@@ -129,6 +143,9 @@ namespace LV3
 			Logger::log("\033[32mBuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées. \033[0m");
 			Logger::log("\033[32mConstruction de la scène terminée avec succès.\033[0m");
 
+
+			ResolveDeferredReferences(ctx);
+
 		}
 		else
 		{
@@ -136,6 +153,7 @@ namespace LV3
 		}
 
 		Logger::log("\033[32mSceneSerializer::Load — scène chargée : " + sceneFilePath + " \033[0m");
+
 
 
 		return true;
@@ -170,8 +188,12 @@ namespace LV3
 				else if (compName == "Camera")
 					ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
 				
+				else if (compName == "CameraFPS")
+					ParseCameraFPS(&compJson, ctx, entity);
+
+
 				else if (compName == "CameraFollow")
-					ParseCameraFollow(&compJson, ctx, entity, ctx.out_activeCamera);
+					ParseCameraFollow(&compJson, ctx, entity);
 
 				else if (compName == "Trigger")
 
@@ -198,15 +220,17 @@ namespace LV3
 		if (!compJson.is_object()) return;
 
 		TransformComponent t;
-		if (compJson.contains("translation")) t.m_initialLocalPosition = { compJson["translation"][0], compJson["translation"][1], compJson["translation"][2] };
+		if (compJson.contains("translation")) t.m_local.position = { compJson["translation"][0], compJson["translation"][1], compJson["translation"][2] };
 		if (compJson.contains("rotation"))
 		{
 			Vec3f eulerAngles = { compJson["rotation"][0].get<float>() * TO_RADIAN,
 								compJson["rotation"][1].get<float>() * TO_RADIAN,
 								compJson["rotation"][2].get<float>() * TO_RADIAN };
-			t.m_initialLocalRotation = eulerAngles;
+			//t.m_initialLocalRotation = eulerAngles;
+			t.m_local.rotation = Quatf(eulerAngles, true);
+			t.m_initialRotation = t.m_local.rotation;      // référence figée pour l'animation
 		}
-		if (compJson.contains("scale")) t.m_initialLocalScale = { compJson["scale"][0], compJson["scale"][1], compJson["scale"][2] };
+		if (compJson.contains("scale")) t.m_local.scale = { compJson["scale"][0], compJson["scale"][1], compJson["scale"][2] };
 
 		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée (si on joint juste 't' en déplacement grace à std::move(t)
 														 // TransformComponent est un POD pur (que des Vec3f / Matrix44f) — le gain est nul ici en pratique, mais l'uniformité du réflexe compte : on prend l'habitude de toujours céder une lvalue locale qu'on ne réutilise plus, sans se demander à chaque fois si le composant est « assez lourd » pour que ça vaille le coup. 
@@ -214,69 +238,123 @@ namespace LV3
 
 
 	}
-
 	void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
-		if (!compJson.is_object()) return;
+		const json& j = *static_cast<const json*>(pJsonNode);
+		if (!j.is_object()) return;
 
-		std::string meshPath;
-		meshPath = compJson.value("model", "");
-
-		MeshComponent m;
-		if (compJson.contains("orbitalSpeed")) m.m_orbitalSpeed = compJson["orbitalSpeed"];
-		if (compJson.contains("rotationSpeed")) m.m_rotationSpeed = compJson["rotationSpeed"];
-
-		const std::string fullPath = ResolvePath(ctx.baseDir, meshPath);
-
-		MeshHandle hMesh;
-		if (compJson.contains("model"))
+		// --- 1. Un MeshComponent sans mesh n'a aucun sens ---
+		const std::string modelPath = j.value("model", std::string(""));
+		if (modelPath.empty())
 		{
-			OBJLoadOptions  opts;
-			opts.flipUVsVertically = false;
-			opts.generateNormalsIfMissing = true;
-			//hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
-			auto meshResult = ctx.pRM.LoadMeshChecked(compJson["model"].get<std::string>(), opts);
-
-
-			if (!meshResult.has_value())
-			{
-				const char* reason = meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
-														: meshResult.error() == EMeshLoadError::ParseFailed ? "échec de parsing OBJ"
-														: "mesh vide";
-				Logger::error("\033[31mSceneSerializer::ParseMesh — " + std::string(reason) + " : " + fullPath + "");
-				return;
-			}
-			hMesh = *meshResult;
+			Logger::warn("ParseMesh : cle 'model' absente sur " + EntityLabel(ctx.registry, entity));
+			return;
 		}
 
+		// --- 2. Chargement. UNE seule variable de chemin, celle qu'on charge vraiment ---
+		const std::string fullPath = ResolvePath(ctx.baseDir, modelPath);
 
-		//if (!hMesh.IsValid())
-		//{
-		//	Logger::error("\033[31mSceneSerializer::ParseMesh — échec du chargement du mesh : " + fullPath + " \033[0m");
-		//	return;
-		//}
-		
-		//if (compJson.contains("texture")) m.m_texture = compJson["texture"];
+		OBJLoadOptions opts;
+		opts.flipUVsVertically = false;
+		opts.generateNormalsIfMissing = true;
 
-		//                    m.m_mesh->AABB.resetAABB();
-		//                    m.m_mesh->buildAABB(VERTEXSTATE::OBJECT();
+		auto meshResult = ctx.pRM.LoadMeshChecked(modelPath, opts);
+		if (!meshResult.has_value())
+		{
+			const char* reason =
+				meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
+				: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
+				: "mesh vide";
+			Logger::error("\033[31mParseMesh — " + std::string(reason) + " : " + modelPath + "\033[0m");
+			return;
+		}
+		const MeshHandle hMesh = *meshResult;
 
-		//ctx.registry.addComponent(entity, std::move(m)); // Transforme la copie forcée en déplacement passer par move(xxx) que passer par xxx
-														   // Ici le gain est réel : m_texture est un std::string, et m_mesh un shared_ptr (dont le déplacement évite un incrément/décrément atomique du compteur de références — pas cher, mais pas gratuit non plus).
+		// --- 3. Rayon d'orbite, FIGÉ ici et jamais recalculé ensuite ---
+		//     Plan XZ uniquement : inclure Y fausserait le rayon.
+		//     /!\ Exige que ParseTransform ait été appelé AVANT (voir ParseNode).
+		float orbitRadius = 0.0f;
+		if (const TransformComponent* tr = ctx.registry.TryGet<TransformComponent>(entity))
+		{
+			const Vec3f& p = tr->m_local.position;
+			orbitRadius = Vec3f(p.x, 0.0f, p.z).length();
+		}
+		else
+		{
+			Logger::warn("ParseMesh : pas de Transform sur " + EntityLabel(ctx.registry, entity)
+				+ " — orbite desactivee");
+		}
 
+		// --- 4. Construction sur place ---
+		//     /!\ L'ORDRE suit EXACTEMENT la declaration de MeshComponent.
+		//         Inserer un membre au milieu du struct casse cet appel EN SILENCE.
 		ctx.registry.emplaceComponent<MeshComponent>(
 			entity,
-			hMesh,                                        // m_mesh
-			compJson.value("orbitalSpeed", 0.0f),          // m_orbitalSpeed
-			compJson.value("rotationSpeed", 0.0f),         // m_rotationSpeed
-			0.0f,                                          // m_currentOrbitAngle
-			0.0f                                           // m_currentRotationAngle
+			hMesh,                                  // m_meshHandle
+			j.value("orbitalSpeed", 0.0f),         // m_orbitalSpeed
+			j.value("rotationSpeed", 0.0f),         // m_rotationSpeed
+			orbitRadius,                            // m_orbitRadius          ← était perdu
+			0.0f,                                   // m_currentOrbitAngle
+			0.0f                                    // m_currentRotationAngle
 		);
 
-		// contrôle de cohérence : MeshComponent est un POD pur, donc trivially copyable. Si tu ajoutes un std::string ou un std::vector dedans, le compilateur te le signalera ici.
-		static_assert(std::is_trivially_copyable_v<MeshComponent>);
+		static_assert(std::is_trivially_copyable_v<MeshComponent>,
+			"MeshComponent doit rester un POD : pas de std::string ni de conteneur");
 	}
+	//void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	//{
+	//	const json& compJson = *static_cast<const json*>(pJsonNode);
+	//	if (!compJson.is_object()) return;
+
+	//	std::string meshPath;
+	//	meshPath = compJson.value("model", "");
+
+	//	MeshComponent m;
+	//	if (compJson.contains("orbitalSpeed")) m.m_orbitalSpeed = compJson["orbitalSpeed"];
+	//	if (compJson.contains("rotationSpeed")) m.m_rotationSpeed = compJson["rotationSpeed"];
+
+	//	const std::string fullPath = ResolvePath(ctx.baseDir, meshPath);
+
+	//	MeshHandle hMesh;
+	//	if (compJson.contains("model"))
+	//	{
+	//		OBJLoadOptions  opts;
+	//		opts.flipUVsVertically = false;
+	//		opts.generateNormalsIfMissing = true;
+	//		//hMesh = ctx.pRM.LoadMesh(compJson["model"].get<std::string>(), opts);
+	//		auto meshResult = ctx.pRM.LoadMeshChecked(compJson["model"].get<std::string>(), opts);
+
+
+	//		if (!meshResult.has_value())
+	//		{
+	//			const char* reason = meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
+	//													: meshResult.error() == EMeshLoadError::ParseFailed ? "échec de parsing OBJ"
+	//													: "mesh vide";
+	//			Logger::error("\033[31mSceneSerializer::ParseMesh — " + std::string(reason) + " : " + fullPath + "");
+	//			return;
+	//		}
+	//		hMesh = *meshResult;
+	//	}
+
+	//	float orbitRadius = 0.0f;
+	//	if (const TransformComponent* tr = ctx.registry.TryGet<TransformComponent>(entity))
+	//	{
+	//		const Vec3f& p = tr->m_local.position;
+	//		orbitRadius = Vec3f(p.x, 0.0f, p.z).length();   // plan XZ uniquement
+	//	}
+
+	//	ctx.registry.emplaceComponent<MeshComponent>(
+	//		entity,
+	//		hMesh,                                        // m_mesh
+	//		compJson.value("orbitalSpeed", 0.0f),          // m_orbitalSpeed
+	//		compJson.value("rotationSpeed", 0.0f),         // m_rotationSpeed
+	//		0.0f,                                          // m_currentOrbitAngle
+	//		0.0f                                           // m_currentRotationAngle
+	//	);
+
+	//	// contrôle de cohérence : MeshComponent est un POD pur, donc trivially copyable. Si tu ajoutes un std::string ou un std::vector dedans, le compilateur te le signalera ici.
+	//	static_assert(std::is_trivially_copyable_v<MeshComponent>);
+	//}
 
 	//***************************************************************************************
 	void SceneSerializer::ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -370,7 +448,7 @@ namespace LV3
 				? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
 				: nullptr;
 			if (!current || c.m_priority >= current->m_priority)
-				out_activeCamera = entity;
+				out_activeCamera != NULL_ENTITY;
 		}
 
 	}
@@ -386,6 +464,7 @@ namespace LV3
 		c.m_mouseSensitivity = j.value("mouseSensitivity", 0.15f);
 		c.m_lockVertical = j.value("lockVertical", true);
 		c.m_pitchLimitDeg = j.value("pitchLimit", 89.0f);
+		c.m_sprintMultiplier = j.value("sprintMultiplier", 3.0f);
 
 		// Angles initiaux dérivés du Transform déjà parsé, sinon la caméra
 		// saute à (0,0) à la première frame.
@@ -412,6 +491,7 @@ namespace LV3
 		c.m_smoothSpeed = j.value("smoothSpeed", 5.0f);
 		c.m_lookAtHeight = j.value("lookAtHeight", 0.0f);   // vise un peu au-dessus des pieds
 
+
 		c.m_smoothSpeed = std::max(c.m_smoothSpeed, 0.0f); // 0 = suivi rigide, pas de lissage
 		c.m_isInitialized = false;                          // le système fera un snap à la 1re frame
 
@@ -422,7 +502,7 @@ namespace LV3
 		if (!targetName.empty())
 			ctx.pendingFollowTargets.push_back({ entity, targetName });
 		else
-			LV3_LOG_WARN("CameraFollow sans 'target' sur l'entite %u", entity.Index());
+			Logger::warn("CameraFollow sans 'target' sur : " + EntityLabel(ctx.registry, entity) + " — suivi inactif");
 	}
 
 	//********************************************************************
@@ -468,7 +548,7 @@ namespace LV3
 		//if (compJson.contains("onExitEvent")) t.onExitEvent = compJson["onExitEvent"];
 
 		//ctx.registry.addComponent(entity, t);
-		std::cout << "INFO: Entité " << entity << " a un trigger de rayon : " << radius << std::endl;
+		Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : ");
 	}
 
 	void SceneSerializer::PlayerControl(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -524,7 +604,7 @@ namespace LV3
 			{
 				// Ici, rien à changer : HierarchyComponent{ {}, {}, true } est construit directement en argument, donc c'est une prvalue 
 				// le compilateur applique déjà le déplacement (voire l'élision de copie) sans ton intervention. Le std::move explicite n'apporte rien sur un temporaire déjà mouvable. C'est le cas exact où ta vigilance doit distinguer lvalue nommée (a besoin de std::move) de temporaire anonyme (n'en a pas besoin).
-				ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ {}, {},true });
+				ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ NULL_ENTITY, {}, true });
 				// todo : optimisation F1 :  Une fois F1 en place, ce sera NULL_ENTITY qu'il faudra écrire ici, pas {}
 				// sinon un enfant sans parent explicite pointera silencieusement vers l'entité d'index 0 ({}, c'est-à-dire Entity{} soit 0)
 			}
@@ -554,7 +634,7 @@ namespace LV3
 		if (!registry.hasComponent<HierarchyComponent>(parent))
 		{
 			// Crée un composant parent s'il n'existe pas
-			registry.addComponent(parent, HierarchyComponent{ {}, {}, true }); // parent vide, marqué comme racine
+			registry.addComponent(parent, HierarchyComponent{ NULL_ENTITY, {}, true }); // parent vide, marqué comme racine
 		}
 		// Retrouve le parent (nouvellement créé ou pas) pour référencer son enfant
 		registry.getComponent<HierarchyComponent>(parent).m_children.push_back(child);
@@ -569,7 +649,7 @@ namespace LV3
 			const auto it = ctx.entityMap.find(ref.targetName);
 			if (it == ctx.entityMap.end())
 			{
-				LV3_LOG_WARN("CameraFollow : cible '%s' introuvable", ref.targetName.c_str());
+				Logger::warn("CameraFollow : cible " + ref.targetName + " introuvable");
 				if (auto* f = ctx.registry.TryGet<CameraFollowComponent>(ref.owner))
 					f->m_isEnabled = false;             // on desactive plutot que de crasher
 				continue;

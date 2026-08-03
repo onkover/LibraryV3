@@ -158,6 +158,7 @@
     <ClInclude Include="Core\EngineConfig.h" />
     <ClInclude Include="Core\EngineSettings.h" />
     <ClInclude Include="Core\EventBus.hpp" />
+    <ClInclude Include="Core\InputState.h" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />
     <ClInclude Include="Geometry\FaceView.h" />
@@ -178,6 +179,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendering\Renderer.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
+    <ClInclude Include="Rendering\ViewData.h" />
     <ClInclude Include="Rendering\Viewport.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Ressources\CommunFunctions.h" />

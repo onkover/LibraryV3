@@ -184,9 +184,22 @@ namespace LV3
 				if (m_Alive[idx])
 					fn(MakeEntity(idx, m_Generations[idx]));
 		}
-
+		
+		//********************************************************
 		[[nodiscard]] std::uint32_t GetAliveCount() const noexcept { return m_AliveCount; }
 
+		// --- Accès sûr : nullptr si le composant est absent ---
+		template<typename T>
+		[[nodiscard]] T* TryGet(Entity e) noexcept
+		{
+			return hasComponent<T>(e) ? &getComponent<T>(e) : nullptr;
+		}
+
+		template<typename T>
+		[[nodiscard]] const T* TryGet(Entity e) const noexcept
+		{
+			return hasComponent<T>(e) ? &getComponent<T>(e) : nullptr;
+		}
 
 		//********************************************************
 		template <typename T>

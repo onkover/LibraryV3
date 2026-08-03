@@ -161,6 +161,12 @@
     <ClInclude Include="Rendering\Viewport.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Core\InputState.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ViewData.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">

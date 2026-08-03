@@ -39,6 +39,7 @@
 #include "core/config.h"				// configuration du moteur qui ne change jamais sinon, recompilation totale du projet
 #include "Core/CoreTypes.h"		
 #include "Maths/MathTypes.h"
+#include "Maths/Transform.h"
 
 //#include <Resources/MathTypes.h>
 //#include <Resources/ResourceHandle.h>

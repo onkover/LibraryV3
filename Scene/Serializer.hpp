@@ -44,9 +44,15 @@ namespace LV3
             std::string      baseDir;   // répertoire du fichier JSON (pour les chemins relatifs)
             ResourceManager& pRM;  // référence vers le gestionnaire de ressources
             std::unordered_map<std::string, Entity>& entityMap; // map temporaire pour retrouver les entités par leur ID de noeud
-			std::vector<PendingEntityRef> pendingFollowTargets; // liste des références à résoudre après le parsing de tous les noeuds
             Registry& registry;
             Entity& out_activeCamera;       // référence vers l'entité de la caméra active (sera modifiée si un noeud "Camera" est trouvé)
+
+            // --------------------------
+            // démarre vide, se remplit dans ParseCameraFollow (push_back), et se vide dans ResolveDeferredReferences. LoadSceneGraph n'a rien à en faire.
+            // il doit être déclaré en dernier, après les membres que tu passes positionnellement :
+            // --------------------------
+            std::vector<PendingEntityRef> pendingFollowTargets; // liste des références à résoudre après le parsing de tous les noeuds
+
         };
 
         static void linkChildToParent(Registry& registry, Entity child, Entity parent);

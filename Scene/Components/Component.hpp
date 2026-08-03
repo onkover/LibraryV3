@@ -10,15 +10,15 @@
 #include "Lighting/LightTypes.h"
 #include "../../Ressources/ResourceHandle.h"
 #include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
-
+#include "Maths/Transform.h" 
 
 namespace LV3
 {
 	//********************************************************************
-	// L'ancienne hiÈrarchie de `node` dans les anciennes vesion du scËne graph devient un simple composant ici
+	// L'ancienne hi√©rarchie de `node` dans les anciennes vesion du sc√®ne graph devient un simple composant ici
 	struct HierarchyComponent
 	{
-		Entity m_parent;
+		Entity m_parent = NULL_ENTITY;
 		std::vector <Entity> m_children;
 		bool m_isRoot = false;
 	};
@@ -37,12 +37,12 @@ namespace LV3
 
 		Aucune position, aucune rotation, aucune matrice : c'est le
 		TransformComponent qui porte le placement, exactement comme pour
-		n'importe quelle autre entitÈ. Une camÈra est un objet de la scËne
-		ÈquipÈ d'un objectif ó pas une classe ‡ part.
+		n'importe quelle autre entit√©. Une cam√©ra est un objet de la sc√®ne
+		√©quip√© d'un objectif ‚Äî pas une classe √† part.
 
-		Aucun Ètat dÈrivÈ non plus : view, projection et frustum sont
-		recalculÈs chaque frame par le CameraSystem dans un ViewData.
-		Ce composant est une donnÈe d'AUTEUR, pure et sÈrialisable.
+		Aucun √©tat d√©riv√© non plus : view, projection et frustum sont
+		recalcul√©s chaque frame par le CameraSystem dans un ViewData.
+		Ce composant est une donn√©e d'AUTEUR, pure et s√©rialisable.
 	*/
 	struct CameraComponent
 	{
@@ -52,45 +52,45 @@ namespace LV3
 
 		//float smoothSpeed = 5.0f; // Vitesse du lissage
 
-		//// DonnÈes d'Ètat (mises ‡ jour par le CameraSystem)
+		//// Donn√©es d'√©tat (mises √† jour par le CameraSystem)
 		//Vec3f currentSmoothedPos;
 		//Quatf currentSmoothedRot;
 		//bool isInitialized = false;
 
 		// --- Type de projection ---
-		EProjectionType m_projection = EProjectionType::Perspective;		// projection par dÈfaut de type Perspective
+		EProjectionType m_projection = EProjectionType::Perspective;		// projection par d√©faut de type Perspective
 
 		// --- Plans de clipping (communs aux deux projections) ---
-		float m_nearPlane = 0.1f;					// plan proche, en unitÈs monde
-		float m_farPlane = 1000.0f;					// plan lointain, en unitÈs monde
+		float m_nearPlane = 0.1f;					// plan proche, en unit√©s monde
+		float m_farPlane = 1000.0f;					// plan lointain, en unit√©s monde
 		bool  m_infiniteFar = false;				// ignore m_farPlane : plus aucune limite lointaine
 
-		// --- Perspective : paramÈtrage ---
+		// --- Perspective : param√©trage ---
 		ELensModel m_lensModel = ELensModel::FieldOfView;
 
-		//   ... modËle FieldOfView
-		float m_fovYDeg = 45.0f;          // VERTICAL, en degrÈs (convention moteur)
+		//   ... mod√®le FieldOfView
+		float m_fovYDeg = 45.0f;          // VERTICAL, en degr√©s (convention moteur)
 
-		//   ... modËle Filmback (stÈnopÈ). m_fovYDeg en est alors dÈrivÈ.
-		float    m_focalLengthMm = 35.0f;		// 1.378" ó focale standard
-		float    m_filmWidthMm = 24.892f;		// 0.980" ó 35 mm Full Aperture
+		//   ... mod√®le Filmback (st√©nop√©). m_fovYDeg en est alors d√©riv√©.
+		float    m_focalLengthMm = 35.0f;		// 1.378" ‚Äî focale standard
+		float    m_filmWidthMm = 24.892f;		// 0.980" ‚Äî 35 mm Full Aperture
 		float    m_filmHeightMm = 18.669f;		// 0.735"
-		EGateFit m_gateFit = EGateFit::Fill;	// Fill = la pellicule tient dans la fenÍtre (on rogne), 
-												// Overscan = la pellicule dÈborde de la fenÍtre (on remplit)
+		EGateFit m_gateFit = EGateFit::Fill;	// Fill = la pellicule tient dans la fen√™tre (on rogne), 
+												// Overscan = la pellicule d√©borde de la fen√™tre (on remplit)
 
 		// --- Orthographique ---
-		float m_orthoHeight = 10.0f;      // hauteur visible en unitÈs monde
+		float m_orthoHeight = 10.0f;      // hauteur visible en unit√©s monde
 
-		// --- SÈlection ---
+		// --- S√©lection ---
 		bool m_isActive = true;	
 		int  m_priority = 0;              // la plus haute gagne quand plusieurs sont actives
 
 	};
 
 	// Verrou : ce composant doit rester 
-	// * une donnÈe brute, 
+	// * une donn√©e brute, 
 	// * copiable sans logique, 
-	// * sÈrialisable telle quelle.
+	// * s√©rialisable telle quelle.
 	static_assert(std::is_aggregate_v<CameraComponent>, "CameraComponent doit rester un agregat : aucune logique dedans");
 	static_assert(std::is_trivially_copyable_v<CameraComponent>, "CameraComponent doit rester trivialement copiable");
 
@@ -98,19 +98,27 @@ namespace LV3
 
 	//********************************************************************
 	/*
-		L'Ètat de lissage sort de la camÈra : c'est du CONTR‘LEUR.
-		Unity : Camera + Cinemachine.  Unreal : UCameraComponent + APlayerCameraManager. Jamais dans la mÍme classe.
+		L'√©tat de lissage sort de la cam√©ra : c'est du CONTR√îLEUR.
+		Unity : Camera + Cinemachine.  Unreal : UCameraComponent + APlayerCameraManager. Jamais dans la m√™me classe.
 
-		Ce composant se pose sur la mÍme entitÈ que CameraComponent, ou pas du tout ó une camÈra libre n'en a pas besoin.
+		Ce composant se pose sur la m√™me entit√© que CameraComponent, ou pas du tout ‚Äî une cam√©ra libre n'en a pas besoin.
+
+		"m_isEnabled" n'est pas un m√©canisme g√©n√©ral d'activation de composant. Il existe pour r√©soudre un conflit pr√©cis : FPSControllerSystem et CameraFollowSystem √©crivent tous les deux dans le m√™me TransformComponent. Si les deux tournent, le second √©crase le premier.
+		"m_followRotation" : c'est le choix entre deux cam√©ras classiques :
+			* true ‚Üí l'offset est exprim√© dans le rep√®re de la cible : la cam√©ra reste derri√®re le v√©hicule quand il tourne (3e personne).
+			* false ‚Üí l'offset est en espace monde : la cam√©ra garde une direction fixe, la cible tourne devant elle (isom√©trique, RTS).
 	*/
 	struct CameraFollowComponent
 	{
-		bool m_isEnabled = true;
-		Entity m_target;
-		Vec3f  m_offset{ 0.0f, 2.0f, -6.0f };   // en espace local de la cible
-		float  m_smoothSpeed = 5.0f;
+		bool m_isEnabled = true;					// si FPSControllerComponent.m_isEnabled = True, celui-ci sera mi √† False
+		Entity m_target = NULL_ENTITY;							// r√©solu en diff√©r√© depuis le nom JSON
+		Vec3f  m_offset{ 0.0f, 2.0f, -6.0f };		// en espace local de la cible
+		float  m_lookAtHeight = 0.0f;	            // √©l√®ve le point vis√© au-dessus de l'origine
+		float  m_smoothSpeed = 5.0f;				// 0 = suivi rigide, sans lissage
+		bool   m_followRotation = true;             // l'offset pivote-t-il avec la cible ?
 
-		// …tat (mis ‡ jour par le CameraFollowSystem)
+
+		// --- √âtat (mis √† jour par le CameraFollowSystem jamais par le JSON) ---
 		Vec3f m_smoothedPos;
 		Quatf m_smoothedRot;
 		bool  m_isInitialized = false;
@@ -119,21 +127,23 @@ namespace LV3
 	//********************************************************************
 	struct FPSControllerComponent
 	{
-		bool m_isEnabled = true;
-		float m_moveSpeed = 5.0f;    // unitÈs monde par SECONDE
-		float m_mouseSensitivity = 0.15f;   // DEGR…S par pixel
+		bool  m_isEnabled = true;
+		float m_moveSpeed = 5.0f;     // unit√©s monde par SECONDE
+		float m_sprintMultiplier = 3.0f;     // facteur appliqu√© quand Shift est tenu
+		float m_mouseSensitivity = 0.15f;    // DEGR√âS par pixel
+		bool  m_lockVertical = true;     // true = FPS au sol | false = vol libre 6 DoF
+		float m_pitchLimitDeg = 89.0f;
+
+		// √âtat accumul√© (√©crit par le syst√®me)
 		float m_yawDeg = 0.0f;
 		float m_pitchDeg = 0.0f;
-		float m_pitchLimitDeg = 89.0f;
-		bool  m_lockVertical = true;    // true = FPS au sol | false = vol libre 6 DoF
 	};
-
 	//********************************************************************
 	/* 
-	R…F…RENCE, pas de propriÈtÈ : le ResourceManager reste l'unique propriÈtaire.
-	RÈsolution : resourceManager.GetMesh(m_mesh) au moment de l'usage (rendu, culling, etc.)
-	Les matÈriaux ne sont PAS dupliquÈs ici : chaque MeshClass::SubMesh porte dÈj‡ son
-	propre MaterialHandle (voir SubMesh.h) ó un mesh multi-matÈriaux fonctionne nativement.
+	R√âF√âRENCE, pas de propri√©t√© : le ResourceManager reste l'unique propri√©taire.
+	R√©solution : resourceManager.GetMesh(m_mesh) au moment de l'usage (rendu, culling, etc.)
+	Les mat√©riaux ne sont PAS dupliqu√©s ici : chaque MeshClass::SubMesh porte d√©j√† son
+	propre MaterialHandle (voir SubMesh.h) ‚Äî un mesh multi-mat√©riaux fonctionne nativement.
 	*/
 	struct MeshComponent
 	{
@@ -142,34 +152,52 @@ namespace LV3
 //		std::string m_texture;
 		MeshHandle m_meshHandle;
 
-		// DonnÈes pour l'animation
+		// Donn√©es pour l'animation
 		float m_orbitalSpeed = 0.0f;
 		float m_rotationSpeed = 0.0f;
 
-		// Les variables d'Ètat (angles)
+		float m_orbitRadius = 0.0f;      // NOUVEAU : fig√© au chargement, jamais recalcul√©
+
+		// Les variables d'√©tat (angles)
 		float m_currentOrbitAngle = 0.0f;
 		float m_currentRotationAngle = 0.0f;
 
 	};
 
 	//********************************************************************
-	struct Transform { Vec3f position; Quatf rotation; Vec3f scale; };
+	//struct Transform 
+	//{ 
+	//	Vec3f position; 
+	//	Quatf rotation; 
+	//	Vec3f scale;
+	//};
 
 	struct TransformComponent
 	{
 	public:
-		// DonnÈes statiques
+		// Donn√©es statiques
 		//Vec3f m_initialLocalPosition{ 0.0f };
 		////Quatf m_initialLocalRotation;
 		//Vec3f m_initialLocalRotation{ 0.0f };
 		//Vec3f m_initialLocalScale{ 1.0f };
 
 		// Transformations
+		//Matrix44f m_localTransform;
+		//Matrix44f m_worldTransform;
+		//Transform m_local;                  // position + Quatf + scale : L'√âTAT
+
+		//bool      m_dirty = true;           // √©vite de reconstruire les matrices pour rien
+
+
+		Transform m_local;
+		Quatf     m_initialRotation;       // NOUVEAU : rotation d'auteur, base de l'animation
 		Matrix44f m_localTransform;
 		Matrix44f m_worldTransform;
-		Transform m_local;                  // position + Quatf + scale : L'…TAT
+		bool      m_dirty = true;
 
-		bool      m_dirty = true;           // Èvite de reconstruire les matrices pour rien
+		// --- Compatibilit√© provisoire : √† supprimer une fois tout migr√© ---
+		Matrix44f& m_localTransform_compat() { return m_localTransform; }
+		Matrix44f& m_worldTransform_compat() { return m_worldTransform; }
 
 	};
 
@@ -177,23 +205,23 @@ namespace LV3
 
 
 
-//	Attention : aucun constructeur explicite, seulement des valeurs par dÈfaut sur certains membres (radius = 1.0f, is_colliding = false).C'est important, car Emplace transmet ses arguments ‡ un constructeur ó et TriggerComponent n'a que le constructeur agrÈgÈ implicite(agrÈgat C++).
-// «a fonctionne, mais avec une rËgle stricte : l'ordre des arguments doit suivre exactement l'ordre de dÈclaration des membres
-// L'agrÈgat ne permet pas de sauter un membre au milieu pour garder le suivant ‡ sa valeur par dÈfaut si tu en fournis un aprËs.
+//	Attention : aucun constructeur explicite, seulement des valeurs par d√©faut sur certains membres (radius = 1.0f, is_colliding = false).C'est important, car Emplace transmet ses arguments √† un constructeur ‚Äî et TriggerComponent n'a que le constructeur agr√©g√© implicite(agr√©gat C++).
+// √áa fonctionne, mais avec une r√®gle stricte : l'ordre des arguments doit suivre exactement l'ordre de d√©claration des membres
+// L'agr√©gat ne permet pas de sauter un membre au milieu pour garder le suivant √† sa valeur par d√©faut si tu en fournis un apr√®s.
 	struct TriggerComponent
 	{
 	public:
-		//Vec3f halfSize{ 1, 1, 1 }; // Taille de la boÓte (demi-dimensions)
-		//bool isColliding = false; // …tat
+		//Vec3f halfSize{ 1, 1, 1 }; // Taille de la bo√Æte (demi-dimensions)
+		//bool isColliding = false; // √âtat
 
-		float radius = 1.0f; // La taille de notre trigger sphÈrique
+		float radius = 1.0f; // La taille de notre trigger sph√©rique
 
-		// Noms des ÈvÈnements que ce trigger publiera
+		// Noms des √©v√©nements que ce trigger publiera
 		std::string onEnterEvent = "";
 		std::string onStayEvent = "";
 		std::string onExitEvent = "";
 
-		// …tat (mis ‡ jour par le TriggerSystem)
+		// √âtat (mis √† jour par le TriggerSystem)
 		bool is_colliding =false;
 		std::set<Entity> overlapping_entities; // Avec qui on collisionne
 
@@ -223,7 +251,7 @@ namespace LV3
 
 	struct PlayerControlComponent
 	{
-		float m_speed = 1.0f;		// Pour dÈplacer le vaisseau
+		float m_speed = 1.0f;		// Pour d√©placer le vaisseau
 	};
 
 	//********************************************************************

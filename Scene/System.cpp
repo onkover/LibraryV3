@@ -1,173 +1,28 @@
-#include "pch.h"          // ? première ligne, toujours
+#include "pch.h"          // ? premiÃ¨re ligne, toujours
 #include <map>	// pour le debug
 #include <set>
 
 #include "Registry.hpp"
 #include "../Core/EventBus.hpp"
 #include "../Ressources/ResourceManager.h"
+#include "System.hpp"
+//#include "../Maths/Transform.h"
+//#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
+
+
+
+/*
+todo
+
+* refonte  de TriggerSystem : EnTT utilise un enum class entity : uint32_t prÃ©cisÃ©ment pour interdire ces conversions implicites. Ce serait une amÃ©lioration de fond â€” mais pas maintenant : Ã§a touche toute la signature de ton Registry. Note-la comme chantier futur, Ã  cÃ´tÃ© de la refonte du TriggerSystem.
+
+
+
+*/
 
 namespace LV3
 {
-
-	/// <summary>
-	/// Met à jour les angles d'orbite et de rotation des composants Mesh dans le registre en fonction du temps écoulé.
-	/// </summary>
-	/// <param name="registry">Le registre contenant les entités et leurs composants.</param>
-	/// <param name="deltaTime">Temps écoulé (en secondes) depuis la dernière mise à jour, utilisé pour incrémenter les angles selon les vitesses orbitales et de rotation.</param>
-	void AnimationSystem(Registry& registry, float deltaTime)
-	{
-		// On utilise la ViewGroup (ComponentView) qui retourne (Entity, Component&...)
-		for (auto&& [entity, mesh] : registry.ViewGroup<MeshComponent>())
-		{
-			if (!ctrl.m_isEnabled) continue;
-			mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
-			mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
-		}
-
-	}
-
-	//********************************************************************
-	/// <summary>
-	/// Met à jour la matrice locale de chaque TransformComponent présent dans le registry : construit une matrice locale à partir des données initiales (position, rotation, échelle), puis laisse les composants animés (par ex. MeshComponent, CameraComponent) écraser la rotation ou la position si nécessaire (gestion d'orbite, rotation animée, position/rotation lissées pour la caméra).
-	/// </summary>
-	/// <param name="registry">Référence au Registry qui contient les composants. </param>
-	void LocalTransformSystem(Registry& registry)
-	{
-		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
-		auto& Transforms = TransformComponentsPool->GetDenseData();
-		auto& Entities = TransformComponentsPool->GetDenseEntities();
-
-		for (size_t i = 0; i < Transforms.size(); i++)
-		{
-			if (!ctrl.m_isEnabled) continue;
-
-			TransformComponent& transform = Transforms[i];
-			Entity entity = Entities[i];
-
-			// --- 1. CONSTRUIRE LA MATRICE LOCALE STATIQUE ---
-			// On utilise les données lues du JSON (m_initial...)
-			// C'est la transformation par défaut du composant
-			Matrix44f scaleMatrix;
-			scaleMatrix.scale(transform.m_initialLocalScale);
-
-			Quatf RotationQuat = Quatf(transform.m_initialLocalRotation);
-
-			Matrix44f translationMatrix;
-			translationMatrix.translate(transform.m_initialLocalPosition);
-
-			// --- 2. LAISSER LES COMPOSANTS ANIMÉS ÉCRASER CETTE MATRICE ---
-			// Si un composant (comme MeshComponent) a une logique d'update, il va maintenant écraser m_localTransform avec sa propre logique d'animation.
-			// Gestion de l'animation du mesh si elle existe
-			if (registry.hasComponent<MeshComponent>(entity))
-			{
-				MeshComponent& mesh = registry.getComponent<MeshComponent>(entity);
-
-				Quatf animatedRotation;
-				animatedRotation.SetAxisAngle({ 0, 1, 0 }, mesh.m_currentRotationAngle);
-				RotationQuat = animatedRotation * RotationQuat;
-				// rotationQuat = glm::rotate(rotationQuat, glm::radians(mesh.m_currentRotationAngle), {0, 1, 0});
-
-				Matrix44f AnimatedTranslationMatrix; // Pour l'orbite
-				float radius = transform.m_initialLocalPosition.length();
-				if (radius > 0.001f) {
-					Vec3f orbitalPosition = transform.m_initialLocalPosition;
-					orbitalPosition.x = radius * cosf(mesh.m_currentOrbitAngle);
-					orbitalPosition.z = radius * sinf(mesh.m_currentOrbitAngle);
-
-					AnimatedTranslationMatrix.translate(orbitalPosition);
-					translationMatrix = AnimatedTranslationMatrix;
-				}
-			}
-
-			// Si c'est une caméra lissée, elle écrase la position/rotation
-			if (registry.hasComponent<CameraComponent>(entity))
-			{
-				CameraComponent& camera = registry.getComponent<CameraComponent>(entity);
-
-				translationMatrix.translate(camera.currentSmoothedPos);
-				RotationQuat = camera.currentSmoothedRot;
-
-			}
-
-			// --- 3. Composition et mise à jour de la matrice locale ---
-			transform.m_localTransform = scaleMatrix * RotationQuat.ToMatrix44() * translationMatrix;
-
-			//std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
-			//std::cout << "\n" << std::endl;
-			//
-			//std::cout << "raw angles: " << transform.m_initialLocalRotation
-			//	<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
-			//std::cout << "\n" << std::endl;
-
-		}
-
-
-	}
-
-	//********************************************************************
-
-	/// <summary>
-	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
-	/// </summary>
-	/// <param name="registry">Le Registry contenant les composants des entités</param>
-	/// <param name="entity">L'identifiant de l'entité dont on met à jour la transformation mondiale.</param>
-	/// <param name="parentWorldTransform">Référence constante à la transformation mondiale du parent utilisée pour composer la transformation mondiale de l'entité.</param>
-	void UpdateWorldTransforms(Registry& registry, Entity entity, const Matrix44f& parentWorldTransform)
-	{
-		if (!registry.hasComponent<TransformComponent>(entity))
-			return;
-
-		auto& transform = registry.getComponent<TransformComponent>(entity);
-
-		// --- 3. Composition et mise à jour de la matrice locale du propriétaire ---
-		// Ordre Row-Major pour un effet SRT (Scale -> Rotate -> Translate)
-		transform.m_worldTransform = transform.m_localTransform * parentWorldTransform;
-
-		// --- 4. MISE À JOUR RÉCURSIVE DES ENFANTS ---
-		if (registry.hasComponent<HierarchyComponent>(entity))
-		{
-			if (!ctrl.m_isEnabled) continue;
-
-			// F6 optim : HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity); // HierarchyComponent children = ... copie la struct entière — donc son std::vector<Entity> m_children — à chaque nœud, à chaque frame, dans une récursion.
-			const auto& children = registry.getComponent<HierarchyComponent>(entity);   // référence, zéro copie
-
-			for (Entity childID : children.m_children)
-			{
-				UpdateWorldTransforms(registry, childID, transform.m_worldTransform);
-			}
-		}
-	}
-
-	/// <summary>
-	/// Parcourt les composants de transformation et initie la mise à jour des matrices de transformation mondiales pour les entités racines (ou sans parent) en appelant UpdateWorldTransforms avec une matrice identité.
-	/// </summary>
-	/// <param name="registry">Référence au registre d'entités et de composants.</param>
-	void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix)
-	{
-
-		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
-		auto& Transforms = TransformComponentsPool->GetDenseData();
-		auto& Entities = TransformComponentsPool->GetDenseEntities();
-
-		for (size_t i = 0; i < Transforms.size(); i++)
-		{
-			if (!ctrl.m_isEnabled) continue;
-
-			// On ne prend que les entités qui n'ont pas de parent, afin de démarrer le calcul récursif des matrices à partir d'elles
-			// 1. les entités solitaires (pas de hiérarchie). La transformation de ces entités ne dépend pas d'autruit (comme un astéroide ou un vaisseau spatial par exemple)
-			// 2. ou les entités patriarches (root = true). Ces entités sont le début d'une hiérarchie dont la transformations des enfants dépendent de lui.
-			if (!registry.hasComponent<HierarchyComponent>(Entities[i]) || registry.getComponent<HierarchyComponent>(Entities[i]).m_isRoot)
-			{
-				// On peut démarrer l'itération
-				UpdateWorldTransforms(registry, Entities[i], worldIdentityMatrix);
-			}
-			//else
-				//assert(false && "WorldTransformSystem : une entité enfant ne devrait pas être traitée ici, elle sera traitée par la récursion de son parent.");
-		}
-	}
-
-	//********************************************************************
 
 	// Fonction d'aide pour le Lerp
 	Vec3f lerp(const Vec3f& initial, const Vec3f & final, float t)
@@ -175,64 +30,400 @@ namespace LV3
 		return initial + (final - initial) * t;
 	}
 
-	// Doit s'exécuter avant que la matrice locale finale ne soit construite.
-	void CameraSystem(Registry& registry, float deltaTime)
+
+	/// <summary>
+	/// Met Ã  jour les angles d'orbite et de rotation des composants Mesh dans le registre en fonction du temps Ã©coulÃ©.
+	/// </summary>
+	/// <param name="registry">Le registre contenant les entitÃ©s et leurs composants.</param>
+	/// <param name="deltaTime">Temps Ã©coulÃ© (en secondes) depuis la derniÃ¨re mise Ã  jour, utilisÃ© pour incrÃ©menter les angles selon les vitesses orbitales et de rotation.</param>
+	/// Anime les meshes : rotation propre et orbite.
+	/// Fait avancer les angles ET les applique au Transform.
+	/// Comme tout contrÃ´leur, Ã©crit dans m_local â€” jamais dans les matrices.
+	void AnimationSystem(Registry& registry, float deltaTime)
 	{
-		for (auto&& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
+		constexpr float TWO_PI = 6.28318530718f;
+
+		// On exige aussi le Transform : un mesh sans Transform n'est pas animable.
+		for (auto&& [entity, mesh, tr] : registry.ViewGroup<MeshComponent, TransformComponent>())
 		{
-			if (!ctrl.m_isEnabled) continue;
+			bool changed = false;
 
-			// La cible est la position statique définie dans le JSON
-			const Vec3f& targetPos = transform.m_initialLocalPosition;
-			const Quatf targetRot = Quatf(transform.m_initialLocalRotation, false);
-
-			if (!camera.isInitialized)
+			// --- Rotation propre ---
+			if (mesh.m_rotationSpeed != 0.0f)	// Un mesh sans animation ne doit pas voir son Transform rÃ©Ã©crit ni son m_dirty levÃ© â€” sinon LocalTransformSystem recompose sa matrice Ã  chaque frame pour rien. C'est ce qui donne son sens au m_dirty.
 			{
-				camera.currentSmoothedPos = targetPos;
-				camera.currentSmoothedRot = targetRot;
-				camera.isInitialized = true;
+				mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
+				mesh.m_currentRotationAngle = std::fmod(mesh.m_currentRotationAngle, TWO_PI);
+
+				Quatf spin;
+				spin.SetAxisAngle(Vec3f::Up(), mesh.m_currentRotationAngle);
+
+				// On repart TOUJOURS de la rotation d'auteur, jamais de la prÃ©cÃ©dente :
+				// composer sur soi-mÃªme accumule les erreurs d'arrondi et dÃ©rive.
+				tr.m_local.rotation = spin * tr.m_initialRotation;
+				changed = true;
 			}
 
-			// Lissage (Lerp/Slerp)
-			float t = deltaTime * camera.smoothSpeed;
-			camera.currentSmoothedPos = transform.m_initialLocalPosition;
-			//camera.currentSmoothedPos = lerp(camera.currentSmoothedPos, targetPos, t);
-			camera.currentSmoothedRot = Quatf(transform.m_initialLocalRotation, false);//
-			//camera.currentSmoothedRot = Slerp(camera.currentSmoothedRot, targetRot, t);
+			// --- Orbite, dans le plan XZ ---
+			if (mesh.m_orbitalSpeed != 0.0f && mesh.m_orbitRadius > 0.0f)
+			{
+				mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
+				mesh.m_currentOrbitAngle = std::fmod(mesh.m_currentOrbitAngle, TWO_PI); // std::fmod(angle, 2Ï€). Sans Ã§a, aprÃ¨s quelques heures de jeu ton angle atteint des milliers de radians et la prÃ©cision du float s'effondre : cos() et sin() deviennent visiblement saccadÃ©s. Un fmod par frame coÃ»te trois fois rien.
 
+				tr.m_local.position.x = mesh.m_orbitRadius * std::cos(mesh.m_currentOrbitAngle);
+				tr.m_local.position.z = mesh.m_orbitRadius * std::sin(mesh.m_currentOrbitAngle);
+				// y est laissÃ© intact : l'orbite est plane, l'inclinaison reste celle du JSON
+				changed = true;
+			}
 
+			if (changed) tr.m_dirty = true;
 		}
 	}
+
+
+	//void AnimationSystem(Registry& registry, float deltaTime)
+	//{
+	//	// On utilise la ViewGroup (ComponentView) qui retourne (Entity, Component&...)
+	//	for (auto&& [entity, mesh] : registry.ViewGroup<MeshComponent>())
+	//	{
+	//		mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
+	//		mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
+	//	}
+
+	//}
+
+	////********************************************************************
+	///// Anime les meshes en orbite et en rotation propre.
+	///// Ã‰crit dans m_local, comme n'importe quel contrÃ´leur.
+	//void MeshAnimationSystem(Registry& registry, float deltaTime)
+	//{
+	//	for (auto&& [entity, mesh, tr] : registry.ViewGroup<MeshComponent, TransformComponent>())
+	//	{
+	//		bool changed = false;
+
+	//		// --- Rotation propre ---
+	//		if (mesh.m_rotationSpeed != 0.0f)
+	//		{
+	//			mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
+
+	//			Quatf spin;
+	//			spin.SetAxisAngle(Vec3f::Up(), mesh.m_currentRotationAngle);
+	//			tr.m_local.rotation = spin * tr.m_initialRotation;   // repart TOUJOURS de l'origine
+	//			changed = true;
+	//		}
+
+	//		// --- Orbite dans le plan XZ ---
+	//		if (mesh.m_orbitalSpeed != 0.0f && mesh.m_orbitRadius > 0.0f)
+	//		{
+	//			mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
+
+	//			tr.m_local.position.x = mesh.m_orbitRadius * std::cos(mesh.m_currentOrbitAngle);
+	//			tr.m_local.position.z = mesh.m_orbitRadius * std::sin(mesh.m_currentOrbitAngle);
+	//			changed = true;                                       // y est laissÃ© intact
+	//		}
+
+	//		if (changed) tr.m_dirty = true;
+	//	}
+	//}
+
+
 	//********************************************************************
-	void CameraFollowSystem::Update(Registry& reg, float dt)
+	/// <summary>
+	/// Met Ã  jour la matrice locale de chaque TransformComponent prÃ©sent dans le registry : construit une matrice locale Ã  partir des donnÃ©es initiales (position, rotation, Ã©chelle), puis laisse les composants animÃ©s (par ex. MeshComponent, CameraComponent) Ã©craser la rotation ou la position si nÃ©cessaire (gestion d'orbite, rotation animÃ©e, position/rotation lissÃ©es pour la camÃ©ra).
+	/// </summary>
+	/// <param name="registry">RÃ©fÃ©rence au Registry qui contient les composants. </param>
+	void LocalTransformSystem(Registry& registry)
 	{
-		for (auto& [e, follow, tr] : reg.ViewGroup<CameraFollowComponent, TransformComponent>())
+		SparseSet<TransformComponent>* pool = registry.getStorage<TransformComponent>();
+		if (!pool) return;
+
+		for (TransformComponent& tr : pool->GetDenseData())
 		{
-			if (!ctrl.m_isEnabled) continue;
+			if (!tr.m_dirty) continue;
 
-			const TransformComponent* target = reg.TryGet<TransformComponent>(follow.m_target);
-			if (!target) continue;
+			tr.m_localTransform = tr.m_local.ToLocalMatrix();   // S Â· R Â· T
+			tr.m_dirty = false;
+		}
+	}
 
-			const Vec3f targetPos{ target->m_worldMatrix[3][0],
-									target->m_worldMatrix[3][1],
-									target->m_worldMatrix[3][2] };
 
-			const Vec3f wanted = targetPos + target->m_local.rotation.rotate(follow.m_offset);
-			const Quatf look = Quatf::LookAt(wanted, targetPos);
+		//SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
+		//auto& Transforms = TransformComponentsPool->GetDenseData();
+		//auto& Entities = TransformComponentsPool->GetDenseEntities();
 
-			if (!follow.m_isInitialized) {
-				follow.m_smoothedPos = wanted;
-				follow.m_smoothedRot = look;
+		//for (size_t i = 0; i < Transforms.size(); i++)
+		//{
+
+		//	TransformComponent& transform = Transforms[i];
+		//	Entity entity = Entities[i];
+
+		//	// --- 1. CONSTRUIRE LA MATRICE LOCALE STATIQUE ---
+		//	// On utilise les donnÃ©es lues du JSON (m_initial...)
+		//	// C'est la transformation par dÃ©faut du composant
+		//	Matrix44f scaleMatrix;
+		//	scaleMatrix.scale(transform.m_local.scale);
+
+		//	Quatf RotationQuat = Quatf(transform.m_local.rotation);
+
+		//	Matrix44f translationMatrix;
+		//	translationMatrix.translate(transform.m_local.position);
+
+		//	// --- 2. LAISSER LES COMPOSANTS ANIMÃ‰S Ã‰CRASER CETTE MATRICE ---
+		//	// Si un composant (comme MeshComponent) a une logique d'update, il va maintenant Ã©craser m_localTransform avec sa propre logique d'animation.
+		//	// Gestion de l'animation du mesh si elle existe
+		//	if (registry.hasComponent<MeshComponent>(entity))
+		//	{
+		//		MeshComponent& mesh = registry.getComponent<MeshComponent>(entity);
+
+		//		Quatf animatedRotation;
+		//		animatedRotation.SetAxisAngle({ 0, 1, 0 }, mesh.m_currentRotationAngle);
+		//		RotationQuat = animatedRotation * RotationQuat;
+		//		// rotationQuat = glm::rotate(rotationQuat, glm::radians(mesh.m_currentRotationAngle), {0, 1, 0});
+
+		//		Matrix44f AnimatedTranslationMatrix; // Pour l'orbite
+		//		float radius = transform.m_local.position.length();
+		//		if (radius > 0.001f) {
+		//			Vec3f orbitalPosition = transform.m_local.position;
+		//			orbitalPosition.x = radius * cosf(mesh.m_currentOrbitAngle);
+		//			orbitalPosition.z = radius * sinf(mesh.m_currentOrbitAngle);
+
+		//			AnimatedTranslationMatrix.translate(orbitalPosition);
+		//			translationMatrix = AnimatedTranslationMatrix;
+		//		}
+		//	}
+
+		//	// Si c'est une camÃ©ra lissÃ©e, elle Ã©crase la position/rotation
+		//	if (registry.hasComponent<CameraComponent>(entity))
+		//	{
+		//		CameraComponent& camera = registry.getComponent<CameraComponent>(entity);
+
+		//		translationMatrix.translate(camera.currentSmoothedPos);
+		//		RotationQuat = camera.currentSmoothedRot;
+
+		//	}
+
+		//	// --- 3. Composition et mise Ã  jour de la matrice locale ---
+		//	transform.m_localTransform = scaleMatrix * RotationQuat.ToMatrix44() * translationMatrix;
+
+		//	//std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
+		//	//std::cout << "\n" << std::endl;
+		//	//
+		//	//std::cout << "raw angles: " << transform.m_initialLocalRotation
+		//	//	<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
+		//	//std::cout << "\n" << std::endl;
+		//}
+
+
+	//}
+
+	//********************************************************************
+
+	/// <summary>
+	/// Met Ã  jour la transformation mondiale d'une entitÃ© en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise Ã  jour de maniÃ¨re rÃ©cursive Ã  ses enfants.
+	/// </summary>
+	/// <param name="registry">Le Registry contenant les composants des entitÃ©s</param>
+	/// <param name="entity">L'identifiant de l'entitÃ© dont on met Ã  jour la transformation mondiale.</param>
+	/// <param name="parentWorldTransform">RÃ©fÃ©rence constante Ã  la transformation mondiale du parent utilisÃ©e pour composer la transformation mondiale de l'entitÃ©.</param>
+	//void UpdateWorldTransforms(Registry& registry, Entity entity, const Matrix44f& parentWorldTransform)
+	//{
+	//	if (!registry.hasComponent<TransformComponent>(entity))
+	//		return;
+
+	//	auto& transform = registry.getComponent<TransformComponent>(entity);
+
+	//	// --- 3. Composition et mise Ã  jour de la matrice locale du propriÃ©taire ---
+	//	// Ordre Row-Major pour un effet SRT (Scale -> Rotate -> Translate)
+	//	transform.m_worldTransform = transform.m_localTransform * parentWorldTransform;
+
+	//	// --- 4. MISE Ã€ JOUR RÃ‰CURSIVE DES ENFANTS ---
+	//	if (registry.hasComponent<HierarchyComponent>(entity))
+	//	{
+	//		// F6 optim : HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity); // HierarchyComponent children = ... copie la struct entiÃ¨re â€” donc son std::vector<Entity> m_children â€” Ã  chaque nÅ“ud, Ã  chaque frame, dans une rÃ©cursion.
+	//		const auto& children = registry.getComponent<HierarchyComponent>(entity);   // rÃ©fÃ©rence, zÃ©ro copie
+
+	//		for (Entity childID : children.m_children)
+	//		{
+	//			UpdateWorldTransforms(registry, childID, transform.m_worldTransform);
+	//		}
+	//	}
+	//}
+
+	///// <summary>
+	///// Parcourt les composants de transformation et initie la mise Ã  jour des matrices de transformation mondiales pour les entitÃ©s racines (ou sans parent) en appelant UpdateWorldTransforms avec une matrice identitÃ©.
+	///// </summary>
+	///// <param name="registry">RÃ©fÃ©rence au registre d'entitÃ©s et de composants.</param>
+	//void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix)
+	//{
+
+	//	SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
+	//	auto& Transforms = TransformComponentsPool->GetDenseData();
+	//	auto& Entities = TransformComponentsPool->GetDenseEntities();
+
+	//	for (size_t i = 0; i < Transforms.size(); i++)
+	//	{
+	//		// On ne prend que les entitÃ©s qui n'ont pas de parent, afin de dÃ©marrer le calcul rÃ©cursif des matrices Ã  partir d'elles
+	//		// 1. les entitÃ©s solitaires (pas de hiÃ©rarchie). La transformation de ces entitÃ©s ne dÃ©pend pas d'autruit (comme un astÃ©roide ou un vaisseau spatial par exemple)
+	//		// 2. ou les entitÃ©s patriarches (root = true). Ces entitÃ©s sont le dÃ©but d'une hiÃ©rarchie dont la transformations des enfants dÃ©pendent de lui.
+	//		if (!registry.hasComponent<HierarchyComponent>(Entities[i]) || registry.getComponent<HierarchyComponent>(Entities[i]).m_isRoot)
+	//		{
+	//			// On peut dÃ©marrer l'itÃ©ration
+	//			UpdateWorldTransforms(registry, Entities[i], worldIdentityMatrix);
+	//		}
+	//		//else
+	//			//assert(false && "WorldTransformSystem : une entitÃ© enfant ne devrait pas Ãªtre traitÃ©e ici, elle sera traitÃ©e par la rÃ©cursion de son parent.");
+	//	}
+	//}
+
+	// Descente rÃ©cursive : chaque nÅ“ud est visitÃ© UNE fois.
+	void PropagateWorld(Registry& reg, Entity e, const Matrix44f& parentWorld)
+	{
+		TransformComponent* tr = reg.TryGet<TransformComponent>(e);
+		if (!tr) return;
+
+		// Vecteur-ligne : v Â· M_enfant Â· M_parent  ->  enfant Ã€ GAUCHE
+		tr->m_worldTransform = tr->m_localTransform * parentWorld;
+
+		// COPIE avant de rÃ©curser : `tr` peut pendre si le stockage bouge.
+		const Matrix44f world = tr->m_worldTransform;
+
+		if (const HierarchyComponent* h = reg.TryGet<HierarchyComponent>(e))
+			for (Entity child : h->m_children)
+				PropagateWorld(reg, child, world);
+	}
+
+
+
+	/// Propage les matrices monde depuis les racines. Une seule passe, O(n).
+	/// Exige que LocalTransformSystem ait dÃ©jÃ  mis m_localMatrix Ã  jour.
+	void WorldTransformSystem(Registry& registry)
+	{
+		const Matrix44f identity = Matrix44f::Identity();
+
+		for (auto&& [entity, hierarchy] : registry.ViewGroup<HierarchyComponent>())
+			if (hierarchy.m_isRoot)
+				PropagateWorld(registry, entity, identity);
+	}
+	//********************************************************************
+
+	// Doit s'exÃ©cuter avant que la matrice locale finale ne soit construite.
+	//void CameraSystem(Registry& registry, float deltaTime)
+	//{
+	//	return;
+	//	//for (auto&& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
+	//	//{
+	//	//	// La cible est la position statique dÃ©finie dans le JSON
+	//	//	const Vec3f& targetPos = transform.m_initialLocalPosition;
+	//	//	const Quatf targetRot = Quatf(transform.m_initialLocalRotation, false);
+
+	//	//	if (!camera.isInitialized)
+	//	//	{
+	//	//		camera.currentSmoothedPos = targetPos;
+	//	//		camera.currentSmoothedRot = targetRot;
+	//	//		camera.isInitialized = true;
+	//	//	}
+
+	//	//	// Lissage (Lerp/Slerp)
+	//	//	float t = deltaTime * camera.smoothSpeed;
+	//	//	camera.currentSmoothedPos = transform.m_initialLocalPosition;
+	//	//	//camera.currentSmoothedPos = lerp(camera.currentSmoothedPos, targetPos, t);
+	//	//	camera.currentSmoothedRot = Quatf(transform.m_initialLocalRotation, false);//
+	//	//	//camera.currentSmoothedRot = Slerp(camera.currentSmoothedRot, targetRot, t);
+	//	//}
+	//}
+
+	Entity FindActiveCamera(Registry& registry)
+	{
+		Entity best = NULL_ENTITY;
+		int    bestPriority = std::numeric_limits<int>::min();
+
+		for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+		{
+			if (!cam.m_isActive) continue;
+			if (cam.m_priority > bestPriority) { bestPriority = cam.m_priority; best = entity; }
+		}
+		return best;
+	}
+
+	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp)
+	{
+		ViewData v;
+		v.viewport = vp;
+		v.reverseZ = true;
+
+		const Matrix44f& world = tr.m_worldTransform;
+
+		v.view = world.inverseRigid();
+		v.position = { world[3][0], world[3][1], world[3][2] };
+		v.forward = { -world[2][0], -world[2][1], -world[2][2] };   // main droite : avant = -Z
+
+		const float fovY = (cam.m_lensModel == ELensModel::Filmback)
+			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)
+			: cam.m_fovYDeg * TO_RADIAN;
+
+		if (cam.m_projection == EProjectionType::Orthographic)
+			v.projection = Projection::OrthographicCentered(cam.m_orthoHeight, vp.Aspect(),
+				cam.m_nearPlane, cam.m_farPlane);
+		else if (cam.m_infiniteFar)
+			v.projection = Projection::PerspectiveInfinite(fovY, vp.Aspect(), cam.m_nearPlane);
+		else
+			v.projection = Projection::Perspective(fovY, vp.Aspect(),
+				cam.m_nearPlane, cam.m_farPlane);
+
+		v.viewProjection = v.view * v.projection;          // vecteur-ligne : vÂ·VÂ·P
+		v.frustum.Build(v.viewProjection, true, cam.m_infiniteFar);
+
+		v.nearPlane = cam.m_nearPlane;
+		v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
+		return v;                                          // invViewProjection : paresseux
+	}
+
+
+	//********************************************************************
+	void CameraFollowSystem(Registry& registry, float deltaTime)
+	{
+		for (auto&& [entity, follow, tr] : registry.ViewGroup<CameraFollowComponent,
+			TransformComponent>())
+		{
+			if (!follow.m_isEnabled)               continue;
+			if (follow.m_target == NULL_ENTITY)    continue;      // /!\ pas Entity{} : 0 est valide
+
+			const TransformComponent* tgt = registry.TryGet<TransformComponent>(follow.m_target);
+			if (!tgt) { follow.m_isEnabled = false; continue; }   // cible dÃ©truite : on s'arrÃªte net
+
+			// --- 1. Position et orientation VOULUES --------------------------
+			const Vec3f targetPos{ tgt->m_worldTransform[3][0],
+								   tgt->m_worldTransform[3][1],
+								   tgt->m_worldTransform[3][2] };
+
+			const Vec3f wantedPos = follow.m_followRotation
+				? targetPos + tgt->m_local.rotation.rotate(follow.m_offset)  // reste derriÃ¨re la cible
+				: targetPos + follow.m_offset;                               // direction monde fixe
+
+			const Vec3f lookAt = targetPos + Vec3f(0.0f, follow.m_lookAtHeight, 0.0f);
+			const Quatf wantedRot = Quatf::LookAt(wantedPos, lookAt);
+
+			// --- 2. Lissage --------------------------------------------------
+			if (!follow.m_isInitialized)
+			{
+				follow.m_smoothedPos = wantedPos;      // snap Ã  la premiÃ¨re frame
+				follow.m_smoothedRot = wantedRot;      // (et aprÃ¨s chaque bascule de mode)
 				follow.m_isInitialized = true;
 			}
-			else {
-				// Lissage INDÉPENDANT du framerate. Un simple lerp(a, b, speed*dt)
-				// donne un comportement différent à 30 et à 144 Hz.
-				const float t = 1.0f - std::exp(-follow.m_smoothSpeed * dt);
-				follow.m_smoothedPos = Vec3f::Lerp(follow.m_smoothedPos, wanted, t);
-				follow.m_smoothedRot = Slerp(follow.m_smoothedRot, look, t);
+			else if (follow.m_smoothSpeed <= 0.0f)
+			{
+				follow.m_smoothedPos = wantedPos;        // 0 = suivi rigide
+				follow.m_smoothedRot = wantedRot;
+			}
+			else
+			{
+				// Lissage exponentiel INDÃ‰PENDANT du framerate.
+				// Un simple lerp(a, b, speed*dt) donne un comportement
+				// diffÃ©rent Ã  30 et Ã  144 Hz â€” et diverge si speed*dt > 1.
+				const float t = 1.0f - std::exp(-follow.m_smoothSpeed * deltaTime);
+				follow.m_smoothedPos = Vec3f::Lerp(follow.m_smoothedPos, wantedPos, t);
+				follow.m_smoothedRot = Slerp(follow.m_smoothedRot, wantedRot, t);
 			}
 
+			// --- 3. Ã‰criture -------------------------------------------------
 			tr.m_local.position = follow.m_smoothedPos;
 			tr.m_local.rotation = follow.m_smoothedRot;
 			tr.m_dirty = true;
@@ -240,40 +431,59 @@ namespace LV3
 	}
 
 	//********************************************************************
-	void FPSControllerSystem::Update(Registry& reg, const InputState& in, float dt)
+	void FPSControllerSystem(Registry& registry, const InputState& in, float dt)
 	{
-		for (auto& [e, ctrl, tr] : reg.ViewGroup<FPSControllerComponent, TransformComponent>())
+		for (auto&& [entity, ctrl, tr] : registry.ViewGroup<FPSControllerComponent,
+			TransformComponent>())
 		{
 			if (!ctrl.m_isEnabled) continue;
 
-			// --- 1. ORIENTATION : le delta souris N'EST PAS multiplié par dt ---
-			//     C'est un déplacement, pas une vitesse. (bug B6 de l'audit)
-			ctrl.m_yawDeg -= in.mouseDeltaX * ctrl.m_mouseSensitivity;
-			ctrl.m_pitchDeg -= in.mouseDeltaY * ctrl.m_mouseSensitivity;
-			ctrl.m_pitchDeg = std::clamp(ctrl.m_pitchDeg, -ctrl.m_pitchLimitDeg, ctrl.m_pitchLimitDeg);
+			// --- 1. ORIENTATION ---------------------------------------------
+			//  Le delta souris est un DÃ‰PLACEMENT dÃ©jÃ  accompli, en pixels.
+			//  Ne JAMAIS le multiplier par dt : la sensibilitÃ© deviendrait
+			//  dÃ©pendante du framerate. (bug B6 de l'audit du legacy)
+			ctrl.m_yawDeg -= static_cast<float>(in.mouseDeltaX) * ctrl.m_mouseSensitivity;
+			ctrl.m_pitchDeg -= static_cast<float>(in.mouseDeltaY) * ctrl.m_mouseSensitivity;
+
+			ctrl.m_yawDeg = std::fmod(ctrl.m_yawDeg, 360.0f);          // Ã©vite la dÃ©rive de prÃ©cision
+			ctrl.m_pitchDeg = std::clamp(ctrl.m_pitchDeg,
+				-ctrl.m_pitchLimitDeg,
+				ctrl.m_pitchLimitDeg);
 
 			Quatf qYaw;   qYaw.SetAxisAngle(Vec3f::Up(), ctrl.m_yawDeg * TO_RADIAN);
 			Quatf qPitch; qPitch.SetAxisAngle(Vec3f::Right(), ctrl.m_pitchDeg * TO_RADIAN);
-			const Quatf rot = qYaw * qPitch;        // yaw monde PUIS pitch local — l'ordre compte
+			const Quatf rot = qYaw * qPitch;      // yaw MONDE puis pitch LOCAL â€” cet ordre, pas l'autre
 
-			// --- 2. DÉPLACEMENT : lui EST multiplié par dt ---
+			// --- 2. DÃ‰PLACEMENT ---------------------------------------------
+			//  Lui, en revanche, EST une vitesse : multipliÃ© par dt.
+			const Vec3f fwd = rot.rotate(Vec3f::Forward());
+			const Vec3f right = rot.rotate(Vec3f::Right());
+
 			Vec3f dir;
-			if (in.forward)  dir += rot.rotate(Vec3f::Forward());
-			if (in.backward) dir -= rot.rotate(Vec3f::Forward());
-			if (in.right)    dir += rot.rotate(Vec3f::Right());
-			if (in.left)     dir -= rot.rotate(Vec3f::Right());
+			if (in.moveForward)  dir += fwd;
+			if (in.moveBackward) dir -= fwd;
+			if (in.strafeRight)  dir += right;
+			if (in.strafeLeft)   dir -= right;
 
 			if (ctrl.m_lockVertical)
-				dir.y = 0.0f;                       // FPS au sol
-			else {                                  // vol libre
-				if (in.up)   dir.y += 1.0f;
-				if (in.down) dir.y -= 1.0f;
+			{
+				dir.y = 0.0f;                     // FPS au sol : POLITIQUE du contrÃ´leur,
+			}                                     // jamais cÃ¢blÃ©e dans la camÃ©ra
+			else
+			{
+				if (in.moveUp)   dir.y += 1.0f;   // vol libre 6 DoF
+				if (in.moveDown) dir.y -= 1.0f;
 			}
-			if (dir.norm() > 0.0f)
-				dir = dir.Normalized() * (ctrl.m_moveSpeed * dt);   // diagonale non accélérée
 
-			// --- 3. Écriture. C'est TOUT ce que fait un contrôleur. ---
-			tr.m_local.position += dir;
+			if (dir.norm() > 0.0f)                // normalise : la diagonale ne doit pas Ãªtre plus rapide
+			{
+				const float speed = ctrl.m_moveSpeed
+					* (in.sprint ? ctrl.m_sprintMultiplier : 1.0f);
+				dir = dir.Normalized() * (speed * dt);
+				tr.m_local.position += dir;
+			}
+
+			// --- 3. Ã‰criture. Un contrÃ´leur ne fait QUE Ã§a. ------------------
 			tr.m_local.rotation = rot;
 			tr.m_dirty = true;
 		}
@@ -282,21 +492,21 @@ namespace LV3
 
 	//********************************************************************
 
-	// doit s'exécuter en dernier, après que toutes les worldTransform finales ont été calculées.
+	// doit s'exÃ©cuter en dernier, aprÃ¨s que toutes les worldTransform finales ont Ã©tÃ© calculÃ©es.
 
 	/*
-	TODO : optimiser la détection de collision naïve O(N²) en utilisant une broad-phase spatiale (grille, quadtree, etc.) pour réduire le nombre de comparaisons.
-	la boucle N² imbriquée(for entity1 ... for entity2 ...) construit - elle deux fois la vue à chaque itération externe, comme je le redoutais dans l'audit initial ? Non — regarde bien : la boucle externe for (auto&& [entity1, ...] : registry.ViewGroup<...>()) crée une vue, et la boucle interne en crée une seconde, mais celle-ci est construite une fois par entité externe, pas par paire. C'est du O(N²) en nombre de comparaisons(normal et attendu pour une détection de collision naïve), mais chaque construction de ComponentView interne est O(K) pour trouver le pivot(K = nombre de types, ici 2) — négligeable comparé au travail de la boucle elle - même.Ce n'est pas le C5d de l'audit initial dans toute sa gravité; le vrai gain serait de passer à une broad - phase spatiale plus tard(grille, quadtree), mais ça sort du cadre de F6 — c'est un chantier d'optimisation algorithmique à part entière, pas une hygiène de code.
+	TODO : optimiser la dÃ©tection de collision naÃ¯ve O(NÂ²) en utilisant une broad-phase spatiale (grille, quadtree, etc.) pour rÃ©duire le nombre de comparaisons.
+	la boucle NÂ² imbriquÃ©e(for entity1 ... for entity2 ...) construit - elle deux fois la vue Ã  chaque itÃ©ration externe, comme je le redoutais dans l'audit initial ? Non â€” regarde bien : la boucle externe for (auto&& [entity1, ...] : registry.ViewGroup<...>()) crÃ©e une vue, et la boucle interne en crÃ©e une seconde, mais celle-ci est construite une fois par entitÃ© externe, pas par paire. C'est du O(NÂ²) en nombre de comparaisons(normal et attendu pour une dÃ©tection de collision naÃ¯ve), mais chaque construction de ComponentView interne est O(K) pour trouver le pivot(K = nombre de types, ici 2) â€” nÃ©gligeable comparÃ© au travail de la boucle elle - mÃªme.Ce n'est pas le C5d de l'audit initial dans toute sa gravitÃ©; le vrai gain serait de passer Ã  une broad - phase spatiale plus tard(grille, quadtree), mais Ã§a sort du cadre de F6 â€” c'est un chantier d'optimisation algorithmique Ã  part entiÃ¨re, pas une hygiÃ¨ne de code.
 
-	Le coût algorithmique est mal placé. Une détection de collision en O(N²) n'est pas fautive en soi — même Unity fait du N² à petite échelle. Le vrai problème, c'est qu'aucune étape de tri grossier ne précède le test précis. Chaque paire d'entités, même à l'autre bout de la scène, subit le calcul complet de distance et de rayon combiné. Un moteur professionnel sépare toujours en deux phases : une broad-phase rapide et approximative qui élimine 95 % des paires impossibles (grille spatiale, quadtree, ou même un simple tri par axe), puis une narrow-phase précise (ton test sphère-sphère actuel) qui ne s'applique qu'aux survivants. Tu as la seconde, pas la première.
+	Le coÃ»t algorithmique est mal placÃ©. Une dÃ©tection de collision en O(NÂ²) n'est pas fautive en soi â€” mÃªme Unity fait du NÂ² Ã  petite Ã©chelle. Le vrai problÃ¨me, c'est qu'aucune Ã©tape de tri grossier ne prÃ©cÃ¨de le test prÃ©cis. Chaque paire d'entitÃ©s, mÃªme Ã  l'autre bout de la scÃ¨ne, subit le calcul complet de distance et de rayon combinÃ©. Un moteur professionnel sÃ©pare toujours en deux phases : une broad-phase rapide et approximative qui Ã©limine 95 % des paires impossibles (grille spatiale, quadtree, ou mÃªme un simple tri par axe), puis une narrow-phase prÃ©cise (ton test sphÃ¨re-sphÃ¨re actuel) qui ne s'applique qu'aux survivants. Tu as la seconde, pas la premiÃ¨re.
 
-	Le double parcours recrée deux fois le même travail de filtrage. La boucle interne reconstruit une vue ViewGroup<TriggerComponent, TransformComponent> identique à la boucle externe — le pivot est recalculé, mais surtout le contenu est le même ensemble d'entités. Rien ne t'empêcherait de matérialiser ce contenu une seule fois (positions + rayons dans un std::vector plat) avant la double boucle, ce qui coûte une seule passe de filtrage au lieu de N.
+	Le double parcours recrÃ©e deux fois le mÃªme travail de filtrage. La boucle interne reconstruit une vue ViewGroup<TriggerComponent, TransformComponent> identique Ã  la boucle externe â€” le pivot est recalculÃ©, mais surtout le contenu est le mÃªme ensemble d'entitÃ©s. Rien ne t'empÃªcherait de matÃ©rialiser ce contenu une seule fois (positions + rayons dans un std::vector plat) avant la double boucle, ce qui coÃ»te une seule passe de filtrage au lieu de N.
 
-	La sémantique événementielle est mélangée à la détection géométrique. Ta boucle fait trois métiers à la fois : trouver les collisions, comparer à l'état précédent, publier des événements. C'est lisible aujourd'hui parce que le système est petit, mais le jour où tu voudras des triggers asymétriques (un trigger qui ne réagit qu'à certains tags, par exemple des ennemis mais pas des astéroïdes), cette fonction devra être réécrite en profondeur plutôt qu'étendue.
+	La sÃ©mantique Ã©vÃ©nementielle est mÃ©langÃ©e Ã  la dÃ©tection gÃ©omÃ©trique. Ta boucle fait trois mÃ©tiers Ã  la fois : trouver les collisions, comparer Ã  l'Ã©tat prÃ©cÃ©dent, publier des Ã©vÃ©nements. C'est lisible aujourd'hui parce que le systÃ¨me est petit, mais le jour oÃ¹ tu voudras des triggers asymÃ©triques (un trigger qui ne rÃ©agit qu'Ã  certains tags, par exemple des ennemis mais pas des astÃ©roÃ¯des), cette fonction devra Ãªtre rÃ©Ã©crite en profondeur plutÃ´t qu'Ã©tendue.
 
-	Où ça mène, sans s'y engager aujourd'hui
+	OÃ¹ Ã§a mÃ¨ne, sans s'y engager aujourd'hui
 
-	Le design cible ressemblerait à ceci : une passe de collecte (entity, position, radius) dans un vecteur local — profitant au passage du fait que ce vecteur serait contigu et cache-friendly — suivie d'un partitionnement spatial (une grille uniforme suffit largement à ton échelle, pas besoin d'un quadtree hiérarchique pour une scène de jeu simple), puis la narrow-phase uniquement sur les paires dans la même cellule ou des cellules voisines. La logique ON_ENTER/ON_STAY/ON_EXIT resterait identique — c'est une bonne nouvelle, cette partie de ton code est déjà propre et n'a pas besoin d'être repensée.
+	Le design cible ressemblerait Ã  ceci : une passe de collecte (entity, position, radius) dans un vecteur local â€” profitant au passage du fait que ce vecteur serait contigu et cache-friendly â€” suivie d'un partitionnement spatial (une grille uniforme suffit largement Ã  ton Ã©chelle, pas besoin d'un quadtree hiÃ©rarchique pour une scÃ¨ne de jeu simple), puis la narrow-phase uniquement sur les paires dans la mÃªme cellule ou des cellules voisines. La logique ON_ENTER/ON_STAY/ON_EXIT resterait identique â€” c'est une bonne nouvelle, cette partie de ton code est dÃ©jÃ  propre et n'a pas besoin d'Ãªtre repensÃ©e.
 
 	*/
 
@@ -304,13 +514,11 @@ namespace LV3
 	{
 		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
-			if (!ctrl.m_isEnabled) continue;
-
 			Vec3f pos1 = Vec3f{ transform1.m_worldTransform[3][0],
 			transform1.m_worldTransform[3][1],
 			transform1.m_worldTransform[3][2] };
 
-			// 1. Préparer la liste des collisions de CETTE frame
+			// 1. PrÃ©parer la liste des collisions de CETTE frame
 			std::set<Entity> newOverlaps;
 
 			// 2. Boucle N*N pour trouver les collisions
@@ -323,8 +531,8 @@ namespace LV3
 								transform2.m_worldTransform[3][1],
 								transform2.m_worldTransform[3][2] };
 
-				// Test de collision Sphère vs Sphère
-				// --- LE TEST DE COLLISION (Sphère vs Sphère) ---
+				// Test de collision SphÃ¨re vs SphÃ¨re
+				// --- LE TEST DE COLLISION (SphÃ¨re vs SphÃ¨re) ---
 				float distance = (pos1 - pos2).length(); // 	glm::distance(pos1, pos2);
 				float combined_radius = trigger1.radius + trigger2.radius;
 
@@ -335,13 +543,13 @@ namespace LV3
 				}
 			}
 
-			// 3. Comparer l'état actuel (newOverlaps) avec l'état précédent (trigger1.overlapping_entities)
+			// 3. Comparer l'Ã©tat actuel (newOverlaps) avec l'Ã©tat prÃ©cÃ©dent (trigger1.overlapping_entities)
 			auto& oldOverlaps = trigger1.overlapping_entities;
 
 			// --- Logique ON_ENTER et ON_STAY ---
 			for (const Entity& newEntity : newOverlaps) {
 				if (oldOverlaps.count(newEntity)) {
-					// Était déjà là -> ON_STAY
+					// Ã‰tait dÃ©jÃ  lÃ  -> ON_STAY
 					if (!trigger1.onStayEvent.empty()) {
 						std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onStayEvent << std::endl;
 						eventBus.publish(trigger1.onStayEvent, entity1, newEntity);
@@ -359,7 +567,7 @@ namespace LV3
 			// --- Logique ON_EXIT ---
 			for (const Entity& oldEntity : oldOverlaps) {
 				if (!newOverlaps.count(oldEntity)) {
-					// Était là, mais n'y est plus -> ON_EXIT
+					// Ã‰tait lÃ , mais n'y est plus -> ON_EXIT
 					if (!trigger1.onExitEvent.empty()) {
 						std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onExitEvent << std::endl;
 						eventBus.publish(trigger1.onExitEvent, entity1, oldEntity);
@@ -367,7 +575,7 @@ namespace LV3
 				}
 			}
 
-			// 4. Mettre à jour l'état pour la prochaine frame
+			// 4. Mettre Ã  jour l'Ã©tat pour la prochaine frame
 			trigger1.overlapping_entities = newOverlaps;
 		}
 
@@ -378,7 +586,7 @@ namespace LV3
 
 	void DebugDisplaySystemRecursive(Registry& registry, Entity entity, int ident)
 	{
-		// Vérifie que l'entité a les composants de base pour s'afficher
+		// VÃ©rifie que l'entitÃ© a les composants de base pour s'afficher
 		if (!registry.hasComponent<TransformComponent>(entity) && !registry.hasComponent<NameComponent>(entity))
 			return;
 
@@ -388,7 +596,7 @@ namespace LV3
 		auto& transform = registry.getComponent<TransformComponent>(entity);
 		auto& name = registry.getComponent<NameComponent>(entity);
 
-		// Lecture de la worldTransform (qui a déjà été calculée par WorldTransformSystem)
+		// Lecture de la worldTransform (qui a dÃ©jÃ  Ã©tÃ© calculÃ©e par WorldTransformSystem)
 		Vec3f worldPosition = Vec3f(transform.m_worldTransform[3][0], transform.m_worldTransform[3][1], transform.m_worldTransform[3][2]);
 
 		std::cout << " - " << name.m_id
@@ -439,7 +647,7 @@ namespace LV3
 
 		std::cout << std::endl;
 
-		// 2. Itération linéaire sur tous les maillages
+		// 2. ItÃ©ration linÃ©aire sur tous les maillages
 		SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
 		auto& Transforms = TransformComponentsPool->GetDenseData();
 		auto& Entities = TransformComponentsPool->GetDenseEntities();
@@ -453,15 +661,15 @@ namespace LV3
 				auto& name = registry.getComponent<NameComponent>(Entities[tr]);
 				auto& meshComp = registry.getComponent<MeshComponent>(Entities[tr]);
 
-				// Résolution du handle EN CE POINT PRÉCIS, jamais stockée ailleurs.
-				// Le ResourceManager reste l'unique propriétaire : on obtient un pointeur d'observation, valable pour la durée de cette frame seulement.
-				//  Recherche l'intérieur de la boucle, à chaque frame — ce n'est pas un gaspillage : c'est une recherche dans une unordered_map (O(1) amorti), et surtout c'est la garantie que si le mesh a été déchargé entre deux frames(UnloadMesh appelé ailleurs), le système le détecte immédiatement au lieu de déréférencer un pointeur mort.
+				// RÃ©solution du handle EN CE POINT PRÃ‰CIS, jamais stockÃ©e ailleurs.
+				// Le ResourceManager reste l'unique propriÃ©taire : on obtient un pointeur d'observation, valable pour la durÃ©e de cette frame seulement.
+				//  Recherche l'intÃ©rieur de la boucle, Ã  chaque frame â€” ce n'est pas un gaspillage : c'est une recherche dans une unordered_map (O(1) amorti), et surtout c'est la garantie que si le mesh a Ã©tÃ© dÃ©chargÃ© entre deux frames(UnloadMesh appelÃ© ailleurs), le systÃ¨me le dÃ©tecte immÃ©diatement au lieu de dÃ©rÃ©fÃ©rencer un pointeur mort.
 				const MeshClass* mesh = resourceManager.GetMesh(meshComp.m_meshHandle);
 
 				if (!mesh)	// GetMesh peut retourner nullptr 
 				{
-					// Handle invalide ou périmé (mesh déchargé entre-temps) : on ignore
-					// cette entité plutôt que de déréférencer un pointeur nul.
+					// Handle invalide ou pÃ©rimÃ© (mesh dÃ©chargÃ© entre-temps) : on ignore
+					// cette entitÃ© plutÃ´t que de dÃ©rÃ©fÃ©rencer un pointeur nul.
 					std::cout << " - " << name.m_id << " [mesh introuvable, handle invalide]" << std::endl;
 					continue;
 				}
@@ -472,10 +680,10 @@ namespace LV3
 					<< " [Pos : " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "]" << std::endl;
 
 
-				// Appel réel du rendu, une fois le pointeur résolu :
+				// Appel rÃ©el du rendu, une fois le pointeur rÃ©solu :
 					// monMoteur->dessiner(*mesh, transform.m_worldTransform, viewMatrix);
-					// Chaque SubMesh de *mesh porte déjà son propre MaterialHandle (submesh.material) —
-					// résolu à son tour via resourceManager.GetMaterial(submesh.material) au moment du dessin.
+					// Chaque SubMesh de *mesh porte dÃ©jÃ  son propre MaterialHandle (submesh.material) â€”
+					// rÃ©solu Ã  son tour via resourceManager.GetMaterial(submesh.material) au moment du dessin.
 
 			}
 
@@ -502,14 +710,26 @@ namespace LV3
 
 		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) 
 		{
-			if (!ctrl.m_isEnabled) continue;
-
-			// 'control' et 'transform' sont des références directes et MODIFIABLES
-			// Aucune vérification 'hasComponent' ou 'getComponent' dans la boucle.
-			// Itération dense et optimisée.
-			transform.m_initialLocalPosition.x += control.m_speed * deltaTime;
+			// 'control' et 'transform' sont des rÃ©fÃ©rences directes et MODIFIABLES
+			// Aucune vÃ©rification 'hasComponent' ou 'getComponent' dans la boucle.
+			// ItÃ©ration dense et optimisÃ©e.
+			transform.m_local.position.x += control.m_speed * deltaTime;
 		}
 
+	}
+
+	//********************************************************************
+	// Fonction utilitaire pour basculer entre le mode FPS et le mode camÃ©ra suivie Ã  la volÃ©e. 
+	// Active/dÃ©sactive les composants FPSControllerComponent et CameraFollowComponent selon le mode choisi.
+	// Ã  appeler depuis le code de gestion d'input ou d'Ã©vÃ©nement, par exemple lors d'un appui sur une touche.
+	void SwitchCameraMode(Registry& reg, Entity cam, bool useFollow) noexcept
+	{
+		if (auto* fps = reg.TryGet<FPSControllerComponent>(cam))  fps->m_isEnabled = !useFollow;
+		if (auto* follow = reg.TryGet<CameraFollowComponent>(cam))
+		{
+			follow->m_isEnabled = useFollow;
+			follow->m_isInitialized = false;   // snap Ã  la reprise, Ã©vite un vol planÃ©
+		}
 	}
 
 } // namespace LV3

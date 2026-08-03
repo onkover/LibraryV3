@@ -1,13 +1,6 @@
 #pragma once
 
-#include <cstdint>
-namespace LV3
-{
-	using Entity = uint32_t;
-
-}
-
-
+//#include <cstdint>
 /*
 Un Entity n'est plus un numéro : c'est un ticket daté. 
 * Il identifie un slot (l'index) à une époque donnée (la génération). 
@@ -31,6 +24,11 @@ EnTT découpe en 20/12 ; ici, nous allons implémenter un découpage
 => Soit 16,7 millions d'entités simultanées, 256 générations par slot.
 A savoir que la génération sur 8 bits boucle après 256 réutilisations du même slot (255 → 0 par débordement volontaire de l'uint8_t). Un handle antique aurait alors 1 chance sur 256 de « revalider » par accident. 
 Augmenter le nombre de génération permet de réduire ce risque, mais réduit le nombre d'entités simultanées.
+
+/!\ Une Entity non initialisée n'existe pas. Toute déclaration s'écrit 
+	Entity e = NULL_ENTITY;
+jamais 	* Entity e; ni Entity e{};
+
 
 */
 
