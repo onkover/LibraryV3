@@ -6,7 +6,8 @@
 #include "../Core/EventBus.hpp"
 #include "../Ressources/ResourceManager.h"
 #include "System.hpp"
-//#include "../Maths/Transform.h"
+#include "../Core/Logger.h"
+
 //#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
 
@@ -59,7 +60,8 @@ namespace LV3
 
 				// On repart TOUJOURS de la rotation d'auteur, jamais de la précédente :
 				// composer sur soi-même accumule les erreurs d'arrondi et dérive.
-				tr.m_local.rotation = spin * tr.m_initialRotation;
+				//tr.m_local.rotation = spin * tr.m_initialRotation;	// inclinaison puis rotation autour de Y MONDE  ->  précession
+				tr.m_local.rotation = tr.m_initialRotation * spin;		// rotation propre puis inclinaison  ->  axe fixe
 				changed = true;
 			}
 
@@ -74,57 +76,10 @@ namespace LV3
 				// y est laissé intact : l'orbite est plane, l'inclinaison reste celle du JSON
 				changed = true;
 			}
-
+			
 			if (changed) tr.m_dirty = true;
 		}
 	}
-
-
-	//void AnimationSystem(Registry& registry, float deltaTime)
-	//{
-	//	// On utilise la ViewGroup (ComponentView) qui retourne (Entity, Component&...)
-	//	for (auto&& [entity, mesh] : registry.ViewGroup<MeshComponent>())
-	//	{
-	//		mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
-	//		mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
-	//	}
-
-	//}
-
-	////********************************************************************
-	///// Anime les meshes en orbite et en rotation propre.
-	///// Écrit dans m_local, comme n'importe quel contrôleur.
-	//void MeshAnimationSystem(Registry& registry, float deltaTime)
-	//{
-	//	for (auto&& [entity, mesh, tr] : registry.ViewGroup<MeshComponent, TransformComponent>())
-	//	{
-	//		bool changed = false;
-
-	//		// --- Rotation propre ---
-	//		if (mesh.m_rotationSpeed != 0.0f)
-	//		{
-	//			mesh.m_currentRotationAngle += mesh.m_rotationSpeed * deltaTime;
-
-	//			Quatf spin;
-	//			spin.SetAxisAngle(Vec3f::Up(), mesh.m_currentRotationAngle);
-	//			tr.m_local.rotation = spin * tr.m_initialRotation;   // repart TOUJOURS de l'origine
-	//			changed = true;
-	//		}
-
-	//		// --- Orbite dans le plan XZ ---
-	//		if (mesh.m_orbitalSpeed != 0.0f && mesh.m_orbitRadius > 0.0f)
-	//		{
-	//			mesh.m_currentOrbitAngle += mesh.m_orbitalSpeed * deltaTime;
-
-	//			tr.m_local.position.x = mesh.m_orbitRadius * std::cos(mesh.m_currentOrbitAngle);
-	//			tr.m_local.position.z = mesh.m_orbitRadius * std::sin(mesh.m_currentOrbitAngle);
-	//			changed = true;                                       // y est laissé intact
-	//		}
-
-	//		if (changed) tr.m_dirty = true;
-	//	}
-	//}
-
 
 	//********************************************************************
 	/// <summary>
@@ -146,133 +101,8 @@ namespace LV3
 	}
 
 
-		//SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
-		//auto& Transforms = TransformComponentsPool->GetDenseData();
-		//auto& Entities = TransformComponentsPool->GetDenseEntities();
-
-		//for (size_t i = 0; i < Transforms.size(); i++)
-		//{
-
-		//	TransformComponent& transform = Transforms[i];
-		//	Entity entity = Entities[i];
-
-		//	// --- 1. CONSTRUIRE LA MATRICE LOCALE STATIQUE ---
-		//	// On utilise les données lues du JSON (m_initial...)
-		//	// C'est la transformation par défaut du composant
-		//	Matrix44f scaleMatrix;
-		//	scaleMatrix.scale(transform.m_local.scale);
-
-		//	Quatf RotationQuat = Quatf(transform.m_local.rotation);
-
-		//	Matrix44f translationMatrix;
-		//	translationMatrix.translate(transform.m_local.position);
-
-		//	// --- 2. LAISSER LES COMPOSANTS ANIMÉS ÉCRASER CETTE MATRICE ---
-		//	// Si un composant (comme MeshComponent) a une logique d'update, il va maintenant écraser m_localTransform avec sa propre logique d'animation.
-		//	// Gestion de l'animation du mesh si elle existe
-		//	if (registry.hasComponent<MeshComponent>(entity))
-		//	{
-		//		MeshComponent& mesh = registry.getComponent<MeshComponent>(entity);
-
-		//		Quatf animatedRotation;
-		//		animatedRotation.SetAxisAngle({ 0, 1, 0 }, mesh.m_currentRotationAngle);
-		//		RotationQuat = animatedRotation * RotationQuat;
-		//		// rotationQuat = glm::rotate(rotationQuat, glm::radians(mesh.m_currentRotationAngle), {0, 1, 0});
-
-		//		Matrix44f AnimatedTranslationMatrix; // Pour l'orbite
-		//		float radius = transform.m_local.position.length();
-		//		if (radius > 0.001f) {
-		//			Vec3f orbitalPosition = transform.m_local.position;
-		//			orbitalPosition.x = radius * cosf(mesh.m_currentOrbitAngle);
-		//			orbitalPosition.z = radius * sinf(mesh.m_currentOrbitAngle);
-
-		//			AnimatedTranslationMatrix.translate(orbitalPosition);
-		//			translationMatrix = AnimatedTranslationMatrix;
-		//		}
-		//	}
-
-		//	// Si c'est une caméra lissée, elle écrase la position/rotation
-		//	if (registry.hasComponent<CameraComponent>(entity))
-		//	{
-		//		CameraComponent& camera = registry.getComponent<CameraComponent>(entity);
-
-		//		translationMatrix.translate(camera.currentSmoothedPos);
-		//		RotationQuat = camera.currentSmoothedRot;
-
-		//	}
-
-		//	// --- 3. Composition et mise à jour de la matrice locale ---
-		//	transform.m_localTransform = scaleMatrix * RotationQuat.ToMatrix44() * translationMatrix;
-
-		//	//std::cout << "transform.m_localTransform : " << transform.m_localTransform << std::endl;
-		//	//std::cout << "\n" << std::endl;
-		//	//
-		//	//std::cout << "raw angles: " << transform.m_initialLocalRotation
-		//	//	<< " | quat: r=" << RotationQuat.r << " v=" << RotationQuat.v << std::endl;
-		//	//std::cout << "\n" << std::endl;
-		//}
-
-
-	//}
 
 	//********************************************************************
-
-	/// <summary>
-	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
-	/// </summary>
-	/// <param name="registry">Le Registry contenant les composants des entités</param>
-	/// <param name="entity">L'identifiant de l'entité dont on met à jour la transformation mondiale.</param>
-	/// <param name="parentWorldTransform">Référence constante à la transformation mondiale du parent utilisée pour composer la transformation mondiale de l'entité.</param>
-	//void UpdateWorldTransforms(Registry& registry, Entity entity, const Matrix44f& parentWorldTransform)
-	//{
-	//	if (!registry.hasComponent<TransformComponent>(entity))
-	//		return;
-
-	//	auto& transform = registry.getComponent<TransformComponent>(entity);
-
-	//	// --- 3. Composition et mise à jour de la matrice locale du propriétaire ---
-	//	// Ordre Row-Major pour un effet SRT (Scale -> Rotate -> Translate)
-	//	transform.m_worldTransform = transform.m_localTransform * parentWorldTransform;
-
-	//	// --- 4. MISE À JOUR RÉCURSIVE DES ENFANTS ---
-	//	if (registry.hasComponent<HierarchyComponent>(entity))
-	//	{
-	//		// F6 optim : HierarchyComponent children = registry.getComponent<HierarchyComponent>(entity); // HierarchyComponent children = ... copie la struct entière — donc son std::vector<Entity> m_children — à chaque nœud, à chaque frame, dans une récursion.
-	//		const auto& children = registry.getComponent<HierarchyComponent>(entity);   // référence, zéro copie
-
-	//		for (Entity childID : children.m_children)
-	//		{
-	//			UpdateWorldTransforms(registry, childID, transform.m_worldTransform);
-	//		}
-	//	}
-	//}
-
-	///// <summary>
-	///// Parcourt les composants de transformation et initie la mise à jour des matrices de transformation mondiales pour les entités racines (ou sans parent) en appelant UpdateWorldTransforms avec une matrice identité.
-	///// </summary>
-	///// <param name="registry">Référence au registre d'entités et de composants.</param>
-	//void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix)
-	//{
-
-	//	SparseSet<TransformComponent>* TransformComponentsPool = registry.getStorage<TransformComponent>();
-	//	auto& Transforms = TransformComponentsPool->GetDenseData();
-	//	auto& Entities = TransformComponentsPool->GetDenseEntities();
-
-	//	for (size_t i = 0; i < Transforms.size(); i++)
-	//	{
-	//		// On ne prend que les entités qui n'ont pas de parent, afin de démarrer le calcul récursif des matrices à partir d'elles
-	//		// 1. les entités solitaires (pas de hiérarchie). La transformation de ces entités ne dépend pas d'autruit (comme un astéroide ou un vaisseau spatial par exemple)
-	//		// 2. ou les entités patriarches (root = true). Ces entités sont le début d'une hiérarchie dont la transformations des enfants dépendent de lui.
-	//		if (!registry.hasComponent<HierarchyComponent>(Entities[i]) || registry.getComponent<HierarchyComponent>(Entities[i]).m_isRoot)
-	//		{
-	//			// On peut démarrer l'itération
-	//			UpdateWorldTransforms(registry, Entities[i], worldIdentityMatrix);
-	//		}
-	//		//else
-	//			//assert(false && "WorldTransformSystem : une entité enfant ne devrait pas être traitée ici, elle sera traitée par la récursion de son parent.");
-	//	}
-	//}
-
 	// Descente récursive : chaque nœud est visité UNE fois.
 	void PropagateWorld(Registry& reg, Entity e, const Matrix44f& parentWorld)
 	{
@@ -291,7 +121,7 @@ namespace LV3
 	}
 
 
-
+	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
 	/// Propage les matrices monde depuis les racines. Une seule passe, O(n).
 	/// Exige que LocalTransformSystem ait déjà mis m_localMatrix à jour.
 	void WorldTransformSystem(Registry& registry)
@@ -303,32 +133,6 @@ namespace LV3
 				PropagateWorld(registry, entity, identity);
 	}
 	//********************************************************************
-
-	// Doit s'exécuter avant que la matrice locale finale ne soit construite.
-	//void CameraSystem(Registry& registry, float deltaTime)
-	//{
-	//	return;
-	//	//for (auto&& [entity, camera, transform] : registry.ViewGroup< CameraComponent, TransformComponent>())
-	//	//{
-	//	//	// La cible est la position statique définie dans le JSON
-	//	//	const Vec3f& targetPos = transform.m_initialLocalPosition;
-	//	//	const Quatf targetRot = Quatf(transform.m_initialLocalRotation, false);
-
-	//	//	if (!camera.isInitialized)
-	//	//	{
-	//	//		camera.currentSmoothedPos = targetPos;
-	//	//		camera.currentSmoothedRot = targetRot;
-	//	//		camera.isInitialized = true;
-	//	//	}
-
-	//	//	// Lissage (Lerp/Slerp)
-	//	//	float t = deltaTime * camera.smoothSpeed;
-	//	//	camera.currentSmoothedPos = transform.m_initialLocalPosition;
-	//	//	//camera.currentSmoothedPos = lerp(camera.currentSmoothedPos, targetPos, t);
-	//	//	camera.currentSmoothedRot = Quatf(transform.m_initialLocalRotation, false);//
-	//	//	//camera.currentSmoothedRot = Slerp(camera.currentSmoothedRot, targetRot, t);
-	//	//}
-	//}
 
 	Entity FindActiveCamera(Registry& registry)
 	{
@@ -730,6 +534,122 @@ namespace LV3
 			follow->m_isEnabled = useFollow;
 			follow->m_isInitialized = false;   // snap à la reprise, évite un vol plané
 		}
+	}
+
+	// ============================================================
+//  TEST A — à appeler UNE SEULE FOIS, juste après le chargement
+//  de la scène et AVANT la boucle de jeu.
+//
+//  À dt = 0, l'animation ne doit RIEN modifier : la rotation
+//  courante doit être exactement la rotation d'auteur.
+//  Si ça échoue -> m_initialRotation n'a pas été renseigné
+//  dans ParseTransform.
+// ============================================================
+	void CheckAnimationBaseline(Registry& registry)
+	{
+		AnimationSystem(registry, 0.0f);        // dt nul : rien ne doit bouger
+
+		int failures = 0;
+		for (auto&& [entity, mesh, tr] : registry.ViewGroup<MeshComponent, TransformComponent>())
+		{
+			// |Dot| == 1  <=>  meme rotation.
+			// On prend la valeur absolue : q et -q representent la MEME rotation
+			// (double recouvrement des quaternions).
+			const float d = std::fabs(Dot(tr.m_local.rotation, tr.m_initialRotation));
+
+			if (std::fabs(d - 1.0f) > 1e-5f)
+			{
+				++failures;
+				Logger::error("\033[31m[BASELINE] " + registry.getComponent<NameComponent>(entity).m_id
+					+ " : rotation != m_initialRotation  (Dot = " + std::to_string(d) + ")\033[0m");
+			}
+		}
+		Logger::log("\033[32m[BASELINE] " + std::to_string(failures) + " echec(s).\033[0m");
+		LV3_ASSERT(failures == 0);
+	}
+
+	// ============================================================
+	//  INVARIANTS — à appeler CHAQUE frame, après WorldTransformSystem.
+	//  Ne vérifie que des propriétés qui doivent tenir en permanence :
+	//  aucune valeur attendue à calculer à la main.
+	// ============================================================
+	void CheckSceneInvariants(Registry& registry)
+	{
+		for (auto&& [entity, mesh, tr] : registry.ViewGroup<MeshComponent, TransformComponent>())
+		{
+			const std::string& name = registry.getComponent<NameComponent>(entity).m_id;
+
+			// --- INVARIANT 1 : le quaternion reste unitaire ---------------
+			//     Une derive ici = accumulation sur soi-meme quelque part.
+			const Quatf& q = tr.m_local.rotation;
+			const float  n = q.r * q.r + q.v.norm();
+			if (std::fabs(n - 1.0f) > 1e-4f)
+			{
+				Logger::error("\033[31m[INVARIANT] " + name + " : quaternion non unitaire, |q|^2 = " + std::to_string(n) + "\033[0m");
+				LV3_ASSERT(false);
+			}
+
+			// --- INVARIANT 2 : une orbite conserve son rayon dans le plan XZ
+			if (mesh.m_orbitalSpeed != 0.0f)
+			{
+				if (mesh.m_orbitRadius <= 0.0f)
+				{
+					Logger::error("\033[31m[INVARIANT] " + name + " : vitesse orbitale sans rayon\033[0m");
+					LV3_ASSERT(false);
+				}
+				else
+				{
+					const Vec3f& p = tr.m_local.position;
+					const float  r = std::sqrt(p.x * p.x + p.z * p.z);
+					if (std::fabs(r - mesh.m_orbitRadius) > 1e-3f)
+					{
+						Logger::error("\033[31m[INVARIANT] " + name + " : rayon derive  "
+							+ std::to_string(r) + " au lieu de "
+							+ std::to_string(mesh.m_orbitRadius) + "\033[0m");
+						LV3_ASSERT(false);
+					}
+				}
+			}
+
+			// --- INVARIANT 3 : l'echelle n'est jamais nulle ---------------
+			//     (le piege du sosie de Transform, avec scale = 0)
+			if (tr.m_local.scale.norm() < 1e-6f)
+			{
+				Logger::error("\033[31m[INVARIANT] " + name + " : echelle nulle\033[0m");
+				LV3_ASSERT(false);
+			}
+		}
+	}
+
+	// ============================================================
+	//  TRACE — sonde manuelle sur une entité nommée.
+	//  Sert à répondre à la question de l'ordre de composition :
+	//  le pole doit-il rester fixe, ou tourner ?
+	// ============================================================
+	void DebugTraceEntity(Registry& registry, const std::string& name)
+	{
+		for (auto&& [entity, tr] : registry.ViewGroup<TransformComponent>())
+		{
+			const NameComponent* n = registry.TryGet<NameComponent>(entity);
+			if (!n || n->m_id != name) continue;
+
+			const Vec3f pole = tr.m_local.rotation.rotate(Vec3f::Up());
+			const Vec3f world{ tr.m_worldTransform[3][0], tr.m_worldTransform[3][1], tr.m_worldTransform[3][2] };
+
+			std::cout << "  [TRACE " << name << "]"
+				<< "  local(" << tr.m_local.position.x << ", "
+				<< tr.m_local.position.y << ", "
+				<< tr.m_local.position.z << ")"
+				<< "  world(" << world.x << ", " << world.y << ", " << world.z << ")"
+				<< "  pole(" << pole.x << ", " << pole.y << ", " << pole.z << ")\n";
+
+			if (const MeshComponent* m = registry.TryGet<MeshComponent>(entity))
+				std::cout << "                 R=" << m->m_orbitRadius
+				<< "  orbit=" << m->m_currentOrbitAngle
+				<< "  spin=" << m->m_currentRotationAngle << "\n";
+			return;
+		}
+		Logger::warn("\033[31m[TRACE] entite '" + name + "' introuvable\033[0m");
 	}
 
 } // namespace LV3

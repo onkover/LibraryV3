@@ -120,6 +120,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -158,6 +159,7 @@
     <ClInclude Include="Core\EngineConfig.h" />
     <ClInclude Include="Core\EngineSettings.h" />
     <ClInclude Include="Core\EventBus.hpp" />
+    <ClInclude Include="Core\EventNames.h" />
     <ClInclude Include="Core\InputState.h" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />

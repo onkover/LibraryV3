@@ -1,5 +1,5 @@
 #pragma once
-// SYSTÈME D'ÉVÉNEMENTS (EventBus)
+// SYSTÃˆME D'Ã‰VÃ‰NEMENTS (EventBus)
 
 #include <functional>
 #include <map>
@@ -13,7 +13,7 @@ namespace LV3
 
     class Registry;
 
-    // Signature de nos callbacks d'événement (l'entité qui a déclenché, et l'entité qui est entrée)
+    // Signature de nos callbacks d'Ã©vÃ©nement (l'entitÃ© qui a dÃ©clenchÃ©, et l'entitÃ© qui est entrÃ©e)
     using EventCallback = std::function<void(Entity, Entity)>;
 
     class EventBus
@@ -21,29 +21,29 @@ namespace LV3
     public:
 
         /// <summary>
-        // S'abonner à un événement    
+        // S'abonner Ã  un Ã©vÃ©nement    
         /// </summary>
         /// <param name="eventType">type d'event</param>
-        /// <param name="callBack">nom de la fonction avec ses paramètres</param>
+        /// <param name="callBack">nom de la fonction avec ses paramÃ¨tres</param>
 
         void subscribe(const std::string& eventType, EventCallback callBack)
         {
             m_subscribers[eventType].push_back(callBack);
-            std::cout << "[EventBus] Nouvel abonné pour l'événement : " << eventType << std::endl;
+            std::cout << "[EventBus] Nouvel abonnÃ© pour l'Ã©vÃ©nement : " << eventType << std::endl;
         }
 
         /// <summary>
-        /// Publier (déclencher) un événement : collision entre 2 entitées
+        /// Publier (dÃ©clencher) un Ã©vÃ©nement : collision entre 2 entitÃ©es
         /// </summary>
         /// <param name="eventType">type d'event</param>
-        /// <param name="entity1">entité qui a déclenché l'évènement</param>
-        /// <param name="entity2">entité qui est entrée</param>
+        /// <param name="entity1">entitÃ© qui a dÃ©clenchÃ© l'Ã©vÃ¨nement</param>
+        /// <param name="entity2">entitÃ© qui est entrÃ©e</param>
         void publish(const std::string& eventType, Entity entity1, Entity entity2)
         {
-            // Il y a quelqu'un pour cet événement ?
+            // Il y a quelqu'un pour cet Ã©vÃ©nement ?
             if (m_subscribers.count(eventType))
             {
-                // Appelle tous les callbacks abonnés à cet événement
+                // Appelle tous les callbacks abonnÃ©s Ã  cet Ã©vÃ©nement
                 for (auto& callback : m_subscribers[eventType])
                 {
                     callback(entity1, entity2);
@@ -52,7 +52,7 @@ namespace LV3
         }
 
     private:
-        // Map qui associe un nom d'événement (string) à une liste de fonctions (callbacks)
+        // Map qui associe un nom d'Ã©vÃ©nement (string) Ã  une liste de fonctions (callbacks)
         std::map<std::string, std::vector<EventCallback>> m_subscribers;
 
     };

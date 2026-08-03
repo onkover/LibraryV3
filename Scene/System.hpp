@@ -7,6 +7,9 @@
 #include "rendering/viewport.h"
 #include "rendering/viewdata.h"
 #include "../Core/InputState.h"
+#include "Core/EventNames.h"
+#include "../Core/Logger.h"
+
 
 namespace LV3
 {
@@ -28,27 +31,52 @@ namespace LV3
 
 	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
 
+	// --- Diagnostics (actifs en Debug uniquement) ---
+	void CheckAnimationBaseline(Registry& registry);            // UNE fois, aprÃ¨s chargement
+	void CheckSceneInvariants(Registry& registry);            // CHAQUE frame
+	void DebugTraceEntity(Registry& registry, const std::string& name);
 
 	class HealthSystem
 	{
 
 	public:
-		HealthSystem(Registry* registry, EventBus& eventBus)
-		{
-			eventBus.subscribe("TAKING_DAMAGE",
-				[this, registry]([[maybe_unused]] Entity trigger, Entity entity)	// [[maybe_unused]] pour taire l'avertissement
-				{
-					// La logique à exécuter quand l'événement est reçu
-					if (registry->hasComponent<HealthComponent>(entity))
-					{
-						auto& health = registry->getComponent<HealthComponent>(entity);
-						health.m_currentHealth -= 5;
+		//HealthSystem(Registry* registry, EventBus& eventBus)
+		//{
+		//	eventBus.subscribe("TAKING_DAMAGE",
+		//		[this, registry]([[maybe_unused]] Entity trigger, Entity entity)	// [[maybe_unused]] pour taire l'avertissement
+		//		{
+		//			// La logique Ã  exÃ©cuter quand l'Ã©vÃ©nement est reÃ§u
+		//			if (registry->hasComponent<HealthComponent>(entity))
+		//			{
+		//				auto& health = registry->getComponent<HealthComponent>(entity);
+		//				health.m_currentHealth -= 5;
 
-						std::cout << "[HealthSystem] Événement 'DAMAGE_PLAYER' reçu ! Vie restante : " << health.m_currentHealth << std::endl;
-					}
-				}
-			);
-		}
+		//				std::cout << "[HealthSystem] Ã‰vÃ©nement 'DAMAGE_PLAYER' reÃ§u ! Vie restante : " << health.m_currentHealth << std::endl;
+		//			}
+		//		}
+		//	);
+		//}
+
+
+			static constexpr int kDamagePerHit = 5;
+
+			HealthSystem(Registry* registry, EventBus& eventBus)
+			{
+				eventBus.subscribe(Events::TakingDamage,
+					[registry]([[maybe_unused]] Entity source, Entity target)
+					{
+						HealthComponent* health = registry->TryGet<HealthComponent>(target);
+						if (!health) return;
+
+						health->m_currentHealth = std::max(0, health->m_currentHealth - kDamagePerHit);
+
+						// Le log cite la MEME constante que le subscribe.
+						// Il lui est desormais impossible de diverger.
+						Logger::log(std::string("[HealthSystem] ") + Events::TakingDamage
+							+ " sur idx " + std::to_string(EntityIndex(target))
+							+ " â€” vie restante : " + std::to_string(health->m_currentHealth));
+					});
+			}
 	};
 
 	//********************************************************************
@@ -58,15 +86,15 @@ namespace LV3
 	public:
 		AudioSystem(EventBus& eventBus)
 		{
-			eventBus.subscribe("STARTED_TAKING_DAMAGE",
+			eventBus.subscribe(Events::StartedTakingDamage,
 				[]([[maybe_unused]] Entity e1, [[maybe_unused]] Entity e2)	// [[maybe_unused]] pour taire l'avertissement
 				{
-					std::cout << "[AudioSystem] *Joue son de grésillement (début)*" << std::endl;
+					std::cout << "[AudioSystem] *Joue son de grÃ©sillement (dÃ©but)*" << std::endl;
 				});
-			eventBus.subscribe("STOPPED_TAKING_DAMAGE",
+			eventBus.subscribe(Events::StoppedTakingDamage,
 				[]([[maybe_unused]] Entity e1, [[maybe_unused]] Entity e2)	// [[maybe_unused]] pour taire l'avertissement
 				{
-					std::cout << "[AudioSystem] *Arrête le son de grésillement (fin)*" << std::endl;
+					std::cout << "[AudioSystem] *ArrÃªte le son de grÃ©sillement (fin)*" << std::endl;
 				});
 
 		}

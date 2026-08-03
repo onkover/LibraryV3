@@ -6,6 +6,7 @@
 #include "../Core/Logger.h"
 #include "Serializer.hpp"
 #include "../Ressources/json.hpp"
+#include "Core/EventNames.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -164,53 +165,93 @@ namespace LV3
 		const json& nodeJson = *static_cast<const json*>(pJsonNode);
 		if (!nodeJson.is_object()) return false;
 
-		if (nodeJson.contains("components"))
+		if (!nodeJson.contains("components")) return true;
+		const json& comps = nodeJson["components"];
+
+		// ============================================================
+		//  Le Transform D'ABORD, hors de la boucle.
+		//
+		//  /!\ nlohmann::json stocke ses objets dans un std::map :
+		//      items() parcourt les cles par ordre ALPHABETIQUE,
+		//      PAS dans l'ordre d'ecriture du fichier.
+		//      "Camera" < "CameraFPS" < "Mesh" < "Transform" < "Trigger"
+		//      -> le Transform serait parse en avant-dernier.
+		//
+		//  Or ParseMesh (rayon d'orbite) et ParseCameraFPS (yaw/pitch
+		//  initiaux) le LISENT. Ils doivent le trouver deja en place.
+		// ============================================================
+		if (comps.contains("Transform"))
+			ParseTransform(&comps["Transform"], ctx, entity);
+
+		for (auto& [compName, compJson] : comps.items())
 		{
-			for (auto& [compName, compJson] : nodeJson["components"].items())
+			if (compName == "Transform")     continue;              // deja fait ci-dessus
+			else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
+			else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
+			else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
+			else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
+			else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
+			else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
+			else if (compName == "Health")        ParseHealth(&compJson, ctx, entity);
+			else if (compName == "PlayerControl") PlayerControl(&compJson, ctx, entity);
+			else
 			{
-				// La ligne de code for (auto& [compName, compJson] : nodeJson["components"].items()) 
-				// utilise une fonctionnalité appelée "structured binding" (liaison structurée), qui a été introduite en C++17. 
-				// Cette syntaxe très pratique permet de décomposer directement un objet(comme une paire clé - valeur d'une map) en variables distinctes.
-				// version compatible C++11/14 serait
-				// for (auto& element : nodeJson["components"].items()) {
-				//    std::string compName = element.key();
-				//    const auto& compJson = element.value();
-
-				if (compName == "Transform")
-					ParseTransform(&compJson, ctx, entity);
-
-				else if (compName == "Mesh")
-					ParseMesh(&compJson, ctx, entity);
-
-				else if (compName == "Light")
-					ParseLight(&compJson, ctx, entity);
-
-				else if (compName == "Camera")
-					ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
-				
-				else if (compName == "CameraFPS")
-					ParseCameraFPS(&compJson, ctx, entity);
-
-
-				else if (compName == "CameraFollow")
-					ParseCameraFollow(&compJson, ctx, entity);
-
-				else if (compName == "Trigger")
-
-					ParseTrigger(&compJson, ctx, entity);
-
-				else if (compName == "Health")
-					ParseHealth(&compJson, ctx, entity);
-
-				else if (compName == "PlayerControl")
-					PlayerControl(&compJson, ctx, entity);
-
-				else
-					return false;
-
+				// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
+				Logger::warn("\033[31mComposant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\033[0m");
 			}
 		}
+		Logger::log("\033[32mTous les composants ont été parsés.\033[0m");
 		return true;
+
+
+
+		//if (nodeJson.contains("components"))
+		//{
+		//	for (auto& [compName, compJson] : nodeJson["components"].items())
+		//	{
+		//		// La ligne de code for (auto& [compName, compJson] : nodeJson["components"].items()) 
+		//		// utilise une fonctionnalité appelée "structured binding" (liaison structurée), qui a été introduite en C++17. 
+		//		// Cette syntaxe très pratique permet de décomposer directement un objet(comme une paire clé - valeur d'une map) en variables distinctes.
+		//		// version compatible C++11/14 serait
+		//		// for (auto& element : nodeJson["components"].items()) {
+		//		//    std::string compName = element.key();
+		//		//    const auto& compJson = element.value();
+
+		//		if (compName == "Transform")
+		//			ParseTransform(&compJson, ctx, entity);
+
+		//		else if (compName == "Mesh")
+		//			ParseMesh(&compJson, ctx, entity);
+
+		//		else if (compName == "Light")
+		//			ParseLight(&compJson, ctx, entity);
+
+		//		else if (compName == "Camera")
+		//			ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
+		//		
+		//		else if (compName == "CameraFPS")
+		//			ParseCameraFPS(&compJson, ctx, entity);
+
+
+		//		else if (compName == "CameraFollow")
+		//			ParseCameraFollow(&compJson, ctx, entity);
+
+		//		else if (compName == "Trigger")
+
+		//			ParseTrigger(&compJson, ctx, entity);
+
+		//		else if (compName == "Health")
+		//			ParseHealth(&compJson, ctx, entity);
+
+		//		else if (compName == "PlayerControl")
+		//			PlayerControl(&compJson, ctx, entity);
+
+		//		else
+		//			return false;
+
+		//	}
+		//}
+		//return true;
 	}
 
 	void SceneSerializer::ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -220,21 +261,43 @@ namespace LV3
 		if (!compJson.is_object()) return;
 
 		TransformComponent t;
-		if (compJson.contains("translation")) t.m_local.position = { compJson["translation"][0], compJson["translation"][1], compJson["translation"][2] };
-		if (compJson.contains("rotation"))
-		{
-			Vec3f eulerAngles = { compJson["rotation"][0].get<float>() * TO_RADIAN,
-								compJson["rotation"][1].get<float>() * TO_RADIAN,
-								compJson["rotation"][2].get<float>() * TO_RADIAN };
-			//t.m_initialLocalRotation = eulerAngles;
-			t.m_local.rotation = Quatf(eulerAngles, true);
-			t.m_initialRotation = t.m_local.rotation;      // référence figée pour l'animation
-		}
-		if (compJson.contains("scale")) t.m_local.scale = { compJson["scale"][0], compJson["scale"][1], compJson["scale"][2] };
+		t.m_local.position = ReadVec3(compJson, "translation", Vec3f::Zero());
+		t.m_local.scale = ReadVec3(compJson, "scale", Vec3f::One());
 
-		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée (si on joint juste 't' en déplacement grace à std::move(t)
+		// Le JSON stocke des DEGRES. Quat(v, true) fait la conversion lui-meme :
+		// ne PAS la faire une seconde fois ici.
+		const Vec3f eulerDeg = ReadVec3(compJson, "rotation", Vec3f::Zero());
+		t.m_local.rotation = Quatf(eulerDeg, true);
+
+		t.m_initialRotation = t.m_local.rotation;   // reference figee pour AnimationSystem
+		t.m_dirty = true;
+
+		ctx.registry.addComponent(entity, std::move(t));// Transforme la copie forcée (si on joint juste 't' en déplacement grace à std::move(t)
 														 // TransformComponent est un POD pur (que des Vec3f / Matrix44f) — le gain est nul ici en pratique, mais l'uniformité du réflexe compte : on prend l'habitude de toujours céder une lvalue locale qu'on ne réutilise plus, sans se demander à chaque fois si le composant est « assez lourd » pour que ça vaille le coup. 
 														 // Le compilateur ne te punira jamais pour un move inutile sur un POD.
+
+
+
+
+		//const json& compJson = *static_cast<const json*>(pJsonNode);
+		//if (!compJson.is_object()) return;
+
+		//TransformComponent t;
+		//if (compJson.contains("translation")) t.m_local.position = { compJson["translation"][0], compJson["translation"][1], compJson["translation"][2] };
+		//if (compJson.contains("rotation"))
+		//{
+		//	Vec3f eulerAngles = { compJson["rotation"][0].get<float>() * TO_RADIAN,
+		//						compJson["rotation"][1].get<float>() * TO_RADIAN,
+		//						compJson["rotation"][2].get<float>() * TO_RADIAN };
+		//	//t.m_initialLocalRotation = eulerAngles;
+		//	t.m_local.rotation = Quatf(eulerAngles, true);
+		//	t.m_initialRotation = t.m_local.rotation;      // référence figée pour l'animation
+		//}
+		//if (compJson.contains("scale")) t.m_local.scale = { compJson["scale"][0], compJson["scale"][1], compJson["scale"][2] };
+
+		//ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée (si on joint juste 't' en déplacement grace à std::move(t)
+		//												 // TransformComponent est un POD pur (que des Vec3f / Matrix44f) — le gain est nul ici en pratique, mais l'uniformité du réflexe compte : on prend l'habitude de toujours céder une lvalue locale qu'on ne réutilise plus, sans se demander à chaque fois si le composant est « assez lourd » pour que ça vaille le coup. 
+		//												 // Le compilateur ne te punira jamais pour un move inutile sur un POD.
 
 
 	}
@@ -281,8 +344,7 @@ namespace LV3
 		}
 		else
 		{
-			Logger::warn("ParseMesh : pas de Transform sur " + EntityLabel(ctx.registry, entity)
-				+ " — orbite desactivee");
+			Logger::warn("\033[31mParseMesh : pas de Transform sur " + EntityLabel(ctx.registry, entity) + " — orbite desactivee\033[0m");
 		}
 
 		// --- 4. Construction sur place ---
@@ -506,6 +568,15 @@ namespace LV3
 	}
 
 	//********************************************************************
+	static bool IsKnownEvent(const std::string& e)
+	{
+		return e.empty()
+			|| e == Events::TakingDamage
+			|| e == Events::StartedTakingDamage
+			|| e == Events::StoppedTakingDamage
+			|| e == Events::EntityDied;
+	}
+
 	void SceneSerializer::ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
 		const json& compJson = *static_cast<const json*>(pJsonNode);
@@ -515,9 +586,16 @@ namespace LV3
 		// value() lit la clé si présente, sinon retourne le défaut fourni —
 		// remplace élégamment tes if/else répétés
 		const float radius = compJson.value("radius", 1.0f);
+
 		std::string onEnterEvent = compJson.value("onEnterEvent", std::string{});
+		if (!IsKnownEvent(onEnterEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onEnterEvent + "' — ne sera jamais recu\033[0m");
+
 		std::string onStayEvent = compJson.value("onStayEvent", std::string{});
+		if (!IsKnownEvent(onStayEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onStayEvent + "' — ne sera jamais recu\033[0m");
+
 		std::string onExitEvent = compJson.value("onExitEvent", std::string{});
+		if (!IsKnownEvent(onExitEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onExitEvent	 + "' — ne sera jamais recu\033[0m");
+
 		const bool isColliding = compJson.value("isColliding", false);
 
 		// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur

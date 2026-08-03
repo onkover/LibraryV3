@@ -2,13 +2,13 @@
 /*
 Fichier de configuration
 
-Contient que les données "gravées dans le marbre" car il un changement de valeur recompilera le projet
+Contient que les donnÃ©es "gravÃ©es dans le marbre" car il un changement de valeur recompilera le projet
 
 */
 
 namespace LV3
 {
-	// Déclaration de constats mathématiques pour éviter d'inclure <corecrt_math_defines.h>
+	// DÃ©claration de constats mathÃ©matiques pour Ã©viter d'inclure <corecrt_math_defines.h>
 	constexpr auto M_E = 2.71828182845904523536;   // e
 	constexpr auto M_LOG2E = 1.44269504088896340736;   // log2(e)
 	constexpr auto M_LOG10E = 0.434294481903251827651;  // log10(e)
@@ -28,14 +28,14 @@ namespace LV3
 	constexpr float INV_PI = 0.31830988618379067153777f;
 	constexpr float INV_2PI = 0.15915494309189533576888f;
 
-	constexpr float EPSILON = 0.01f;    // tolérance géométrique grossière
-	constexpr float EPSILON_FLOAT = 0.001f;   // tolérance géométrique fine
+	constexpr float EPSILON = 0.01f;    // tolÃ©rance gÃ©omÃ©trique grossiÃ¨re
+	constexpr float EPSILON_FLOAT = 0.001f;   // tolÃ©rance gÃ©omÃ©trique fine
 	constexpr double EPSILON_DOUBLE = 0.001;
 
-	// Garde ANTI-DIVISION. Ce n'est PAS une tolérance : ne l'utilise
-	// jamais pour comparer deux grandeurs, uniquement pour vérifier
-	// qu'un dénominateur n'est pas nul.
-	constexpr float NEAR_ZERO_SQ = 1e-30f;     // sur une longueur au carré
+	// Garde ANTI-DIVISION. Ce n'est PAS une tolÃ©rance : ne l'utilise
+	// jamais pour comparer deux grandeurs, uniquement pour vÃ©rifier
+	// qu'un dÃ©nominateur n'est pas nul.
+	constexpr float NEAR_ZERO_SQ = 1e-30f;     // sur une longueur au carrÃ©
 	constexpr float NEAR_ZERO = 1e-15f;     // sur une longueur
 
 	constexpr float TO_RADIAN = (float) M_PI / 180.0f; //float
@@ -44,8 +44,8 @@ namespace LV3
 	constexpr float inchToMm = 25.4f;
 
 	//  ************************************************************************************************
-	// _DEBUG définie automatiquement lorsque vous configurez votre projet sur "Debug"
-	// Cela permet d'activer des vérifications et des journaux supplémentaires pour le débogage.
+	// _DEBUG dÃ©finie automatiquement lorsque vous configurez votre projet sur "Debug"
+	// Cela permet d'activer des vÃ©rifications et des journaux supplÃ©mentaires pour le dÃ©bogage.
 
 	#ifdef _DEBUG
 		#define LV3_DEBUG           1
@@ -57,21 +57,21 @@ namespace LV3
 		#define LV3_DEBUG_LOG       0
 	#endif
 	/*
-	Utilisation avec un #if (le code ne sera même pas compilé en Release)
+	Utilisation avec un #if (le code ne sera mÃªme pas compilÃ© en Release)
     #if LV3_DEBUG_LOG
-        std::cout << "[DEBUG] Début du traitement des données.\n";
+        std::cout << "[DEBUG] DÃ©but du traitement des donnÃ©es.\n";
     #endif
 	    
     // Utilisation avec un if classique (le compilateur optimisera et retirera le bloc en Release)
     if (LV3_DEBUG) 
 	{
-        // Faire une vérification coûteuse qui n'est utile qu'en développement
+        // Faire une vÃ©rification coÃ»teuse qui n'est utile qu'en dÃ©veloppement
     }
 	
 	
-	// On s'assure que b n'est pas égal à 0. 
-    // Si b == 0 en mode Debug, le programme s'arrête net ici.
-	#include <cassert> // Nécessaire pour que assert(x) fonctionne en Debug
+	// On s'assure que b n'est pas Ã©gal Ã  0. 
+    // Si b == 0 en mode Debug, le programme s'arrÃªte net ici.
+	#include <cassert> // NÃ©cessaire pour que assert(x) fonctionne en Debug
     LV3_ASSERT(b != 0);
 	*/
 	//  ************************************************************************************************
