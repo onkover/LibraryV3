@@ -37,7 +37,7 @@ namespace LV3
                 &ctx);
             break;
         }
-        case ERenderMode::TestBarycentric:
+        case ERenderMode::BarycentricColors:
         {
             DepthContext ctx{ &fb, tri.z0, tri.z1, tri.z2 };
 

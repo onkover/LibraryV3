@@ -28,12 +28,12 @@ namespace LV3
     // Mode d'affichage global — commande ce que le rasterizer produit
     enum class ERenderMode : uint8_t
     {
-        Solid,       // Rendu complet — couleur + éclairage
-        Wireframe,   // Arêtes uniquement — débogage géométrie
-        Depth,       // Visualise le Z-buffer — débogage profondeur
-        Normals,     // Couleur = normale — débogage éclairage
-        UV,           // Couleur = coordonnées UV — débogage textures
-		TestBarycentric // Visualise les coordonnées barycentriques — débogage rasterizer
+        Solid,            // Rendu complet — couleur + éclairage
+        Wireframe,        // Arêtes uniquement — débogage géométrie
+        Depth,            // Visualise le Z-buffer — débogage profondeur
+        Normals,          // Couleur = normale — débogage éclairage
+        UV,                // Couleur = coordonnées UV — débogage textures
+		BarycentricColors    // Visualise les coordonnées barycentriques — débogage rasterizer
     };
 
     // Face culling — quelles faces le rasterizer élimine avant de rasteriser

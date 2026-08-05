@@ -32,4 +32,12 @@ namespace LV3
             });
     }
 
+    struct CountContext { std::vector<uint8_t>* counts; int32_t width; };
+
+    void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights&, void* userData)
+    {
+        auto* ctx = static_cast<CountContext*>(userData);
+        (*ctx->counts)[y * ctx->width + x]++;   // ici width suffit : c'est TON buffer, pas SDL
+    }
+
 } // namespace LV3
