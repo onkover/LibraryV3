@@ -179,6 +179,9 @@
     <ClInclude Include="Maths\Transform.h" />
     <ClInclude Include="Maths\Vectorlib.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Rendering\Fragment.h" />
+    <ClInclude Include="Rendering\FrameBuffer.h" />
+    <ClInclude Include="Rendering\Rasterizer.h" />
     <ClInclude Include="Rendering\Renderer.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
     <ClInclude Include="Rendering\ViewData.h" />
@@ -208,6 +211,8 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Rendering\Fragment.cpp" />
+    <ClCompile Include="Rendering\Rasterizer.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Ressources\CommunFunctions.cpp" />
     <ClCompile Include="Ressources\MTLLoader.cpp" />

@@ -46,17 +46,6 @@ namespace LV3
 	*/
 	struct CameraComponent
 	{
-		//float m_fov = 45.0f;
-		//float m_nearPlane = 0.01f;
-		//float m_farPlane = 1000.0f;
-
-		//float smoothSpeed = 5.0f; // Vitesse du lissage
-
-		//// Données d'état (mises à jour par le CameraSystem)
-		//Vec3f currentSmoothedPos;
-		//Quatf currentSmoothedRot;
-		//bool isInitialized = false;
-
 		// --- Type de projection ---
 		EProjectionType m_projection = EProjectionType::Perspective;		// projection par défaut de type Perspective
 
@@ -111,7 +100,7 @@ namespace LV3
 	struct CameraFollowComponent
 	{
 		bool m_isEnabled = true;					// si FPSControllerComponent.m_isEnabled = True, celui-ci sera mi à False
-		Entity m_target = NULL_ENTITY;							// résolu en différé depuis le nom JSON
+		Entity m_target = NULL_ENTITY;				// résolu en différé depuis le nom JSON
 		Vec3f  m_offset{ 0.0f, 2.0f, -6.0f };		// en espace local de la cible
 		float  m_lookAtHeight = 0.0f;	            // élève le point visé au-dessus de l'origine
 		float  m_smoothSpeed = 5.0f;				// 0 = suivi rigide, sans lissage
@@ -128,11 +117,11 @@ namespace LV3
 	struct FPSControllerComponent
 	{
 		bool  m_isEnabled = true;
-		float m_moveSpeed = 5.0f;     // unités monde par SECONDE
-		float m_sprintMultiplier = 3.0f;     // facteur appliqué quand Shift est tenu
-		float m_mouseSensitivity = 0.15f;    // DEGRÉS par pixel
-		bool  m_lockVertical = true;     // true = FPS au sol | false = vol libre 6 DoF
-		float m_pitchLimitDeg = 89.0f;
+		float m_moveSpeed = 5.0f;				// unités monde par SECONDE
+		float m_sprintMultiplier = 3.0f;		// facteur appliqué quand Shift est tenu
+		float m_mouseSensitivity = 0.15f;		// DEGRÉS par pixel
+		bool  m_lockVertical = true;			// true = FPS au sol | false = vol libre 6 DoF
+		float m_pitchLimitDeg = 89.0f;			// limite de l'angle de pitch pour éviter le retournement complet
 
 		// État accumulé (écrit par le système)
 		float m_yawDeg = 0.0f;
@@ -147,7 +136,7 @@ namespace LV3
 	*/
 	struct MeshComponent
 	{
-		// optilisation au profit du ressourcemanager : on ne stocke pas le MeshClass ici, juste un handle vers le ResourceManager
+		// optimisation au profit du ressourcemanager : on ne stocke pas le MeshClass ici, juste un handle vers le ResourceManager
 //		std::shared_ptr<MeshClass> m_mesh;
 //		std::string m_texture;
 		MeshHandle m_meshHandle;
@@ -165,39 +154,18 @@ namespace LV3
 	};
 
 	//********************************************************************
-	//struct Transform 
-	//{ 
-	//	Vec3f position; 
-	//	Quatf rotation; 
-	//	Vec3f scale;
-	//};
-
 	struct TransformComponent
 	{
 	public:
-		// Données statiques
-		//Vec3f m_initialLocalPosition{ 0.0f };
-		////Quatf m_initialLocalRotation;
-		//Vec3f m_initialLocalRotation{ 0.0f };
-		//Vec3f m_initialLocalScale{ 1.0f };
-
-		// Transformations
-		//Matrix44f m_localTransform;
-		//Matrix44f m_worldTransform;
-		//Transform m_local;                  // position + Quatf + scale : L'ÉTAT
-
-		//bool      m_dirty = true;           // évite de reconstruire les matrices pour rien
-
-
 		Transform m_local;
 		Quatf     m_initialRotation;       // NOUVEAU : rotation d'auteur, base de l'animation
-		Matrix44f m_localTransform;
-		Matrix44f m_worldTransform;
-		bool      m_dirty = true;
+		Matrix44f m_localMatrix;
+		Matrix44f m_worldMatrix;
+		bool      m_dirty = true;			// évite de reconstruire les matrices pour rien
 
 		// --- Compatibilité provisoire : à supprimer une fois tout migré ---
-		Matrix44f& m_localTransform_compat() { return m_localTransform; }
-		Matrix44f& m_worldTransform_compat() { return m_worldTransform; }
+		//Matrix44f& m_localMatrix_compat() { return m_localMatrix; }
+		//Matrix44f& m_worldMatrix_compat() { return m_worldMatrix; }
 
 	};
 

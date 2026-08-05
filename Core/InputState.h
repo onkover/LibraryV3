@@ -14,7 +14,7 @@ namespace LV3
     struct InputState
     {
         // --- Souris : DÉPLACEMENT de la frame, en pixels ---
-        //     Ce n'est PAS une vitesse : ne jamais multiplier par dt.
+        //     Ce n'est PAS une vitesse : ne jamais multiplier par deltaTime.
         int mouseDeltaX = 0;
         int mouseDeltaY = 0;
         int wheelDelta = 0;         // molette : zoom / vitesse

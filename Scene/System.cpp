@@ -8,6 +8,7 @@
 #include "System.hpp"
 #include "../Core/Logger.h"
 
+
 //#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
 
@@ -95,7 +96,7 @@ namespace LV3
 		{
 			if (!tr.m_dirty) continue;
 
-			tr.m_localTransform = tr.m_local.ToLocalMatrix();   // S · R · T
+			tr.m_localMatrix = tr.m_local.ToLocalMatrix();   // S · R · T
 			tr.m_dirty = false;
 		}
 	}
@@ -110,10 +111,10 @@ namespace LV3
 		if (!tr) return;
 
 		// Vecteur-ligne : v · M_enfant · M_parent  ->  enfant À GAUCHE
-		tr->m_worldTransform = tr->m_localTransform * parentWorld;
+		tr->m_worldMatrix = tr->m_localMatrix * parentWorld;
 
 		// COPIE avant de récurser : `tr` peut pendre si le stockage bouge.
-		const Matrix44f world = tr->m_worldTransform;
+		const Matrix44f world = tr->m_worldMatrix;
 
 		if (const HierarchyComponent* h = reg.TryGet<HierarchyComponent>(e))
 			for (Entity child : h->m_children)
@@ -146,38 +147,109 @@ namespace LV3
 		}
 		return best;
 	}
+	//********************************************************************
 
+	/*
+	todo : Dansle cadre d'une shadow maps, tu voudras un ViewData pour une lumière. Or une lumière n'a ni TransformComponent de caméra, ni CameraComponent : elle a une matrice monde et une focale. Tu devras alors extraire le cœur pur :	
+	*/
 	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp)
 	{
 		ViewData v;
-		v.viewport = vp;
-		v.reverseZ = true;
 
-		const Matrix44f& world = tr.m_worldTransform;
-
-		v.view = world.inverseRigid();
-		v.position = { world[3][0], world[3][1], world[3][2] };
-		v.forward = { -world[2][0], -world[2][1], -world[2][2] };   // main droite : avant = -Z
-
-		const float fovY = (cam.m_lensModel == ELensModel::Filmback)
-			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)
-			: cam.m_fovYDeg * TO_RADIAN;
-
-		if (cam.m_projection == EProjectionType::Orthographic)
-			v.projection = Projection::OrthographicCentered(cam.m_orthoHeight, vp.Aspect(),
-				cam.m_nearPlane, cam.m_farPlane);
-		else if (cam.m_infiniteFar)
-			v.projection = Projection::PerspectiveInfinite(fovY, vp.Aspect(), cam.m_nearPlane);
-		else
-			v.projection = Projection::Perspective(fovY, vp.Aspect(),
-				cam.m_nearPlane, cam.m_farPlane);
-
-		v.viewProjection = v.view * v.projection;          // vecteur-ligne : v·V·P
-		v.frustum.Build(v.viewProjection, true, cam.m_infiniteFar);
-
+		// ════════════════════════════════════════════════════════════════
+		//  ÉTAPE 0 — Contexte
+		//  Ce qui ne se calcule pas : on recopie ce qu'on nous donne.
+		// ════════════════════════════════════════════════════════════════
+		v.viewport = vp;             // la destination en pixels (et l'aspect ratio)
+		v.reverseZ = true;           // convention du moteur, mémorisée pour le Z-buffer
 		v.nearPlane = cam.m_nearPlane;
 		v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
-		return v;                                          // invViewProjection : paresseux
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  ÉTAPE 1 — LA MATRICE VIEW (Monde → Vue)
+		//
+		//  Ancien équivalent : Camera::SetViewMatrix() (qui calculait viewMatrix puis (rotation * viewmatrix).inverse
+		//
+		//  La View est l'INVERSE de la matrice monde de la caméra : on ne
+		//  déplace pas l'œil, on déplace la scène en sens inverse.
+		//  C'est une isométrie -> inverse analytique, jamais Gauss-Jordan.
+		// ════════════════════════════════════════════════════════════════
+		const Matrix44f& world = tr.m_worldMatrix;
+		v.viewMatrix = world.inverseRigid();
+
+		//  ── Données annexes extraites de la même matrice ──
+		//  Elles ne servent PAS à projeter, mais au rendu :
+		//    * position -> éclairage spéculaire, tri par distance, LOD
+		//    * forward  -> brouillard directionnel, debug
+		v.position = { world[3][0],  world[3][1],  world[3][2] };  // translation = LIGNE 3
+		v.forward = { -world[2][0], -world[2][1], -world[2][2] };  // main droite : avant = -Z
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  ÉTAPE 2 — LA MATRICE PROJECTION        (Vue → Clip)
+		//
+		//  Ancien équivalent : Frustum::setProjectionMatrixV2() (qui était calculé par "getProjectionMatrix()")
+		//
+		//  2a. Résoudre le FOV vertical : soit donné, soit dérivé du sténopé
+		// ════════════════════════════════════════════════════════════════
+		const float fovY = (cam.m_lensModel == ELensModel::Filmback)
+			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)  // focale + pellicule
+			: cam.m_fovYDeg * TO_RADIAN;                                          // angle direct
+
+		//  2b. Choisir la fabrique. L'ASPECT vient du VIEWPORT, jamais de la lentille.
+		if (cam.m_projection == EProjectionType::Orthographic)
+			v.projectionMatrix = Projection::OrthographicCentered(cam.m_orthoHeight, vp.Aspect(),
+				cam.m_nearPlane, cam.m_farPlane);
+		else if (cam.m_infiniteFar)
+			v.projectionMatrix = Projection::PerspectiveInfinite(fovY, vp.Aspect(), cam.m_nearPlane);
+		else
+			v.projectionMatrix = Projection::Perspective(fovY, vp.Aspect(),
+				cam.m_nearPlane, cam.m_farPlane);
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  ÉTAPE 3 — LA MATRICE VIEW·PROJECTION   (Monde → Clip)
+		//
+		//  Identique à ton ancien code.
+		//  /!\ En convention VECTEUR-LIGNE, A*B signifie « A puis B ».
+		//      Un sommet subit la View, PUIS la Projection : view * projection.
+		//      L'ordre inverse est le bug B1 de l'audit.
+		// ════════════════════════════════════════════════════════════════
+		v.viewProjectionMatrix = v.viewMatrix * v.projectionMatrix;
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  ÉTAPE 4 — LES 6 PLANS DU FRUSTUM       (espace MONDE)
+		//
+		//  Ancien équivalent : Frustum_ExtractPlan() + NormalizeFrustumPlane()
+		//
+		//  Extraction Gribb-Hartmann. La matrice source décide de l'espace :
+		//      P       -> plans en espace VUE
+		//      V·P     -> plans en espace MONDE   ← ici
+		//      M·V·P   -> plans en espace OBJET   (optimisation future)
+		// ════════════════════════════════════════════════════════════════
+		v.frustum.Build(v.viewProjectionMatrix,
+						/* reverseZ    */ true,               // échange les étiquettes Near/Far
+						/* infiniteFar */ cam.m_infiniteFar); // 5 plans au lieu de 6
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  PAS D'ÉTAPE 5 ICI.
+		//
+		//  invViewProjection n'est PAS calculée : c'est le seul calcul
+		//  coûteux (Gauss-Jordan 4x4) et il ne sert qu'au picking.
+		//  ViewData::InvViewProjection() la produira à la demande.
+		// 
+		// Dans la boucle de rendu, PAR MESH :
+		// const Matrix44f mvp = tr.m_worldMatrix * view.viewProjection;
+		//                       └─ Model ─────┘   └─ View · Projection ─┘
+		// 
+		// 
+		// ════════════════════════════════════════════════════════════════
+	
+
+		return v;
 	}
 
 
@@ -194,9 +266,9 @@ namespace LV3
 			if (!tgt) { follow.m_isEnabled = false; continue; }   // cible détruite : on s'arrête net
 
 			// --- 1. Position et orientation VOULUES --------------------------
-			const Vec3f targetPos{ tgt->m_worldTransform[3][0],
-								   tgt->m_worldTransform[3][1],
-								   tgt->m_worldTransform[3][2] };
+			const Vec3f targetPos{ tgt->m_worldMatrix[3][0],
+								   tgt->m_worldMatrix[3][1],
+								   tgt->m_worldMatrix[3][2] };
 
 			const Vec3f wantedPos = follow.m_followRotation
 				? targetPos + tgt->m_local.rotation.rotate(follow.m_offset)  // reste derrière la cible
@@ -318,9 +390,9 @@ namespace LV3
 	{
 		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
-			Vec3f pos1 = Vec3f{ transform1.m_worldTransform[3][0],
-			transform1.m_worldTransform[3][1],
-			transform1.m_worldTransform[3][2] };
+			Vec3f pos1 = Vec3f{ transform1.m_worldMatrix[3][0],
+			transform1.m_worldMatrix[3][1],
+			transform1.m_worldMatrix[3][2] };
 
 			// 1. Préparer la liste des collisions de CETTE frame
 			std::set<Entity> newOverlaps;
@@ -331,9 +403,9 @@ namespace LV3
 			{
 				if (entity1 == entity2) continue;
 
-				Vec3f pos2 = Vec3f{ transform2.m_worldTransform[3][0],
-								transform2.m_worldTransform[3][1],
-								transform2.m_worldTransform[3][2] };
+				Vec3f pos2 = Vec3f{ transform2.m_worldMatrix[3][0],
+								transform2.m_worldMatrix[3][1],
+								transform2.m_worldMatrix[3][2] };
 
 				// Test de collision Sphère vs Sphère
 				// --- LE TEST DE COLLISION (Sphère vs Sphère) ---
@@ -400,8 +472,8 @@ namespace LV3
 		auto& transform = registry.getComponent<TransformComponent>(entity);
 		auto& name = registry.getComponent<NameComponent>(entity);
 
-		// Lecture de la worldTransform (qui a déjà été calculée par WorldTransformSystem)
-		Vec3f worldPosition = Vec3f(transform.m_worldTransform[3][0], transform.m_worldTransform[3][1], transform.m_worldTransform[3][2]);
+		// Lecture de la worldMatrix (qui a déjà été calculée par WorldTransformSystem)
+		Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
 
 		std::cout << " - " << name.m_id
 			<< " [Pos : " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "]" << std::endl;
@@ -438,6 +510,9 @@ namespace LV3
 	
 	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager)
 	{
+
+
+
 		// 1. Obtenir la matrice de Vue
 		 
 		// TODO: calculer la matrice de vue via l'inverse de activeCamera.worldTransform
@@ -478,14 +553,14 @@ namespace LV3
 					continue;
 				}
 
-				Vec3f worldPosition = Vec3f(transform.m_worldTransform[3][0], transform.m_worldTransform[3][1], transform.m_worldTransform[3][2]);
+				Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
 
 				std::cout << " - " << name.m_id
 					<< " [Pos : " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "]" << std::endl;
 
 
 				// Appel réel du rendu, une fois le pointeur résolu :
-					// monMoteur->dessiner(*mesh, transform.m_worldTransform, viewMatrix);
+					// monMoteur->dessiner(*mesh, transform.m_worldMatrix, viewMatrix);
 					// Chaque SubMesh de *mesh porte déjà son propre MaterialHandle (submesh.material) —
 					// résolu à son tour via resourceManager.GetMaterial(submesh.material) au moment du dessin.
 
@@ -499,7 +574,7 @@ namespace LV3
 				auto& name = registry.getComponent<NameComponent>(Entities[tr]);
 
 
-				Vec3f worldPosition = Vec3f(transform.m_worldTransform[3][0], transform.m_worldTransform[3][1], transform.m_worldTransform[3][2]);
+				Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
 				std::cout << " - " << name.m_id
 					<< " [Pos : " << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << "]" << std::endl;
 			}
@@ -634,7 +709,7 @@ namespace LV3
 			if (!n || n->m_id != name) continue;
 
 			const Vec3f pole = tr.m_local.rotation.rotate(Vec3f::Up());
-			const Vec3f world{ tr.m_worldTransform[3][0], tr.m_worldTransform[3][1], tr.m_worldTransform[3][2] };
+			const Vec3f world{ tr.m_worldMatrix[3][0], tr.m_worldMatrix[3][1], tr.m_worldMatrix[3][2] };
 
 			std::cout << "  [TRACE " << name << "]"
 				<< "  local(" << tr.m_local.position.x << ", "

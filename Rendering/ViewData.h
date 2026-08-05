@@ -20,9 +20,9 @@ namespace LV3
     struct ViewData
     {
         // --- Matrices ------------------------------------------------
-        Matrix44f view;              // Monde -> Vue   (inverse rigide de la matrice monde)
-        Matrix44f projection;        // Vue   -> Clip
-        Matrix44f viewProjection;    // Monde -> Clip  = view * projection (vecteur-ligne)
+        Matrix44f viewMatrix;              // Monde -> Vue   (inverse rigide de la matrice monde)
+        Matrix44f projectionMatrix;        // Vue   -> Clip
+        Matrix44f viewProjectionMatrix;    // Monde -> Clip  = view * projection (vecteur-ligne)
 
         // --- Culling -------------------------------------------------
         Frustum   frustum;           // 6 plans, espace MONDE
@@ -47,7 +47,7 @@ namespace LV3
         // =============================================================
         [[nodiscard]] const Matrix44f& InvViewProjection() const noexcept
         {
-            if (!m_invValid) { m_invVP = viewProjection.inverse(); m_invValid = true; }
+            if (!m_invValid) { m_invVP = viewProjectionMatrix.inverse(); m_invValid = true; }
             return m_invVP;
         }
         void InvalidateCache() noexcept { m_invValid = false; }
@@ -59,7 +59,7 @@ namespace LV3
         // Monde -> CLIP (4D, AVANT la division). w porte la distance à l'œil.
         [[nodiscard]] LV3_FORCEINLINE Vec4f WorldToClip(const Vec3f& p) const noexcept
         {
-            const Matrix44f& M = viewProjection;
+            const Matrix44f& M = viewProjectionMatrix;
             return {
                 p.x * M[0][0] + p.y * M[1][0] + p.z * M[2][0] + M[3][0],
                 p.x * M[0][1] + p.y * M[1][1] + p.z * M[2][1] + M[3][1],

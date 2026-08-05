@@ -32,7 +32,8 @@ namespace LV3
         Wireframe,   // Arêtes uniquement — débogage géométrie
         Depth,       // Visualise le Z-buffer — débogage profondeur
         Normals,     // Couleur = normale — débogage éclairage
-        UV           // Couleur = coordonnées UV — débogage textures
+        UV,           // Couleur = coordonnées UV — débogage textures
+		TestBarycentric // Visualise les coordonnées barycentriques — débogage rasterizer
     };
 
     // Face culling — quelles faces le rasterizer élimine avant de rasteriser

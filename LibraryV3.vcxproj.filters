@@ -170,6 +170,15 @@
     <ClInclude Include="Core\EventNames.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\Rasterizer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\Fragment.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\FrameBuffer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -210,6 +219,12 @@
     </ClCompile>
     <ClCompile Include="Maths\Geometry\Frustum.cpp">
       <Filter>Maths\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Fragment.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\Rasterizer.cpp">
+      <Filter>Rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
