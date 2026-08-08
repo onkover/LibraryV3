@@ -36,6 +36,10 @@ namespace LV3
 	void CheckSceneInvariants(Registry& registry);            // CHAQUE frame
 	void DebugTraceEntity(Registry& registry, const std::string& name);
 
+	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
+
+
+
 	class HealthSystem
 	{
 
@@ -100,5 +104,6 @@ namespace LV3
 		}
 
 	};
+
 
 }

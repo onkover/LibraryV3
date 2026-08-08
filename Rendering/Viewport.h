@@ -7,7 +7,8 @@
 //  raster y vers le bas). Si tu cherches un jour une image à
 //  l'envers, c'est ici, et nulle part ailleurs.
 //
-//  Agrégat volontaire (aucun constructeur) : Viewport{0,0,1280,720}.
+//  Agrégat volontaire, mais construis-le par Viewport::FullScreen(w, h) :
+//  les dimensions appartiennent à la cible de rendu, pas à ce fichier.
 // ============================================================
 #include "../Core/Compiler.h"
 #include "../Maths/Vectorlib.h"
@@ -17,16 +18,24 @@ namespace LV3
     struct Viewport
     {
         int x = 0, y = 0;
-        int width = 1280, height = 720;
+        int width = 0, height = 0;
 
         // --- Métriques ------------------------------------------
         [[nodiscard]] LV3_FORCEINLINE float Aspect() const noexcept
         {
-            return (height > 0) ? static_cast<float>(width) / static_cast<float>(height) : 1.0f;
+            return IsValid() ? static_cast<float>(width) / static_cast<float>(height) : 1.0f;
         }
+
         [[nodiscard]] LV3_FORCEINLINE bool IsValid() const noexcept
         {
             return width > 0 && height > 0;
+        }
+
+        // Fabrique : la taille vient TOUJOURS de la cible de rendu,
+        // jamais d'un defaut ecrit dans ce header.
+        [[nodiscard]] static constexpr Viewport FullScreen(int w, int h) noexcept
+        {
+            return { 0, 0, w, h };
         }
 
         // --- NDC -> RASTER --------------------------------------

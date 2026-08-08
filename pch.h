@@ -23,6 +23,8 @@
 #include <type_traits>
 #include <string_view>
 #include <iostream>
+#include <limits>
+
 
 // --- C++20 ---
 #include <span>
