@@ -38,15 +38,15 @@ namespace LV3
 // ============================================================
 
 // Forme SCALAIRE : le point varie a chaque pixel de la boucle interne.
-    [[nodiscard]] LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, float px, float py) noexcept
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFunction(const Vec3f& a, const Vec3f& b, float px, float py) noexcept
     {
         return (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
     }
 
     // Forme SOMMET : pour l'aire signee d'un triangle. Simple confort.
-    [[nodiscard]] LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, const Vec3f& c) noexcept
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFunction(const Vec3f& a, const Vec3f& b, const Vec3f& c) noexcept
     {
-        return EdgeFn(a, b, c.x, c.y);
+        return EdgeFunction(a, b, c.x, c.y);
     }
 
     bool IsTopLeft(const Vec2f& a, const Vec2f& b)
@@ -68,100 +68,100 @@ namespace LV3
     }
 
 
-    //void RasterizeTriangleOLD(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
-    //    int32_t screenWidth, int32_t screenHeight,
-    //    FragmentCallback onFragment, void* userData)
-    //{
-    //    // 1. Bounding box, clampée au viewport
-    //    int32_t minX = static_cast<int32_t>(std::floor(std::min({ v0.x, v1.x, v2.x,0.0f })));
-    //    int32_t minY = static_cast<int32_t>(std::floor(std::min({ v0.y, v1.y, v2.y,0.0f })));
-    //    int32_t maxX = static_cast<int32_t>(std::ceil(std::max({ v0.x, v1.x, v2.x,0.0f })));
-    //    int32_t maxY = static_cast<int32_t>(std::ceil(std::max({ v0.y, v1.y, v2.y,0.0f })));
+    void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+        int32_t screenWidth, int32_t screenHeight,
+        FragmentCallback onFragment, void* userData)
+    {
+        // 1. Bounding box, clampée au viewport
+        int32_t minX = static_cast<int32_t>(std::floor(std::min({ v0.x, v1.x, v2.x,0.0f })));
+        int32_t minY = static_cast<int32_t>(std::floor(std::min({ v0.y, v1.y, v2.y,0.0f })));
+        int32_t maxX = static_cast<int32_t>(std::ceil(std::max({ v0.x, v1.x, v2.x,0.0f })));
+        int32_t maxY = static_cast<int32_t>(std::ceil(std::max({ v0.y, v1.y, v2.y,0.0f })));
 
-    //    minX = std::max(minX, 0);
-    //    minY = std::max(minY, 0);
-    //    maxX = std::min(maxX, screenWidth - 1);
-    //    maxY = std::min(maxY, screenHeight - 1);
+        minX = std::max(minX, 0);
+        minY = std::max(minY, 0);
+        maxX = std::min(maxX, screenWidth - 1);
+        maxY = std::min(maxY, screenHeight - 1);
 
-    //    // 2. Aire totale du triangle (2x aire signée) — normalise les barycentriques
-    //    const float area = EdgeFunction(v0, v1, v2);
-    //    if (area == 0.0f) return; // triangle dégénéré — rejet immédiat
+        // 2. Aire totale du triangle (2x aire signée) — normalise les barycentriques
+        const float area = EdgeFunction(v0, v1, v2);
+        if (area == 0.0f) return; // triangle dégénéré — rejet immédiat
 
-    //    // 3. Biais top-left par arête
-    //    const float bias0 = IsTopLeft(v1, v2) ? 0.0f : -1.0f;
-    //    const float bias1 = IsTopLeft(v2, v0) ? 0.0f : -1.0f;
-    //    const float bias2 = IsTopLeft(v0, v1) ? 0.0f : -1.0f;
+        // 3. Biais top-left par arête
+        const float bias0 = IsTopLeft(v1, v2) ? 0.0f : -1.0f;
+        const float bias1 = IsTopLeft(v2, v0) ? 0.0f : -1.0f;
+        const float bias2 = IsTopLeft(v0, v1) ? 0.0f : -1.0f;
 
-    //    // 4. Boucle pixel
-    //    for (int32_t y = minY; y <= maxY; ++y)
-    //    {
-    //        for (int32_t x = minX; x <= maxX; ++x)
-    //        {
-    //            Vec2f p{ x + 0.5f, y + 0.5f }; // centre du pixel
+        // 4. Boucle pixel
+        for (int32_t y = minY; y <= maxY; ++y)
+        {
+            for (int32_t x = minX; x <= maxX; ++x)
+            {
+                Vec2f p{ x + 0.5f, y + 0.5f }; // centre du pixel
 
-    //            float w0 = EdgeFunction(v1, v2, p) + bias0;
-    //            float w1 = EdgeFunction(v2, v0, p) + bias1;
-    //            float w2 = EdgeFunction(v0, v1, p) + bias2;
+                float w0 = EdgeFunction(v1, v2, p) + bias0;
+                float w1 = EdgeFunction(v2, v0, p) + bias1;
+                float w2 = EdgeFunction(v0, v1, p) + bias2;
 
-    //            bool inside = (area > 0.0f) ? (w0 >= 0 && w1 >= 0 && w2 >= 0)
-    //                : (w0 <= 0 && w1 <= 0 && w2 <= 0);
-    //            if (!inside) continue;
+                bool inside = (area > 0.0f) ? (w0 >= 0 && w1 >= 0 && w2 >= 0)
+                    : (w0 <= 0 && w1 <= 0 && w2 <= 0);
+                if (!inside) continue;
 
-    //            BarycentricWeights bary{ w0 / area, w1 / area, w2 / area };
-    //            onFragment(x, y, bary, userData);
-    //        }
-    //    }
-    //}
+                BarycentricWeights bary{ w0 / area, w1 / area, w2 / area };
+                onFragment(x, y, bary, userData);
+            }
+        }
+    }
     // ------------------------------------------------------------
     //  Rasterisation pleine, méthode Pineda.
     //  `area` est fourni : il a déjà servi au backface culling.
     // ------------------------------------------------------------
-    void RasterizeTriangle(FrameBuffer& fb, DepthBuffer& db, const Viewport& vp,
-        const Vec3f& r0, const Vec3f& r1, const Vec3f& r2,
-        float area, Color color) noexcept
-    {
-        // Bounding box entiere, rognee au viewport.
-        // C'est le SCISSOR : il remplace le clipping des 4 plans lateraux.
-        int32_t x0 = int32_t(std::floor(std::min({ r0.x, r1.x, r2.x })));
-        int32_t y0 = int32_t(std::floor(std::min({ r0.y, r1.y, r2.y })));
-        int32_t x1 = int32_t(std::ceil(std::max({ r0.x, r1.x, r2.x })));
-        int32_t y1 = int32_t(std::ceil(std::max({ r0.y, r1.y, r2.y })));
-        vp.ClampBox(x0, y0, x1, y1);
-        if (x0 >= x1 || y0 >= y1) return;
+    //void RasterizeTriangle(FrameBuffer& fb, DepthBuffer& db, const Viewport& vp,
+    //    const Vec3f& r0, const Vec3f& r1, const Vec3f& r2,
+    //    float area, Color color) noexcept
+    //{
+    //    // Bounding box entiere, rognee au viewport.
+    //    // C'est le SCISSOR : il remplace le clipping des 4 plans lateraux.
+    //    int32_t x0 = int32_t(std::floor(std::min({ r0.x, r1.x, r2.x })));
+    //    int32_t y0 = int32_t(std::floor(std::min({ r0.y, r1.y, r2.y })));
+    //    int32_t x1 = int32_t(std::ceil(std::max({ r0.x, r1.x, r2.x })));
+    //    int32_t y1 = int32_t(std::ceil(std::max({ r0.y, r1.y, r2.y })));
+    //    vp.ClampBox(x0, y0, x1, y1);
+    //    if (x0 >= x1 || y0 >= y1) return;
 
-        const float invArea = 1.0f / area;
+    //    const float invArea = 1.0f / area;
 
-        for (int32_t y = y0; y < y1; ++y)
-        {
-            const float py = float(y) + 0.5f;              // centre du pixel
-            for (int32_t x = x0; x < x1; ++x)
-            {
-                const float px = float(x) + 0.5f;
+    //    for (int32_t y = y0; y < y1; ++y)
+    //    {
+    //        const float py = float(y) + 0.5f;              // centre du pixel
+    //        for (int32_t x = x0; x < x1; ++x)
+    //        {
+    //            const float px = float(x) + 0.5f;
 
-                const float w0 = EdgeFn(r1, r2, px, py);
-                const float w1 = EdgeFn(r2, r0, px, py);
-                const float w2 = EdgeFn(r0, r1, px, py);
+    //            const float w0 = EdgeFn(r1, r2, px, py);
+    //            const float w1 = EdgeFn(r2, r0, px, py);
+    //            const float w2 = EdgeFn(r0, r1, px, py);
 
-                if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;   // hors du triangle
+    //            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;   // hors du triangle
 
-                // Barycentriques — serviront aussi aux UV et aux couleurs (Lecon 04 P2)
-                const float b0 = w0 * invArea;
-                const float b1 = w1 * invArea;
-                const float b2 = w2 * invArea;
+    //            // Barycentriques — serviront aussi aux UV et aux couleurs (Lecon 04 P2)
+    //            const float b0 = w0 * invArea;
+    //            const float b1 = w1 * invArea;
+    //            const float b2 = w2 * invArea;
 
-                // Profondeur : z_ndc s'interpole LINEAIREMENT en espace ecran.
-                // (les UV et les couleurs, elles, exigeront le 1/w)
-                const float z = b0 * r0.z + b1 * r1.z + b2 * r2.z;
+    //            // Profondeur : z_ndc s'interpole LINEAIREMENT en espace ecran.
+    //            // (les UV et les couleurs, elles, exigeront le 1/w)
+    //            const float z = b0 * r0.z + b1 * r1.z + b2 * r2.z;
 
-                // REVERSE-Z : test GREATER. TestAndSet fait le test ET l'ecriture
-                // en un seul calcul d'index.
-                if (!db.TestAndSet(x, y, z)) continue;
+    //            // REVERSE-Z : test GREATER. TestAndSet fait le test ET l'ecriture
+    //            // en un seul calcul d'index.
+    //            if (!db.TestAndSet(x, y, z)) continue;
 
-                // Deja rogne par ClampBox : pas de retest des bornes.
-                fb.SetPixelUnchecked(x, y, color);
-            }
-        }
-    }
+    //            // Deja rogne par ClampBox : pas de retest des bornes.
+    //            fb.SetPixelUnchecked(x, y, color);
+    //        }
+    //    }
+    //}
 
     // Bresenham confiné au viewport. En split-screen, sans ce test,
     // les aretes d'une vue debordent sur l'autre.
