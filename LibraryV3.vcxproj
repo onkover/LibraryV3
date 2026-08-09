@@ -227,7 +227,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="engine.json" />
-    <None Include="Maths\Geometry\AABB3d.inl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Rendering\DepthBuffer.h" />

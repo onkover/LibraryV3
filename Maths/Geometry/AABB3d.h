@@ -112,6 +112,28 @@ namespace LV3
         // Transforme l'AABB locale en AABB monde (méthode centre/extent
         // d'Arvo : 9 mult au lieu de 8 points transformés).
         // Défini dans AABB3d.inl pour ne pas tirer MatrixLib dans ce header.
-        [[nodiscard]] AABB3d Transformed(const Matrix44f& m) const noexcept;
+       // [[nodiscard]] AABB3d Transformed(const Matrix44f& m) const noexcept;
+        
+       // ── Transformation locale -> monde ────────────────────
+        // Methode centre/extent d'Arvo : 9 multiplications au lieu de
+        // 8 points transformes puis re-englobes.
+        // Vecteur-ligne : v'[j] = sum_i v[i]*m[i][j] + m[3][j]
+        [[nodiscard]] AABB3d Transformed(const Matrix44f& m) const noexcept
+        {
+            if (!IsValid()) return AABB3d{};
+
+            const Vec3f c = Center();
+            const Vec3f e = Extent();
+
+            Vec3f nc, ne;
+            for (int j = 0; j < 3; ++j)
+            {
+                nc[j] = c.x * m[0][j] + c.y * m[1][j] + c.z * m[2][j] + m[3][j];
+                ne[j] = e.x * std::fabs(m[0][j])
+                    + e.y * std::fabs(m[1][j])
+                    + e.z * std::fabs(m[2][j]);
+            }
+            return { nc - ne, nc + ne };
+        }
     };
 }

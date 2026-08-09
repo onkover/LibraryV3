@@ -12,10 +12,10 @@ namespace LV3
                  p.x * m[0][3] + p.y * m[1][3] + p.z * m[2][3] + m[3][3] };
     }
 
-    float EdgeFunction(const Vec2f& a, const Vec2f& b, const Vec2f& p)
-    {
-        return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-    }
+    //float EdgeFunction(const Vec2f& a, const Vec2f& b, const Vec2f& p)
+    //{
+    //    return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    //}
 
     // ------------------------------------------------------------
     //  Fonction d'arête de Pineda.
@@ -23,11 +23,31 @@ namespace LV3
     //  C'est elle qui fait, gratuitement : le test d'appartenance,
     //  les coordonnées barycentriques, et le backface culling.
     // ------------------------------------------------------------
-    LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, float px, float py) noexcept
+    //LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, float px, float py) noexcept
+    //{
+    //    return (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    //}
+    // ============================================================
+//  Fonction d'arete de Pineda.
+//
+//  Elle rend TROIS services pour le prix d'un :
+//    * EdgeFn(v0, v1, v2)          -> deux fois l'aire signee
+//                                     -> backface culling + normalisation
+//    * signe de EdgeFn(a, b, px,py) -> le pixel est-il du bon cote de l'arete
+//    * valeur / aire                -> coordonnee barycentrique
+// ============================================================
+
+// Forme SCALAIRE : le point varie a chaque pixel de la boucle interne.
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, float px, float py) noexcept
     {
         return (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
     }
 
+    // Forme SOMMET : pour l'aire signee d'un triangle. Simple confort.
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, const Vec3f& c) noexcept
+    {
+        return EdgeFn(a, b, c.x, c.y);
+    }
 
     bool IsTopLeft(const Vec2f& a, const Vec2f& b)
     {
@@ -48,15 +68,15 @@ namespace LV3
     }
 
 
-    //void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+    //void RasterizeTriangleOLD(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
     //    int32_t screenWidth, int32_t screenHeight,
     //    FragmentCallback onFragment, void* userData)
     //{
     //    // 1. Bounding box, clampée au viewport
-    //    int32_t minX = static_cast<int32_t>(std::floor(std::min({ v0.x, v1.x, v2.x })));
-    //    int32_t minY = static_cast<int32_t>(std::floor(std::min({ v0.y, v1.y, v2.y })));
-    //    int32_t maxX = static_cast<int32_t>(std::ceil(std::max({ v0.x, v1.x, v2.x })));
-    //    int32_t maxY = static_cast<int32_t>(std::ceil(std::max({ v0.y, v1.y, v2.y })));
+    //    int32_t minX = static_cast<int32_t>(std::floor(std::min({ v0.x, v1.x, v2.x,0.0f })));
+    //    int32_t minY = static_cast<int32_t>(std::floor(std::min({ v0.y, v1.y, v2.y,0.0f })));
+    //    int32_t maxX = static_cast<int32_t>(std::ceil(std::max({ v0.x, v1.x, v2.x,0.0f })));
+    //    int32_t maxY = static_cast<int32_t>(std::ceil(std::max({ v0.y, v1.y, v2.y,0.0f })));
 
     //    minX = std::max(minX, 0);
     //    minY = std::max(minY, 0);
@@ -96,25 +116,25 @@ namespace LV3
     //  Rasterisation pleine, méthode Pineda.
     //  `area` est fourni : il a déjà servi au backface culling.
     // ------------------------------------------------------------
-        void RasterizeTriangle(FrameBuffer & fb, const Viewport & vp,
-            const Vec3f & r0, const Vec3f & r1, const Vec3f & r2,
-            float area, Color color) noexcept
+    void RasterizeTriangle(FrameBuffer& fb, DepthBuffer& db, const Viewport& vp,
+        const Vec3f& r0, const Vec3f& r1, const Vec3f& r2,
+        float area, Color color) noexcept
     {
-        // Bounding box entière, rognée au viewport.
-        // C'est le SCISSOR : il remplace le clipping des 4 plans latéraux.
-        int x0 = int(std::floor(std::min({ r0.x, r1.x, r2.x })));
-        int y0 = int(std::floor(std::min({ r0.y, r1.y, r2.y })));
-        int x1 = int(std::ceil(std::max({ r0.x, r1.x, r2.x })));
-        int y1 = int(std::ceil(std::max({ r0.y, r1.y, r2.y })));
+        // Bounding box entiere, rognee au viewport.
+        // C'est le SCISSOR : il remplace le clipping des 4 plans lateraux.
+        int32_t x0 = int32_t(std::floor(std::min({ r0.x, r1.x, r2.x })));
+        int32_t y0 = int32_t(std::floor(std::min({ r0.y, r1.y, r2.y })));
+        int32_t x1 = int32_t(std::ceil(std::max({ r0.x, r1.x, r2.x })));
+        int32_t y1 = int32_t(std::ceil(std::max({ r0.y, r1.y, r2.y })));
         vp.ClampBox(x0, y0, x1, y1);
         if (x0 >= x1 || y0 >= y1) return;
 
         const float invArea = 1.0f / area;
 
-        for (int y = y0; y < y1; ++y)
+        for (int32_t y = y0; y < y1; ++y)
         {
             const float py = float(y) + 0.5f;              // centre du pixel
-            for (int x = x0; x < x1; ++x)
+            for (int32_t x = x0; x < x1; ++x)
             {
                 const float px = float(x) + 0.5f;
 
@@ -124,21 +144,21 @@ namespace LV3
 
                 if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;   // hors du triangle
 
-                // Barycentriques
+                // Barycentriques — serviront aussi aux UV et aux couleurs (Lecon 04 P2)
                 const float b0 = w0 * invArea;
                 const float b1 = w1 * invArea;
                 const float b2 = w2 * invArea;
 
-                // Profondeur : z_ndc s'interpole LINÉAIREMENT en espace écran.
-                // (contrairement aux UV et aux couleurs, qui exigent le 1/w)
+                // Profondeur : z_ndc s'interpole LINEAIREMENT en espace ecran.
+                // (les UV et les couleurs, elles, exigeront le 1/w)
                 const float z = b0 * r0.z + b1 * r1.z + b2 * r2.z;
 
-                // REVERSE-Z : on garde le plus GRAND. Test GREATER, pas LESS.
-                float& dst = fb.depth[size_t(y) * size_t(fb.m_Width) + size_t(x)];
-                if (z <= dst) continue;
-                dst = z;
+                // REVERSE-Z : test GREATER. TestAndSet fait le test ET l'ecriture
+                // en un seul calcul d'index.
+                if (!db.TestAndSet(x, y, z)) continue;
 
-                fb.SetPixel(x, y, color);
+                // Deja rogne par ClampBox : pas de retest des bornes.
+                fb.SetPixelUnchecked(x, y, color);
             }
         }
     }

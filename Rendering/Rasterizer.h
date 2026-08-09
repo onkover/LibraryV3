@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "rendering/framebuffer.h"
+#include "rendering/depthbuffer.h"
 #include "../Maths/Vectorlib.h"
 
 namespace LV3
@@ -18,15 +19,18 @@ namespace LV3
         void* userData);
 
     // ── Fonction de bord — double aire signée de (A,B,P) ──
-    float EdgeFunction(const Vec2f& a, const Vec2f& b, const Vec2f& p);
+    //float EdgeFunction(const Vec2f& a, const Vec2f& b, const Vec2f& p);
+    //LV3_FORCEINLINE float EdgeFn(const Vec3f& a, const Vec3f& b, float px, float py) noexcept;
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFunction(const Vec3f& a, const Vec3f& b, float px, float py) noexcept;
+    [[nodiscard]] LV3_FORCEINLINE float EdgeFunction(const Vec3f& a, const Vec3f& b, const Vec3f& c) noexcept;
 
     // ── Top-Left Rule — détermine si l'arête A→B doit inclure ses pixels de frontière ──
     bool IsTopLeft(const Vec2f& a, const Vec2f& b);
 
     // ── Rasterisation d'un triangle en espace écran ──
-    //void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
-    //    int32_t screenWidth, int32_t screenHeight,
-    //    FragmentCallback onFragment, void* userData);
+    void RasterizeTriangleOLD(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+        int32_t screenWidth, int32_t screenHeight,
+        FragmentCallback onFragment, void* userData);
 
     void RasterizeTriangle(FrameBuffer& fb, const Viewport& vp,
         const Vec3f& r0, const Vec3f& r1, const Vec3f& r2,
