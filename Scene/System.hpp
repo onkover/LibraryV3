@@ -6,6 +6,8 @@
 #include "Registry.hpp"
 #include "rendering/viewport.h"
 #include "rendering/viewdata.h"
+#include "rendering/framebuffer.h"
+#include "rendering/depthbuffer.h"
 #include "../Core/InputState.h"
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
@@ -13,55 +15,35 @@
 
 namespace LV3
 {
-	void DebugDisplaySystem(Registry& registry);
-	void PlayerInputSystem(Registry& registry, float deltaTime);
-	void TriggerSystem(Registry& registry, EventBus& eventBus);
-	void CameraSystem(Registry& registry, float deltaTime);
+// --- Camera ---
 	void FPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
 	void CameraFollowSystem(Registry& registry, float deltaTime);
-	//void WorldTransformSystem(Registry& registry);
+	[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
+	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
+
+	// --- Transformation ---
 	void WorldTransformSystem(Registry& registry);
-	//void WorldTransformSystem(Registry& registry, const Matrix44f& worldIdentityMatrix);
-	//void WorldTransformSystem(Registry& registry);
-
 	void LocalTransformSystem(Registry& registry);
-	void AnimationSystem(Registry& registry, float deltaTime);
-//	void RenderSystem(Registry& registry, Entity activeCamera);
-	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
-
-	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
 
 	// --- Diagnostics (actifs en Debug uniquement) ---
 	void CheckAnimationBaseline(Registry& registry);            // UNE fois, après chargement
 	void CheckSceneInvariants(Registry& registry);            // CHAQUE frame
 	void DebugTraceEntity(Registry& registry, const std::string& name);
+	void DebugDisplaySystem(Registry& registry);
 
-	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
-
-
+	// --- Les systèmes---
+	void AnimationSystem(Registry& registry, float deltaTime);
+	//	void RenderSystem(Registry& registry, Entity activeCamera);
+	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
+//	void RenderView(Registry& registry, ResourceManager& rm, FrameBuffer& fb, DepthBuffer& db, const ViewData& view, ERenderMode mode);
+	void PlayerInputSystem(Registry& registry, float deltaTime);
+	void TriggerSystem(Registry& registry, EventBus& eventBus);
+	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
 
 	class HealthSystem
 	{
 
 	public:
-		//HealthSystem(Registry* registry, EventBus& eventBus)
-		//{
-		//	eventBus.subscribe("TAKING_DAMAGE",
-		//		[this, registry]([[maybe_unused]] Entity trigger, Entity entity)	// [[maybe_unused]] pour taire l'avertissement
-		//		{
-		//			// La logique à exécuter quand l'événement est reçu
-		//			if (registry->hasComponent<HealthComponent>(entity))
-		//			{
-		//				auto& health = registry->getComponent<HealthComponent>(entity);
-		//				health.m_currentHealth -= 5;
-
-		//				std::cout << "[HealthSystem] Événement 'DAMAGE_PLAYER' reçu ! Vie restante : " << health.m_currentHealth << std::endl;
-		//			}
-		//		}
-		//	);
-		//}
-
-
 			static constexpr int kDamagePerHit = 5;
 
 			HealthSystem(Registry* registry, EventBus& eventBus)

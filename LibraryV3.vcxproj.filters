@@ -238,4 +238,9 @@
       <Filter>Maths\Geometry</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Rendering\DepthBuffer.h">
+      <Filter>Rendering</Filter>
+    </Text>
+  </ItemGroup>
 </Project>

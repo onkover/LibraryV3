@@ -11,7 +11,8 @@
 #if defined(_WIN32)
     #define LV3_PLATFORM_WINDOWS
     #define WIN32_LEAN_AND_MEAN
-    #define NOMINMAX
+    #define NOMINMAX              // supprime min/max, indispensable avec la STL
+    #define NOGDI                 // supprime RGB, GetObject, SetPixel...
     #define VC_EXTRALEAN
     #include <windows.h>
     using WindowHandle  = HWND;

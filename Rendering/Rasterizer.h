@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
-
+#include "rendering/framebuffer.h"
 #include "../Maths/Vectorlib.h"
 
 namespace LV3
@@ -24,8 +24,18 @@ namespace LV3
     bool IsTopLeft(const Vec2f& a, const Vec2f& b);
 
     // ── Rasterisation d'un triangle en espace écran ──
-    void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
-        int32_t screenWidth, int32_t screenHeight,
-        FragmentCallback onFragment, void* userData);
+    //void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+    //    int32_t screenWidth, int32_t screenHeight,
+    //    FragmentCallback onFragment, void* userData);
+
+    void RasterizeTriangle(FrameBuffer& fb, const Viewport& vp,
+        const Vec3f& r0, const Vec3f& r1, const Vec3f& r2,
+        float area, Color color) noexcept;
+
+    void DrawLineClipped(FrameBuffer& fb, const Viewport& vp, const Vec3f& a, const Vec3f& b, Color c) noexcept;
+
+    LV3_FORCEINLINE Vec4f MulRow(const Matrix44f& m, const Vec3f& p) noexcept;
+    Color FaceColor(int i) noexcept;
+
 
 } // namespace LV3

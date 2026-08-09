@@ -229,6 +229,9 @@
     <None Include="engine.json" />
     <None Include="Maths\Geometry\AABB3d.inl" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Rendering\DepthBuffer.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

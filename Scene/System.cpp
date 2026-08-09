@@ -147,8 +147,19 @@ namespace LV3
 		}
 		return best;
 	}
+
 	//********************************************************************
 
+	Entity FindCameraByName(Registry& registry, const std::string& name)
+	{
+		for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+		{
+			const NameComponent* n = registry.TryGet<NameComponent>(entity);
+			if (n && n->m_id == name) return entity;
+		}
+		return NULL_ENTITY;
+	}
+	//********************************************************************
 	/*
 	todo : Dansle cadre d'une shadow maps, tu voudras un ViewData pour une lumière. Or une lumière n'a ni TransformComponent de caméra, ni CameraComponent : elle a une matrice monde et une focale. Tu devras alors extraire le cœur pur :	
 	*/
@@ -583,6 +594,8 @@ namespace LV3
 		}
 
 	}
+
+
 
 	//********************************************************************
 	void PlayerInputSystem(Registry& registry, float deltaTime) {
