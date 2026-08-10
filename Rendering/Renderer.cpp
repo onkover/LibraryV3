@@ -5,60 +5,47 @@
 
 namespace LV3
 {
-
-    void Renderer::DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, const Viewport& vp, ERenderMode mode, Color c)
+    void Renderer::DrawTriangle(const Triangle2D& tri, Color color)
     {
-        switch (mode)
+        if (!m_fb || !m_db || !m_vp.IsValid()) return;
+
+        switch (m_mode)
         {
         case ERenderMode::Solid:
         {
-//            UnlitContext ctx{ &fb, Color{60, 60, 255, 255} };
-            UnlitContext ctx{ &fb, c };
+            SolidContext ctx{ m_fb, m_db, color, tri.z0, tri.z1, tri.z2 };
+            RasterizeTriangle(tri.v0, tri.v1, tri.v2, m_vp, &ShadeFragment_Solid, &ctx);
+            break;
+        }
 
-            //RasterizeTriangle(tri.v0, tri.v2, tri.v2,
-            //    fb.Width(), fb.Height(),
-            //    ShadeFragment_Unlit,   // ← adresse de fonction n°1
-            //    &ctx);
-
-            RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                vp,
-                ShadeFragment_Unlit,   // ← adresse de fonction n°1
-                &ctx);
+        case ERenderMode::Wireframe:
+        {
+            // Le fil de fer ne passe pas par le rasterizer : il n'a pas de surface.
+            const Vec3f a{ tri.v0.x, tri.v0.y, tri.z0 };
+            const Vec3f b{ tri.v1.x, tri.v1.y, tri.z1 };
+            const Vec3f c{ tri.v2.x, tri.v2.y, tri.z2 };
+            DrawLineClipped(*m_fb, m_vp, a, b, color);
+            DrawLineClipped(*m_fb, m_vp, b, c, color);
+            DrawLineClipped(*m_fb, m_vp, c, a, color);
             break;
         }
 
         case ERenderMode::Depth:
         {
-            DepthContext ctx{ &fb, tri.z0, tri.z1, tri.z2 };
-
-            RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                vp,
-                ShadeFragment_Depth,   // ← adresse de fonction n°2
-                &ctx);
+            DepthContext ctx{ m_fb, tri.z0, tri.z1, tri.z2 };
+            RasterizeTriangle(tri.v0, tri.v1, tri.v2, m_vp, &ShadeFragment_Depth, &ctx);
             break;
         }
+
         case ERenderMode::BarycentricColors:
         {
-            DepthContext ctx{ &fb, tri.z0, tri.z1, tri.z2 };
-
-            RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                vp,
-                ShadeFragment_Barycentric,   // ← adresse de fonction n°2
-                &ctx);
+            UnlitContext ctx{ m_fb, color };
+            RasterizeTriangle(tri.v0, tri.v1, tri.v2, m_vp, &ShadeFragment_Barycentric, &ctx);
             break;
         }
-		//case ERenderMode::Wireframe:
-  //      {
-  //          const float area = EdgeFunction(r[0], r[1], r[2]);
-  //          if (area <= 0.0f) break;                      // backface
 
-  //          const Color w = MakeColor(255, 255, 255);
-  //          for (uint8_t k = 0; k < vpf; ++k)
-  //              DrawLineClipped(fb, vp, r[k], r[(k + 1) % vpf], w);
-  //      }
         default:
-            break; // Wireframe/Normals/UV — pas encore implémentés, on ne silence pas ça longtemps
+            break;   // Normals, UV : à venir
         }
     }
-
-} // namespace LV3
+}

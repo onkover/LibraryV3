@@ -179,6 +179,9 @@
     <ClInclude Include="Rendering\FrameBuffer.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\RenderSystem.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -225,6 +228,9 @@
     </ClCompile>
     <ClCompile Include="Rendering\Rasterizer.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\RenderSystem.cpp">
+      <Filter>Scene</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

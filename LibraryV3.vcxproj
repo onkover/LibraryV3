@@ -198,6 +198,7 @@
     <ClInclude Include="Scene\Components\Component.hpp" />
     <ClInclude Include="Scene\Entity.hpp" />
     <ClInclude Include="Scene\Registry.hpp" />
+    <ClInclude Include="Scene\RenderSystem.h" />
     <ClInclude Include="Scene\SceneTypes.h" />
     <ClInclude Include="Scene\Serializer.hpp" />
     <ClInclude Include="Scene\SparseSet.hpp" />
@@ -219,6 +220,7 @@
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />
+    <ClCompile Include="Scene\RenderSystem.cpp" />
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />
   </ItemGroup>
