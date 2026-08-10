@@ -32,12 +32,23 @@ namespace LV3
             });
     }
 
-    struct CountContext { std::vector<uint8_t>* counts; int32_t width; };
+   // struct CountContext { std::vector<uint8_t>* counts; int32_t width; };
 
     void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights&, void* userData)
     {
         auto* ctx = static_cast<CountContext*>(userData);
         (*ctx->counts)[y * ctx->width + x]++;   // ici width suffit : c'est TON buffer, pas SDL
+    }
+
+    void ShadeFragment_Solid(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData)
+    {
+        auto* ctx = static_cast<SolidContext*>(userData);
+
+        // z_ndc s'interpole LINEAIREMENT en espace ecran.
+        const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;
+
+        if (!ctx->db->TestAndSet(x, y, z)) return;      // REVERSE-Z : test GREATER
+        ctx->fb->SetPixelUnchecked(x, y, ctx->color);
     }
 
 } // namespace LV3

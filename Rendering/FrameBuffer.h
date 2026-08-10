@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdint>
-#include <cstring>
-#include"rendering/viewport.h"
+#include <cassert>
+#include <bit>
+#include <algorithm>
+#include <type_traits>
 
 namespace LV3
 {
@@ -78,10 +80,11 @@ namespace LV3
 
         [[nodiscard]] int32_t Width()  const { return m_Width; }
         [[nodiscard]] int32_t Height() const { return m_Height; }
+        [[nodiscard]] void* frameBuffer() const { return m_Pixels; }
 
-        void* m_Pixels = nullptr;       // adr de l'écran rendu par SDL_LockTexture
 
     private:
+        void* m_Pixels = nullptr;       // adr de l'écran rendu par SDL_LockTexture
         int32_t m_Pitch = 0;            // celui que rend SDL_LockTexture, en OCTETS.
         int32_t m_Width = 0;
         int32_t m_Height = 0;

@@ -6,7 +6,7 @@
 namespace LV3
 {
 
-    void Renderer::DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, ERenderMode mode, Color c)
+    void Renderer::DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, const Viewport& vp, ERenderMode mode, Color c)
     {
         switch (mode)
         {
@@ -21,7 +21,7 @@ namespace LV3
             //    &ctx);
 
             RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                fb.Width(), fb.Height(),
+                vp,
                 ShadeFragment_Unlit,   // ← adresse de fonction n°1
                 &ctx);
             break;
@@ -32,7 +32,7 @@ namespace LV3
             DepthContext ctx{ &fb, tri.z0, tri.z1, tri.z2 };
 
             RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                fb.Width(), fb.Height(),
+                vp,
                 ShadeFragment_Depth,   // ← adresse de fonction n°2
                 &ctx);
             break;
@@ -42,11 +42,20 @@ namespace LV3
             DepthContext ctx{ &fb, tri.z0, tri.z1, tri.z2 };
 
             RasterizeTriangle(tri.v0, tri.v1, tri.v2,
-                fb.Width(), fb.Height(),
+                vp,
                 ShadeFragment_Barycentric,   // ← adresse de fonction n°2
                 &ctx);
             break;
         }
+		//case ERenderMode::Wireframe:
+  //      {
+  //          const float area = EdgeFunction(r[0], r[1], r[2]);
+  //          if (area <= 0.0f) break;                      // backface
+
+  //          const Color w = MakeColor(255, 255, 255);
+  //          for (uint8_t k = 0; k < vpf; ++k)
+  //              DrawLineClipped(fb, vp, r[k], r[(k + 1) % vpf], w);
+  //      }
         default:
             break; // Wireframe/Normals/UV — pas encore implémentés, on ne silence pas ça longtemps
         }

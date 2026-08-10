@@ -3,6 +3,7 @@
 #include "../Maths/Vectorlib.h"
 #include "FrameBuffer.h"  // FrameBuffer
 #include "RenderTypes.h"  // ERenderMode (Leçon 1)
+#include "Viewport.h"     // Viewport
 
 namespace LV3
 {
@@ -19,7 +20,8 @@ namespace LV3
     class Renderer
     {
     public:
-        void DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, ERenderMode mode, Color c);
+        void DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, const Viewport& vp, ERenderMode mode, Color c);
+//        void DrawTriangle(const Triangle2D& tri, FrameBuffer& fb, ERenderMode mode, Color c);
     };
 
 } // namespace LV3
