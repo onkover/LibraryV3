@@ -42,7 +42,7 @@ namespace LV3
 
     void ShadeFragment_Solid(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData)
     {
-        auto* ctx = static_cast<SolidContext*>(userData);
+        auto* ctx = static_cast<FragmentContext*>(userData);
 
         // z_ndc s'interpole LINEAIREMENT en espace ecran.
         const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;

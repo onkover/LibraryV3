@@ -4,6 +4,7 @@
 #include "DepthBuffer.h"
 #include "Viewport.h"
 #include "RenderTypes.h"
+#include "Fragment.h"   // FragmentContext, FragmentCallback
 
 namespace LV3
 {
@@ -19,26 +20,42 @@ namespace LV3
     class Renderer
     {
     public:
-        // --- État, posé une fois par frame ---
+        // ── État de FRAME (posé 1x/frame): les cibles ──────────────────────────
         void BeginFrame(FrameBuffer& fb, DepthBuffer& db) noexcept
         {
-            m_fb = &fb; m_db = &db;
+            m_ctx.fb = &fb;  m_ctx.db = &db;    // posés UNE fois par frame
         }
-        void EndFrame() noexcept { m_fb = nullptr; m_db = nullptr; }
 
-        // --- État, posé une fois par VUE ---
+        void EndFrame() noexcept { m_ctx.fb = nullptr; m_ctx.db = nullptr; }
+
+        // ── État de VUE (posé une fois par VUE) : région et mode ────────────────────────
         void SetViewport(const Viewport& vp) noexcept { m_vp = vp; }
-        void SetMode(ERenderMode m)          noexcept { m_mode = m; }
+
+        void SetMode(ERenderMode m) noexcept
+        {
+            m_mode = m;
+            switch (m)                            // résolu UNE fois par VUE
+            {
+            case ERenderMode::Solid:             m_fragment = &ShadeFragment_Solid;       break;
+            case ERenderMode::Depth:             m_fragment = &ShadeFragment_Depth;       break;
+            case ERenderMode::BarycentricColors: m_fragment = &ShadeFragment_Barycentric; break;
+            default:                             m_fragment = nullptr;                    break;
+            }
+        }
 
         [[nodiscard]] const Viewport& GetViewport() const noexcept { return m_vp; }
         [[nodiscard]] ERenderMode     GetMode()     const noexcept { return m_mode; }
+        [[nodiscard]] bool            IsReady()     const noexcept
+        {
+            return m_ctx.fb && m_ctx.db && m_vp.IsValid();
+        }
 
-        // --- Soumission ---
+        // ── Soumission ──────────────────────────────────────────
         void DrawTriangle(const Triangle2D& tri, Color color);
 
     private:
-        FrameBuffer* m_fb = nullptr;
-        DepthBuffer* m_db = nullptr;
+        FragmentContext  m_ctx{};
+        FragmentCallback m_fragment = nullptr;
         Viewport     m_vp{};
         ERenderMode  m_mode = ERenderMode::Solid;
     };

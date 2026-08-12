@@ -22,8 +22,7 @@ namespace LV3
         float z0, z1, z2; // profondeur des 3 sommets du triangle courant
     };
 
-    // Rendu opaque AVEC test de profondeur — celui du rendu 3D reel.
-    struct SolidContext
+    struct FragmentContext
     {
         FrameBuffer* fb = nullptr;
         DepthBuffer* db = nullptr;

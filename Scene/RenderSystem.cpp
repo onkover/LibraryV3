@@ -54,13 +54,16 @@ namespace LV3
                 const Color col = FaceColor(int(f));
 
                 // Triangulation en éventail, puis SOUMISSION. Rien d'autre.
+                // A savoir que Triangle2D => Agrégat POD, impact négligeable
+				// Passer tout en paramètres signifierait que les 4 premiers flottants dans XMM0-XMM3. Les cinq suivants partent sur la pile, plus this et color.
+                // Une struct passée par référence est la forme la moins chère, pas la plus chère
                 for (uint8_t t = 0; t + 2 < vpf; ++t)
                     renderer.DrawTriangle(
                         Triangle2D{ { r[0].x,     r[0].y     },
-                                    { r[t + 1].x,   r[t + 1].y   },
+                                    { r[t + 1].x,   r[t + 1].y   },     
                                     { r[t + 2].x,   r[t + 2].y   },
                                       r[0].z, r[t + 1].z, r[t + 2].z },
-                        col);
+                                     col);
             }
         }
     }
