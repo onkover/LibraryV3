@@ -23,27 +23,43 @@ namespace LV3
         const Viewport& vp,
         FragmentCallback onFragment, void* userData)
     {
-        // 1. Bounding box, rognée au VIEWPORT (= le scissor)
-        int minX = int(std::floor(std::min({ v0.x, v1.x, v2.x })));
-        int minY = int(std::floor(std::min({ v0.y, v1.y, v2.y })));
-        int maxX = int(std::ceil(std::max({ v0.x, v1.x, v2.x }))) + 1;
-        int maxY = int(std::ceil(std::max({ v0.y, v1.y, v2.y }))) + 1;
+
+       /*
+       Si des pixels ne sont pas déssiné
+           * épars comme du bruit (Épars et fins → le biais top-left) est la signature exacte d'un seuil dépendant de l'échelle
+           * Une fente le long d'une arête aurait désigné la géométrie ; 
+           * Fentes nettes le long des arêtes partagées → le biais aussi, mais plus grave
+           * Trous par triangle entier → géométrie ou culling, pas le remplissage
+        3 tests
+        * Coupe 1 — le biais : Remets bias = 0.0f partout dans ta version actuelle. Les trous disparaissent → c'était bien lui, applique le correctif ci-dessus.
+        * Coupe 2 — le Z-buffer : Dans ShadeFragment_Solid, commente if (!ctx->db->TestAndSet(...)) return;. Les trous disparaissent → ce sont deux triangles à profondeur quasi identique qui se rejettent mutuellement. Symptôme d'un z-fighting sur géométrie coplanaire.
+        * Coupe 3 — la géométrie : Passe en Wireframe. Regarde de près : les arêtes forment-elles une surface fermée ? S'il y a des vides dans le fil de fer, le problème est dans le mesh ou dans la triangulation en éventail des quads, pas dans le rasterizer.
+       */
+
+        // ── Normalise le sens de parcours : on travaille toujours en aire POSITIVE.
+        //    Les poids barycentriques seront reremis dans l'ordre d'origine plus bas.
+        Vec2f p0 = v0, p1 = v1, p2 = v2;
+        float area = EdgeFunction(p0, p1, p2);
+        if (area == 0.0f) return;                       // triangle dégénéré
+
+        const bool flipped = (area < 0.0f);
+        if (flipped) { std::swap(p1, p2); area = -area; }
+
+        // ── Bounding box, rognée au VIEWPORT (= le scissor)
+        int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
+        int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
+        int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
+        int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
         vp.ClampBox(minX, minY, maxX, maxY);
         if (minX >= maxX || minY >= maxY) return;
 
-        // 2. Aire signée : normalise les barycentriques et donne le sens de parcours
-        const float area = EdgeFunction(v0, v1, v2);
-        if (area == 0.0f) return;                       // triangle dégénéré
-
-        // 3. Biais top-left par arête : évite qu'un pixel de frontière
-        //    soit dessiné DEUX fois par deux triangles adjacents.
-        const float bias0 = IsTopLeft(v1, v2) ? 0.0f : -1.0f;
-        const float bias1 = IsTopLeft(v2, v0) ? 0.0f : -1.0f;
-        const float bias2 = IsTopLeft(v0, v1) ? 0.0f : -1.0f;
+        // ── Règle top-left : évaluée UNE fois par triangle, pas par pixel
+        const bool tl0 = IsTopLeft(p1, p2);
+        const bool tl1 = IsTopLeft(p2, p0);
+        const bool tl2 = IsTopLeft(p0, p1);
 
         const float invArea = 1.0f / area;
 
-        // 4. Boucle pixel
         for (int y = minY; y < maxY; ++y)
         {
             const float py = float(y) + 0.5f;
@@ -51,18 +67,27 @@ namespace LV3
             {
                 const float px = float(x) + 0.5f;
 
-                const float w0 = EdgeFunction(v1, v2, px, py) + bias0;
-                const float w1 = EdgeFunction(v2, v0, px, py) + bias1;
-                const float w2 = EdgeFunction(v0, v1, px, py) + bias2;
+                const float w0 = EdgeFunction(p1, p2, px, py);
+                const float w1 = EdgeFunction(p2, p0, px, py);
+                const float w2 = EdgeFunction(p0, p1, px, py);
 
-                const bool inside = (area > 0.0f) ? (w0 >= 0.f && w1 >= 0.f && w2 >= 0.f)
-                    : (w0 <= 0.f && w1 <= 0.f && w2 <= 0.f);
-                if (!inside) continue;
+                // Strictement dedans, OU exactement sur une arête top/left.
+                // Aucune constante magique : indépendant de la taille du triangle.
+                if (!(w0 > 0.0f || (w0 == 0.0f && tl0))) continue;
+                if (!(w1 > 0.0f || (w1 == 0.0f && tl1))) continue;
+                if (!(w2 > 0.0f || (w2 == 0.0f && tl2))) continue;
 
-                const BarycentricWeights bary{ w0 * invArea, w1 * invArea, w2 * invArea };
+                // Si les sommets ont été échangés, w1 et w2 le sont aussi :
+                // on les remet dans l'ordre du triangle d'origine.
+                const BarycentricWeights bary = flipped
+                    ? BarycentricWeights{ w0 * invArea, w2 * invArea, w1 * invArea }
+                : BarycentricWeights{ w0 * invArea, w1 * invArea, w2 * invArea };
+
                 onFragment(x, y, bary, userData);
             }
         }
+
+
     }
 
 

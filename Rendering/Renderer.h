@@ -42,6 +42,12 @@ namespace LV3
             default:                             m_fragment = nullptr;                    break;
             }
         }
+        
+        void SetDepthRange(float nearPlane, float farPlane) noexcept
+        {
+            m_ctx.nearPlane = nearPlane;
+            m_ctx.farPlane = farPlane;
+        }
 
         [[nodiscard]] const Viewport& GetViewport() const noexcept { return m_vp; }
         [[nodiscard]] ERenderMode     GetMode()     const noexcept { return m_mode; }

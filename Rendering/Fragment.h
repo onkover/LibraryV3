@@ -10,17 +10,17 @@ namespace LV3
     // Chaque fonction ShadeFragment_* définit SA propre structure de contexte.
     // C'est ce pointeur qui transite par le void* userData de RasterizeTriangle.
 
-    struct UnlitContext
-    {
-        FrameBuffer* fb;
-        Color        color;
-    };
+    //struct UnlitContext
+    //{
+    //    FrameBuffer* fb;
+    //    Color        color;
+    //};
 
-    struct DepthContext
-    {
-        FrameBuffer* fb;
-        float z0, z1, z2; // profondeur des 3 sommets du triangle courant
-    };
+    //struct DepthContext
+    //{
+    //    FrameBuffer* fb;
+    //    float z0, z1, z2; // profondeur des 3 sommets du triangle courant
+    //};
 
     struct FragmentContext
     {
@@ -28,6 +28,8 @@ namespace LV3
         DepthBuffer* db = nullptr;
         Color        color{};
         float        z0 = 0.f, z1 = 0.f, z2 = 0.f;   // profondeurs NDC des 3 sommets
+        float        nearPlane = 0.1f;
+        float        farPlane = 1000.0f;
     };
 
     // Comptage de couverture — utilise par la TNR top-left.
@@ -40,9 +42,9 @@ namespace LV3
     // ── Implémentations de FragmentCallback ──
     // Signature imposée par le type FragmentCallback défini dans Rasterizer.h
 
-    void ShadeFragment_Unlit(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
+//    void ShadeFragment_Unlit(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
     void ShadeFragment_Depth(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
     void ShadeFragment_Barycentric(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
     void ShadeFragment_Solid(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
-    void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
+    void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData); // TNR
 } // namespace LV3
