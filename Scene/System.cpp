@@ -26,13 +26,6 @@ todo
 namespace LV3
 {
 
-	// Fonction d'aide pour le Lerp
-	Vec3f lerp(const Vec3f& initial, const Vec3f & final, float t)
-	{
-		return initial + (final - initial) * t;
-	}
-
-
 	/// <summary>
 	/// Met à jour les angles d'orbite et de rotation des composants Mesh dans le registre en fonction du temps écoulé.
 	/// </summary>

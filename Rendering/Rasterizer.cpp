@@ -18,6 +18,15 @@ namespace LV3
             uint8_t(((h >> 8) & 0x7F) + 0x60),
             uint8_t((h & 0x7F) + 0x60));
     }
+	/*
+    correction de la perspective-correct interpolation
+        Coordonnées barycentriques : w0 * a0 + w1 * a1 + w2 * a2;
+			Le calcul de l'interpolation de l'information est linéaire est correct si et seulement si le triangle est parallèle au plan image. 
+            Dès qu'il est incliné, c'est faux — et la faute est structurelle, pas numérique.
+            En effet, la projection perspective est une transformation projective, pas affine. Elle ne préserve pas les rapports de distance, c'est le fameux effet « texture warping ».
+    
+    */
+
 
     void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
         const Viewport& vp,

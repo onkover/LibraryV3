@@ -174,12 +174,15 @@
     <ClInclude Include="Maths\Geometry\Frustum.h" />
     <ClInclude Include="Maths\Geometry\Plane.h" />
     <ClInclude Include="Maths\MathTypes.h" />
+    <ClInclude Include="Maths\MathUtils.h" />
     <ClInclude Include="Maths\MatrixLib.h" />
     <ClInclude Include="Maths\Projection.h" />
     <ClInclude Include="Maths\QuaternionLib.h" />
     <ClInclude Include="Maths\Transform.h" />
     <ClInclude Include="Maths\Vectorlib.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Rendering\Clipper.h" />
+    <ClInclude Include="Rendering\ClipVertex.h" />
     <ClInclude Include="Rendering\Fragment.h" />
     <ClInclude Include="Rendering\FrameBuffer.h" />
     <ClInclude Include="Rendering\Rasterizer.h" />
@@ -213,6 +216,7 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Rendering\Clipper.cpp" />
     <ClCompile Include="Rendering\Fragment.cpp" />
     <ClCompile Include="Rendering\Rasterizer.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />

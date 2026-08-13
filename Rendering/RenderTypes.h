@@ -33,7 +33,8 @@ namespace LV3
         Depth,            // Visualise le Z-buffer — débogage profondeur
         Normals,          // Couleur = normale — débogage éclairage
         UV,                // Couleur = coordonnées UV — débogage textures
-		BarycentricColors    // Visualise les coordonnées barycentriques — débogage rasterizer
+		BarycentricColors,    // Visualise les coordonnées barycentriques — débogage rasterizer
+        LinearDepth
     };
 
     // Face culling — quelles faces le rasterizer élimine avant de rasteriser
@@ -45,12 +46,20 @@ namespace LV3
     };
 
     // Test de profondeur — comment le Z-buffer accepte ou rejette un fragment
+    //enum class EDepthTest : uint8_t
+    //{
+    //    Always,      // Toujours passe — pas de test (skybox, UI)
+    //    Less,        // Passe si plus proche — standard 3D
+    //    LessEqual,   // Passe si plus proche ou égal — terrain, décals
+    //    Never        // Ne passe jamais — masque d'occlusion
+    //};
+
     enum class EDepthTest : uint8_t
     {
-        Always,      // Toujours passe — pas de test (skybox, UI)
-        Less,        // Passe si plus proche — standard 3D
-        LessEqual,   // Passe si plus proche ou égal — terrain, décals
-        Never        // Ne passe jamais — masque d'occlusion
+        Always,        // skybox, UI
+        Greater,       // standard 3D — plus proche = z plus GRAND (reverse-Z)
+        GreaterEqual,  // terrain, décals coplanaires
+        Never          // masque d'occlusion
     };
 
     // Mode de fusion — comment un pixel se mélange avec le framebuffer
