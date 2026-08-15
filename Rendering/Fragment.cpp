@@ -4,19 +4,11 @@
 
 namespace LV3
 {
-
-    //void ShadeFragment_Unlit(int32_t x, int32_t y, const BarycentricWeights& /*bary*/, void* userData)
-    //{
-    //    auto* ctx = static_cast<UnlitContext*>(userData);
-    //    ctx->fb->SetPixel(x, y, ctx->color);
-    //    //ctx->fb->SetPixel(x, y, Color{ 255, 255, 255, 255 });
-    //}
-
     void ShadeFragment_Barycentric(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData)
     {
         // w0 est le poids de v0, pas de l'arête v0v1
 
-        auto* ctx = static_cast<FragmentContext*>(userData);   // ← alignement
+        auto* ctx = AsFragmentContext(userData);
         const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;
         if (!ctx->db->TestAndSet(x, y, z)) return;
 

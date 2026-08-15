@@ -60,6 +60,17 @@ namespace LV3
                  p.x * m[0][3] + p.y * m[1][3] + p.z * m[2][3] + m[3][3] };
     }
 
+    // CONVENTION DE FACE — mesurée, pas devinée. Verrouillée par TNR §Winding.
+    //   Front-face LV3 = CCW en espace VUE (main droite, regard -Z).
+    //   Viewport::ToRaster inverse Y  =>  CW en espace RASTER
+    //   =>  l'aire signée d'une FACE AVANT est NEGATIVE.
+    //
+    // Le >= rejette aussi l'aire nulle : triangle degenere, rien a dessiner.
+    [[nodiscard]] LV3_FORCEINLINE bool IsBackFacing(float signedArea) noexcept
+    {
+        return signedArea >= 0.0f;
+    }
+
     // ════════════════════════════════════════════════════════════
     //  DÉCLARÉES ICI, définies dans Rasterizer.cpp : elles bouclent.
     // ════════════════════════════════════════════════════════════

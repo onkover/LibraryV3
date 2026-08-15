@@ -89,7 +89,7 @@ namespace LV3
         }
 
         // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
-        if (EdgeFunction(r[0], r[1], r[2]) <= 0.0f) return;
+        if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
 
         renderer.DrawTriangle(
             RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
