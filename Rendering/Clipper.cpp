@@ -3,6 +3,22 @@
 
 namespace LV3
 {
+    // Ordre total DÉTERMINISTE sur les coordonnées de clip.
+    // Deux faces adjacentes parcourant la même arête en sens opposé
+    // calculent alors le MÊME point, bit à bit.
+    [[nodiscard]] LV3_FORCEINLINE bool ClipLess(const Vec4f& a, const Vec4f& b) noexcept
+    {
+        // Ordre total DÉTERMINISTE sur les coordonnées de clip.
+        // NÉCESSAIRE, mesuré : sans lui, 4 trous + 2 doublons sur la couture du quad
+        // de Test_ClipCoverage (124 trous si EdgeFunction n'est pas antisymétrique).
+        // Les deux correctifs sont requis : ils traitent deux causes distinctes.
+        if (a.x != b.x) return a.x < b.x;
+        if (a.y != b.y) return a.y < b.y;
+        if (a.z != b.z) return a.z < b.z;
+        return a.w < b.w;
+    }
+
+
     // CLIPPING → 0, 1 ou 2 triangles
     // Selon la technique "Blinn - Newell" homogeneous clipping, un seul plan(near),
     // et via un parcours "Sutherland - Hodgman"
@@ -41,10 +57,19 @@ namespace LV3
             // 2. changement de signe → l'arête traverse le plan
             if ((di >= 0.0f) != (dj >= 0.0f))
             {
-                // di - dj est STRICTEMENT positif dans cette branche :
-                // l'un des deux est >= 0, l'autre < 0. Aucun epsilon requis, aucune division par zéro possible.
-                const float t = di / (di - dj);                     // Le t est exact.NearDistance est affine dans les coordonnées de clip, donc le paramètre d'intersection est une expression rationnelle exacte des distances — pas une approximation itérative. C'est tout l'intérêt de clipper en 4D homogène (Blinn-Newell) plutôt qu'après la division.
-                dst[count++] = Lerp(src[i], src[j], t);
+                //// di - dj est STRICTEMENT positif dans cette branche :
+                //// l'un des deux est >= 0, l'autre < 0. Aucun epsilon requis, aucune division par zéro possible.
+                //const float t = di / (di - dj);                     // Le t est exact.NearDistance est affine dans les coordonnées de clip, donc le paramètre d'intersection est une expression rationnelle exacte des distances — pas une approximation itérative. C'est tout l'intérêt de clipper en 4D homogène (Blinn-Newell) plutôt qu'après la division.
+                //dst[count++] = Lerp(src[i], src[j], t);
+                
+                // On calcule TOUJOURS dans le sens canonique lo → hi, quel que soit
+                // le sens dans lequel CE triangle parcourt l'arête.
+                const bool  swap = !ClipLess(src[i].clip, src[j].clip);
+                const int32_t lo = swap ? j : i;
+                const int32_t hi = swap ? i : j;
+
+                const float dl = d[lo], dh = d[hi];
+                dst[count++] = Lerp(src[lo], src[hi], dl / (dl - dh));
             }
         }
 

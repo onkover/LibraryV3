@@ -9,13 +9,6 @@
 namespace LV3
 {
     // Triangle déjà transformé en espace écran (post-viewport).
-    //struct Triangle2D
-    //{
-    //    Vec2f v0, v1, v2;
-    //    float z0 = 0.f, z1 = 0.f, z2 = 0.f;   // profondeurs NDC, pour le Z-buffer
-    //};
-   
-    // Triangle déjà transformé en espace écran (post-viewport).
     struct RasterTriangle
     {
         Vec2f v0, v1, v2;                               // pixels, Y déjà flippé par ToRaster

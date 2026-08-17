@@ -13,4 +13,5 @@ namespace LV3
     [[nodiscard]] int32_t ClipTriangleNear(const ClipVertex src[3],
         ClipVertex dst[kMaxClipVertices]) noexcept;
 
+
 } // namespace LV3

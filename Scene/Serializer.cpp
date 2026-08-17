@@ -80,7 +80,7 @@ namespace LV3
 			return m_j.value(key, def);
 		}
 
-		[[nodiscard]] Vec3f ReadVec3(const char* key, const Vec3f& def)
+		[[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f& def)
 		{
 			m_seen.insert(key);
 			return LV3::ReadVec3(m_j, key, def);
@@ -278,7 +278,7 @@ namespace LV3
 		const json& j = *static_cast<const json*>(pJsonNode);
 		if (!j.is_object()) return;
 
-		JsonReader r(j, "Mash", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
+		JsonReader r(j, "Mesh", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
 
 		// --- 1. Un MeshComponent sans mesh n'a aucun sens ---
 		const std::string modelPath = r.Read("model", std::string(""));
@@ -424,7 +424,7 @@ namespace LV3
 		// Sélection : la plus haute priorité gagne, pas "la dernière lue".
 		if (c.m_isActive)
 		{
-			const CameraComponent* current = (out_activeCamera != Entity{})
+			const CameraComponent* current = (out_activeCamera != NULL_ENTITY)
 				? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
 				: nullptr;
 			if (!current || c.m_priority >= current->m_priority)
@@ -473,7 +473,7 @@ namespace LV3
 
 		CameraFollowComponent c;
 		c.m_isEnabled = r.Read("enabled", true);
-		c.m_offset = r.ReadVec3("offset", Vec3f(0.0f, 2.0f, -6.0f));
+		c.m_offset = r.ReadVector("offset", Vec3f(0.0f, 2.0f, -6.0f));
 		c.m_smoothSpeed = r.Read("smoothSpeed", 5.0f);
 		c.m_lookAtHeight = r.Read("lookAtHeight", 0.0f);   // vise un peu au-dessus des pieds
 
