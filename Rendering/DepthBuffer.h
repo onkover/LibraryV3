@@ -16,7 +16,11 @@ namespace LV3
             m_Data.assign(size_t(w) * size_t(h), 0.0f);
         }
 
-        void Clear() noexcept { std::fill(m_Data.begin(), m_Data.end(), 0.0f); }
+
+        void Clear() noexcept 
+        { 
+            std::fill(m_Data.begin(), m_Data.end(), 0.0f); 
+        }
 
         // Test ET ecriture en une operation : un seul calcul d'index,
         // et impossible d'oublier l'ecriture apres un test reussi.

@@ -22,9 +22,19 @@ namespace LV3
     {
     public:
         // ── État de FRAME (posé 1x/frame): les cibles ──────────────────────────
+        //En split - screen, attention : si les deux vues partagent le même DepthBuffer et que BeginFrame est appelé deux fois par frame, 
+        // le second Clear() efface la profondeur de la première vue.
+        // Un Clear() par frame, avant la première vue, serait plus juste.
         void BeginFrame(FrameBuffer& fb, DepthBuffer& db) noexcept
         {
-            m_ctx.fb = &fb;  m_ctx.db = &db;    // posés UNE fois par frame
+            // Si tu redimensionnes la fenêtre sans redimensionner le Z-buffer, TestAndSet écrit hors du std::vector — corruption silencieuse en Release, assertion cryptique en Debug.
+            LV3_ASSERT(db.Width() == fb.Width() &&
+                db.Height() == fb.Height() &&
+                "DepthBuffer et FrameBuffer de tailles differentes — TestAndSet ecrira hors bornes");
+
+            m_ctx.fb = &fb;  
+            m_ctx.db = &db;
+            db.Clear();
         }
 
         void EndFrame() noexcept { m_ctx.fb = nullptr; m_ctx.db = nullptr; }
