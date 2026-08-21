@@ -1,4 +1,6 @@
 #pragma once
+#include "../Core/logger.h"
+
 // ============================================================
 //  Scene/RenderSystem.h — Le systeme de rendu ECS
 //
@@ -21,4 +23,8 @@ namespace LV3
 
     void RenderView(Registry& registry, ResourceManager& rm,
         Renderer& renderer, const ViewData& view);
+
+    // Rapport de statistiques de culling. No-op en Release.
+    // Appeler UNE fois par frame, après la derniere vue.
+    void ReportCullStats();
 }
