@@ -253,6 +253,20 @@ namespace LV3
 		// ════════════════════════════════════════════════════════════════
 	
 
+//#ifdef _DEBUG
+//	//	static bool logged = false;
+//	//	if (!logged)
+//		{
+//	//		logged = true;
+//			Logger::log("[VIEW] infiniteFar=" + std::to_string(cam.m_infiniteFar)
+//				+ "  m22=" + std::to_string(v.projectionMatrix[2][2])
+//				+ "  m32=" + std::to_string(v.projectionMatrix[3][2])
+//				+ "  planes=" + std::to_string(v.frustum.Count()));
+//		}
+//#endif
+
+
+
 		return v;
 	}
 

@@ -51,6 +51,7 @@ namespace LV3
             case ERenderMode::Depth:             m_fragment = &ShadeFragment_Depth;       break;
             case ERenderMode::BarycentricColors: m_fragment = &ShadeFragment_Barycentric; break;
             case ERenderMode::LinearDepth:       m_fragment = &ShadeFragment_LinearDepth;   break;
+			case ERenderMode::ShadeFragment_LinearDepth_WRONG:           m_fragment = &ShadeFragment_LinearDepth_WRONG; break; // TODO : shader de normales
             default:                             m_fragment = nullptr;                    break;
             }
         }

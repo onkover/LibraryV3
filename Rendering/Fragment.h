@@ -76,4 +76,5 @@ namespace LV3
     void ShadeFragment_LinearDepth(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
     void ShadeFragment_Solid(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData);
     void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData); // TNR
+    void ShadeFragment_LinearDepth_WRONG(int32_t x, int32_t y, const BarycentricWeights& b, void* userData); // TNR
 } // namespace LV3

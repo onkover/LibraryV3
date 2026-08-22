@@ -34,7 +34,8 @@ namespace LV3
         Normals,          // Couleur = normale — débogage éclairage
         UV,                // Couleur = coordonnées UV — débogage textures
 		BarycentricColors,    // Visualise les coordonnées barycentriques — débogage rasterizer
-        LinearDepth
+        LinearDepth,
+        ShadeFragment_LinearDepth_WRONG
     };
 
     // Face culling — quelles faces le rasterizer élimine avant de rasteriser

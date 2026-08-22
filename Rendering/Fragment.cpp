@@ -43,7 +43,7 @@ namespace LV3
     * Bandes qui plient en V sur la diagonale des quads 	:   ❌ interpolation affine — le dénominateur n'est pas appliqué
     * Bandes régulièrement espacées jusqu'à l'horizon	    :   ❌ tu interpoles dist affinement au lieu de 1/dist
     * Bandes qui sautent d'un triangle à l'autre	        :   ❌ invW mal rempli sur certains sommets
-    
+	* Écran uniforme                                        :   ❌ 	invW à zéro → dist = inf
     */
     void ShadeFragment_LinearDepth(int32_t x, int32_t y,
         const BarycentricWeights& b, void* userData)
@@ -93,6 +93,24 @@ namespace LV3
     {
         auto* ctx = static_cast<CountContext*>(userData);
         (*ctx->counts)[y * ctx->width + x]++;   // ici width suffit : c'est TON buffer, pas SDL
+    }
+
+
+    void ShadeFragment_LinearDepth_WRONG(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+    {
+        auto* ctx = AsFragmentContext(userData);
+
+        const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+        if (!ctx->db->TestAndSet(x, y, z)) return;
+
+        // FAUX EXPRÈS : interpolation AFFINE de la distance,
+        // au lieu de 1 / (interpolation affine de 1/w)
+        const float dist = b.w0 * (1.0f / ctx->invW0)
+            + b.w1 * (1.0f / ctx->invW1)
+            + b.w2 * (1.0f / ctx->invW2);
+
+        const uint8_t g = uint8_t(std::fmod(dist, 1.0f) * 255.0f);
+        ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
     }
 
 } // namespace LV3
