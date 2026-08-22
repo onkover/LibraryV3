@@ -428,7 +428,7 @@ namespace LV3
 				? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
 				: nullptr;
 			if (!current || c.m_priority >= current->m_priority)
-				out_activeCamera = NULL_ENTITY;
+				out_activeCamera = entity;
 		}
 
 	}

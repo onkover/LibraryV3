@@ -28,6 +28,7 @@ namespace LV3
 	// --- Diagnostics (actifs en Debug uniquement) ---
 	void CheckAnimationBaseline(Registry& registry);            // UNE fois, après chargement
 	void CheckSceneInvariants(Registry& registry);            // CHAQUE frame
+	void CheckControllerExclusivity(Registry & registry);       // CHAQUE frame — invariant FPS/Follow
 	void DebugTraceEntity(Registry& registry, const std::string& name);
 	void DebugDisplaySystem(Registry& registry);
 

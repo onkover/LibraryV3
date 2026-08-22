@@ -632,14 +632,14 @@ namespace LV3
 	}
 
 	// ============================================================
-//  TEST A — à appeler UNE SEULE FOIS, juste après le chargement
-//  de la scène et AVANT la boucle de jeu.
-//
-//  À dt = 0, l'animation ne doit RIEN modifier : la rotation
-//  courante doit être exactement la rotation d'auteur.
-//  Si ça échoue -> m_initialRotation n'a pas été renseigné
-//  dans ParseTransform.
-// ============================================================
+	//  TEST A — à appeler UNE SEULE FOIS, juste après le chargement
+	//  de la scène et AVANT la boucle de jeu.
+	//
+	//  À dt = 0, l'animation ne doit RIEN modifier : la rotation
+	//  courante doit être exactement la rotation d'auteur.
+	//  Si ça échoue -> m_initialRotation n'a pas été renseigné
+	//  dans ParseTransform.
+	// ============================================================
 	void CheckAnimationBaseline(Registry& registry)
 	{
 		AnimationSystem(registry, 0.0f);        // dt nul : rien ne doit bouger
@@ -716,6 +716,42 @@ namespace LV3
 		}
 	}
 
+
+	// ============================================================
+	//  EXCLUSIVITÉ DES CONTRÔLEURS — à appeler CHAQUE frame.
+	//
+	//  FPSControllerSystem et CameraFollowSystem écrivent tous les deux
+	//  dans le MÊME TransformComponent (m_local.position / m_local.rotation).
+	//  Si les deux sont actifs simultanément sur la même entité, celui qui
+	//  s'exécute en second écrase le premier — SILENCIEUSEMENT, sans erreur
+	//  ni warning, juste une caméra qui se comporte mal par intermittence.
+	//
+	//  L'exclusion était promise par le commentaire de
+	//  CameraFollowComponent::m_isEnabled (Component.hpp) mais jamais
+	//  vérifiée : bug n°25 du journal (L04 P2, §11). SwitchCameraMode()
+	//  la respecte quand on passe par elle, mais rien n'empêche un appel
+	//  direct à reg.TryGet<...>()->m_isEnabled = true des deux côtés.
+	// ============================================================
+	void CheckControllerExclusivity(Registry & registry)
+	{
+		for (auto&& [entity, fps] : registry.ViewGroup<FPSControllerComponent>())
+		{
+			if (!fps.m_isEnabled) continue;
+			
+				const CameraFollowComponent * follow = registry.TryGet<CameraFollowComponent>(entity);
+			if (!follow || !follow->m_isEnabled) continue;
+			
+				const std::string name = registry.hasComponent<NameComponent>(entity)
+					? registry.getComponent<NameComponent>(entity).m_id
+					: std::string("<sans nom>");
+			
+				Logger::error("\033[31m[INVARIANT] " + name +
+					" : FPSControllerComponent ET CameraFollowComponent actifs simultanement"
+						" — le systeme execute en second ecrasera le Transform du premier\033[0m");
+			LV3_ASSERT(false);
+		}
+	}
+	
 	// ============================================================
 	//  TRACE — sonde manuelle sur une entité nommée.
 	//  Sert à répondre à la question de l'ordre de composition :
