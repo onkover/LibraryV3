@@ -731,6 +731,17 @@ namespace LV3
 	//  vérifiée : bug n°25 du journal (L04 P2, §11). SwitchCameraMode()
 	//  la respecte quand on passe par elle, mais rien n'empêche un appel
 	//  direct à reg.TryGet<...>()->m_isEnabled = true des deux côtés.
+	// Vérifie que le json ne paramètre pas 2 composants différents (FPSController et CameraFollow) pour une même caméra
+	// LE JSON serait par exemple :
+	// {
+	// "id": "Camera_Cassee",
+	//	"components" : {
+	//	"Transform": { "translation": [0, 5, 10] , "rotation" : [0, 0, 0] , "scale" : [1, 1, 1] },
+	//		"Camera" : { "projection": "perspective", "fov" : 45.0, "active" : true, "priority" : 1 },
+	//		"CameraFPS" : { "enabled": true },
+	//		"CameraFollow" : { "enabled": true, "target" : "Cube1" }
+	//	}
+	// }
 	// ============================================================
 	void CheckControllerExclusivity(Registry & registry)
 	{
