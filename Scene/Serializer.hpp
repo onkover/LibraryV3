@@ -22,6 +22,9 @@ namespace LV3
             Entity& out_activeCamera,
             ResourceManager& pRM);
 
+//        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm);
+        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh);
+
 
         // ── Sérialisation ─────────────────────────────────────
         // Sérialise l'état courant de la scène vers un fichier JSON.

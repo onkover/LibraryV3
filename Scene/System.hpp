@@ -37,9 +37,11 @@ namespace LV3
 	//	void RenderSystem(Registry& registry, Entity activeCamera);
 	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
 //	void RenderView(Registry& registry, ResourceManager& rm, FrameBuffer& fb, DepthBuffer& db, const ViewData& view, ERenderMode mode);
+	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect);
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
-	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
+//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
+	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept;
 
 	class HealthSystem
 	{

@@ -156,7 +156,8 @@ namespace LV3
 	/*
 	todo : Dansle cadre d'une shadow maps, tu voudras un ViewData pour une lumière. Or une lumière n'a ni TransformComponent de caméra, ni CameraComponent : elle a une matrice monde et une focale. Tu devras alors extraire le cœur pur :	
 	*/
-	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp)
+//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp)
+	ViewData BuildViewData(const TransformComponent& tr,const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept
 	{
 		ViewData v;
 
@@ -164,8 +165,9 @@ namespace LV3
 		//  ÉTAPE 0 — Contexte
 		//  Ce qui ne se calcule pas : on recopie ce qu'on nous donne.
 		// ════════════════════════════════════════════════════════════════
-		v.viewport = vp;             // la destination en pixels (et l'aspect ratio)
-		v.reverseZ = true;           // convention du moteur, mémorisée pour le Z-buffer
+		v.m_sourceCamera = camEntity;      // ETAPE 0, avec le reste du contexte
+		v.viewport = vp;					 // la destination en pixels (et l'aspect ratio)
+		v.reverseZ = true;					  // convention du moteur, mémorisée pour le Z-buffer
 		v.nearPlane = cam.m_nearPlane;
 		v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
 
@@ -792,6 +794,29 @@ namespace LV3
 			return;
 		}
 		Logger::warn("\033[31m[TRACE] entite '" + name + "' introuvable\033[0m");
+	}
+
+	// ============================================================
+
+	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect)
+	{
+		for (auto&& [e, giz, tr, dbg] :
+			registry.ViewGroup<CameraGizmoComponent, TransformComponent, DebugVisualComponent>())
+		{
+			const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
+			if (!cam) continue;
+
+			// a) forme : derivee du fov REEL, chaque frame -> le zoom suit
+			const float tanHalf = std::tan(cam->m_fovYDeg * 0.5f * TO_RADIAN);
+			const float L = giz.m_length;
+			tr.m_local.scale = { L * tanHalf * aspect, L * tanHalf, L };
+			// (si m_local est une Matrix44f : tr.m_local = Matrix44f::Scale(...))
+
+			// b) etat : la dissociation demandee
+			dbg.m_color = (giz.m_owner == activeCamera)
+				? Color{ 255, 216,  26 }    // ACTIVE  : ambre
+			: Color{ 110, 112, 128 };   // inactive : gris froid
+		}
 	}
 
 } // namespace LV3

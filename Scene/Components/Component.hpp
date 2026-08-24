@@ -8,6 +8,7 @@
 #include "Entity.hpp"
 
 #include "Lighting/LightTypes.h"
+#include "../Lighting/Color.h"
 #include "../../Ressources/ResourceHandle.h"
 #include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
 #include "Maths/Transform.h" 
@@ -74,6 +75,8 @@ namespace LV3
 		bool m_isActive = true;	
 		int  m_priority = 0;              // la plus haute gagne quand plusieurs sont actives
 
+		//  -- affichage de gizmo dans l'éditeur ---
+		float m_gizmoLength = 0.0f;     // 0 = pas de gizmo
 	};
 
 	// Verrou : ce composant doit rester 
@@ -230,4 +233,25 @@ namespace LV3
 		Vec3f m_color = { 1.0f, 1.0f, 1.0f };
 		float m_intensity = 1.0f;
 	};
+
+	//********************************************************************
+
+	// Le gizmo sait quelle camera il decrit.
+	struct CameraGizmoComponent
+	{
+		Entity m_owner = NULL_ENTITY;
+		float  m_length = 3.0f;          // longueur d'affichage, PAS le farPlane
+	};
+
+	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);
+
+	// GENERIQUE : la couche rendu ignore ce qu'est une camera.
+	struct DebugVisualComponent
+	{
+		Color  m_color;
+		Entity m_hideForCamera = NULL_ENTITY;   // masque si la vue vient de cette camera
+	};
+
+	static_assert(std::is_trivially_copyable_v<DebugVisualComponent>);
+
 }

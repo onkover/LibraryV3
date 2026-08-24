@@ -109,6 +109,15 @@ namespace LV3
 
         for (auto&& [entity, meshComp, transform] : registry.ViewGroup<MeshComponent, TransformComponent>())
         {
+
+            // ── 0. FILTRE DE VUE ─────────────────────────────────────────
+             // Un visuel de debug peut se declarer invisible depuis SA PROPRE vue.
+             // RenderView ignore ce qu'est une camera : il ne connait qu'une regle
+             // generique "cet objet est masque pour la vue qui vient de cette entite
+            const DebugVisualComponent* dbg = registry.TryGet<DebugVisualComponent>(entity);
+            if (dbg && dbg->m_hideForCamera == view.m_sourceCamera) continue;
+
+
             const MeshClass* mesh = rm.GetMesh(meshComp.m_meshHandle);
             if (!mesh || mesh->faceCount() == 0) continue;
 
@@ -141,6 +150,10 @@ namespace LV3
             const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
             const uint8_t   vpf = mesh->vertsPerFace;
 
+            // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
+            const bool  hasTint = (dbg != nullptr);
+            const Color tint = hasTint ? dbg->m_color : Color{};
+
             for (size_t f = 0; f < mesh->faceCount(); ++f)
             {
                 const uint32_t base = uint32_t(f) * vpf;
@@ -171,8 +184,8 @@ namespace LV3
                 // sinon : allIn reste true, aucune distance calculée
 
 
-                const Color col = FaceColor(int(f));
-
+                //const Color col = FaceColor(int(f));
+                const Color col = hasTint ? tint : FaceColor(int(f));   // <-- remplace la ligne existante
                 // ── Éventail en CLIP space ──
                 for (uint8_t t = 0; t + 2 < vpf; ++t)
                 {

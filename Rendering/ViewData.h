@@ -20,6 +20,9 @@ namespace LV3
         Vec3f     position;
         Vec3f     forward;
 
+        // --- 
+        Entity m_sourceCamera = NULL_ENTITY;   // entite d'ou provient cette vue
+
         // --- Profondeur ---
         float     nearPlane = 0.1f;
         float     farPlane = 1000.0f;

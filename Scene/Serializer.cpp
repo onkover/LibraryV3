@@ -92,6 +92,22 @@ namespace LV3
 			return ReadProjection(m_j, key);
 		}
 
+		// Descente dans un sous-objet. NON const : elle consomme une cle.
+		[[nodiscard]] JsonReader Child(const char* key)
+		{
+			m_seen.insert(key);            // "gizmo" est lue ICI, en tant que CONTENEUR
+
+			// Objet vide de repli : duree de vie statique, donc jamais pendant.
+			static const json s_empty = json::object();
+
+			const auto it = m_j.find(key);
+			const json& sub = (it != m_j.end() && it->is_object()) ? *it : s_empty;
+
+			return JsonReader(sub, m_comp + "." + key, m_owner);
+		}
+
+		[[nodiscard]] bool Has(std::string_view key) const { return m_j.contains(key); }
+
 		// À appeler en DERNIER : toute clé du JSON jamais passée par Read() est inconnue.
 		void WarnUnread() const
 		{
@@ -413,6 +429,18 @@ namespace LV3
 
 		c.m_orthoHeight = r.Read("orthoHeight", 10.0f);
 
+
+		if (r.Has("gizmo"))
+		{
+			JsonReader rg = r.Child("gizmo");             // "gizmo" marquee sur le parent
+			c.m_gizmoLength = rg.Read("length", 2.0f);    // "length" marquee sur l'enfant
+			rg.WarnUnread();                              // TNR du sous-objet
+		}
+		else
+			c.m_gizmoLength = 0.0f;      // 0 = pas de gizmo
+
+
+
 		// --- Garde-fous : une scène mal écrite ne doit pas casser le rendu ---
 		if (c.m_nearPlane <= 0.0f)            c.m_nearPlane = 0.1f;
 		if (c.m_farPlane <= c.m_nearPlane)   c.m_farPlane = c.m_nearPlane * 1000.0f;
@@ -430,7 +458,9 @@ namespace LV3
 			if (!current || c.m_priority >= current->m_priority)
 				out_activeCamera = entity;
 		}
+		
 
+		
 	}
 	//********************************************************************
 	void SceneSerializer::ParseCameraFPS(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -614,6 +644,32 @@ namespace LV3
 			}
 		}
 		return true;
+	}
+
+	void SceneSerializer::SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh)
+	{
+		auto result = rm.LoadMeshChecked(gizmoMesh, {});
+		if (!result.has_value()) return;
+		const MeshHandle hGizmo = *result;
+
+		// 1. COLLECTER d'abord. Creer des entites pendant l'iteration
+		//    d'un ViewGroup invalide les tableaux denses du SparseSet.
+		std::vector<Entity> cameras;
+		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
+			if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
+
+		// 2. Creer ensuite.
+		for (Entity cam : cameras)
+		{
+			Entity g = registry.CreateEntity();
+			registry.addComponent(g, NameComponent{ "__gizmo" });
+			registry.addComponent(g, TransformComponent{});
+			registry.addComponent(g, MeshComponent{ hGizmo });
+			registry.addComponent(g, CameraGizmoComponent{
+				cam, registry.getComponent<CameraComponent>(cam).m_gizmoLength });
+			registry.addComponent(g, DebugVisualComponent{ Color{}, cam });
+			linkChildToParent(registry, g, cam);
+		}
 	}
 
 	/// <summary>

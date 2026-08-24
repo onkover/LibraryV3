@@ -191,6 +191,9 @@
     <ClInclude Include="Maths\MathUtils.h">
       <Filter>Maths</Filter>
     </ClInclude>
+    <ClInclude Include="Lighting\Color.h">
+      <Filter>Lighting</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">

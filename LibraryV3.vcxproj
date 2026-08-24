@@ -169,6 +169,7 @@
     <ClInclude Include="Geometry\MeshClass.h" />
     <ClInclude Include="Geometry\SubMesh.h" />
     <ClInclude Include="Geometry\Texture.h" />
+    <ClInclude Include="Lighting\Color.h" />
     <ClInclude Include="Lighting\LightTypes.h" />
     <ClInclude Include="Maths\Geometry\AABB3d.h" />
     <ClInclude Include="Maths\Geometry\Frustum.h" />
