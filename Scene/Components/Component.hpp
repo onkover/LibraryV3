@@ -165,11 +165,6 @@ namespace LV3
 		Matrix44f m_localMatrix;
 		Matrix44f m_worldMatrix;
 		bool      m_dirty = true;			// évite de reconstruire les matrices pour rien
-
-		// --- Compatibilité provisoire : à supprimer une fois tout migré ---
-		//Matrix44f& m_localMatrix_compat() { return m_localMatrix; }
-		//Matrix44f& m_worldMatrix_compat() { return m_worldMatrix; }
-
 	};
 
 	//********************************************************************

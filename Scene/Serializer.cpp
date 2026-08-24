@@ -414,10 +414,13 @@ namespace LV3
 		// --- Perspective : FOV direct, ou modèle sténopé ---
 		if (j.contains("focalLength"))
 		{
-			c.m_lensModel = ELensModel::Filmback;
+			c.m_lensModel = r.Read("lensModel", 0) == 1 ? ELensModel::Filmback : ELensModel::FieldOfView;
 			c.m_focalLengthMm = r.Read("focalLength", 35.0f);
-			c.m_filmWidthMm = r.Read("filmWidth", 24.892f);
-			c.m_filmHeightMm = r.Read("filmHeight", 18.669f);
+			c.m_focalLengthMm = r.Read("focalLength", 35.0f);
+			c.m_filmHeightMm = r.Read("filmHeight", 24.0f);
+			//c.m_filmWidthMm = r.Read("filmWidth", 24.892f);
+			//c.m_filmHeightMm = r.Read("filmHeight", 18.669f);
+			c.m_infiniteFar = r.Read("infiniteFar", false);
 			c.m_gateFit = (r.Read("gateFit", std::string("fill")) == "overscan")
 				? EGateFit::Overscan : EGateFit::Fill;
 		}

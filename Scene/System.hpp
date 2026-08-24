@@ -11,6 +11,7 @@
 #include "../Core/InputState.h"
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
+#include "../Ressources/ResourceManager.h"
 
 
 namespace LV3
@@ -20,7 +21,14 @@ namespace LV3
 	void CameraFollowSystem(Registry& registry, float deltaTime);
 	[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
 	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
-
+	
+	// LA source unique de l'angle vertical. Personne ne recalcule ceci ailleurs.
+	[[nodiscard]] inline float CameraFovY(const CameraComponent& cam) noexcept
+	{
+		return (cam.m_lensModel == ELensModel::Filmback)
+			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)
+			: cam.m_fovYDeg * TO_RADIAN;
+	}
 	// --- Transformation ---
 	void WorldTransformSystem(Registry& registry);
 	void LocalTransformSystem(Registry& registry);

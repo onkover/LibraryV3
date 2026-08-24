@@ -199,9 +199,11 @@ namespace LV3
 		//
 		//  2a. Résoudre le FOV vertical : soit donné, soit dérivé du sténopé
 		// ════════════════════════════════════════════════════════════════
-		const float fovY = (cam.m_lensModel == ELensModel::Filmback)
-			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)  // focale + pellicule
-			: cam.m_fovYDeg * TO_RADIAN;                                          // angle direct
+		//const float fovY = (cam.m_lensModel == ELensModel::Filmback)
+		//	? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)  // focale + pellicule
+		//	: cam.m_fovYDeg * TO_RADIAN;                                          // angle direct
+
+		const float fovY = CameraFovY(cam);
 
 		//  2b. Choisir la fabrique. L'ASPECT vient du VIEWPORT, jamais de la lentille.
 		if (cam.m_projection == EProjectionType::Orthographic)
@@ -807,10 +809,20 @@ namespace LV3
 			if (!cam) continue;
 
 			// a) forme : derivee du fov REEL, chaque frame -> le zoom suit
-			const float tanHalf = std::tan(cam->m_fovYDeg * 0.5f * TO_RADIAN);
+			const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
 			const float L = giz.m_length;
-			tr.m_local.scale = { L * tanHalf * aspect, L * tanHalf, L };
-			// (si m_local est une Matrix44f : tr.m_local = Matrix44f::Scale(...))
+
+			//tr.m_local.scale = { L * tanHalf * aspect, L * tanHalf, L };
+			//tr.m_dirty = true;                // toute ecriture dans la source leve le drapeau
+			const Vec3f wanted{ L * tanHalf * aspect, L * tanHalf, L };
+
+			if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
+				std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
+				std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
+			{
+				tr.m_local.scale = wanted;
+				tr.m_dirty = true;      // le contrat avec LocalTransformSystem
+			}
 
 			// b) etat : la dissociation demandee
 			dbg.m_color = (giz.m_owner == activeCamera)
