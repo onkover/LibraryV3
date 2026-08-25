@@ -396,75 +396,165 @@ namespace LV3
 
 	}
 	//********************************************************************
+
+	//void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
+	//{
+	//	const json& j = *static_cast<const json*>(pJsonNode);
+	//	if (!j.is_object()) return;
+
+	//	JsonReader r(j, "Camera", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
+
+	//	CameraComponent c;
+	//	c.m_projection = r.ReadProjectionType("projection");
+	//	c.m_nearPlane = r.Read("near", 0.1f);
+	//	c.m_farPlane = r.Read("far", 1000.0f);
+	//	c.m_infiniteFar = r.Read("infiniteFar", false);
+	//	c.m_isActive = r.Read("active", true);
+	//	c.m_priority = r.Read("priority", 0);
+
+	//	// --- Perspective : FOV direct, ou modèle sténopé ---
+	//	if (j.contains("focalLength"))
+	//	{
+	//		c.m_lensModel = r.Read("lensModel", 0) == 1 ? ELensModel::Filmback : ELensModel::FieldOfView;
+	//		c.m_focalLengthMm = r.Read("focalLength", 35.0f);
+	//		c.m_focalLengthMm = r.Read("focalLength", 35.0f);
+	//		c.m_filmHeightMm = r.Read("filmHeight", 24.0f);
+	//		//c.m_filmWidthMm = r.Read("filmWidth", 24.892f);
+	//		//c.m_filmHeightMm = r.Read("filmHeight", 18.669f);
+	//		c.m_infiniteFar = r.Read("infiniteFar", false);
+	//		c.m_gateFit = (r.Read("gateFit", std::string("fill")) == "overscan")
+	//			? EGateFit::Overscan : EGateFit::Fill;
+	//	}
+	//	else
+	//	{
+	//		c.m_lensModel = ELensModel::FieldOfView;
+	//		c.m_fovYDeg = r.Read("fov", 45.0f);       // VERTICAL, en degrés
+	//	}
+
+	//	c.m_orthoHeight = r.Read("orthoHeight", 10.0f);
+
+
+	//	if (r.Has("gizmo"))
+	//	{
+	//		JsonReader rg = r.Child("gizmo");             // "gizmo" marquee sur le parent
+	//		c.m_gizmoLength = rg.Read("length", 2.0f);    // "length" marquee sur l'enfant
+	//		rg.WarnUnread();                              // TNR du sous-objet
+	//	}
+	//	else
+	//		c.m_gizmoLength = 0.0f;      // 0 = pas de gizmo
+
+
+
+	//	// --- Garde-fous : une scène mal écrite ne doit pas casser le rendu ---
+	//	if (c.m_nearPlane <= 0.0f)            c.m_nearPlane = 0.1f;
+	//	if (c.m_farPlane <= c.m_nearPlane)   c.m_farPlane = c.m_nearPlane * 1000.0f;
+	//	c.m_fovYDeg = std::clamp(c.m_fovYDeg, 1.0f, 179.0f);
+
+	//	ctx.registry.addComponent(entity, c);
+	//	r.WarnUnread();                                                    // ← 1 fois : fermeture
+
+	//	// Sélection : la plus haute priorité gagne, pas "la dernière lue".
+	//	if (c.m_isActive)
+	//	{
+	//		const CameraComponent* current = (out_activeCamera != NULL_ENTITY)
+	//			? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
+	//			: nullptr;
+	//		if (!current || c.m_priority >= current->m_priority)
+	//			out_activeCamera = entity;
+	//	}
+	//	
+
+	//	
+	//}
+
 	void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
 	{
 		const json& j = *static_cast<const json*>(pJsonNode);
 		if (!j.is_object()) return;
 
-		JsonReader r(j, "Camera", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
+		const std::string owner = EntityLabel(ctx.registry, entity);
+		JsonReader r(j, "Camera", owner);
 
 		CameraComponent c;
-		c.m_projection = r.ReadProjectionType("projection");
-		c.m_nearPlane = r.Read("near", 0.1f);
-		c.m_farPlane = r.Read("far", 1000.0f);
-		c.m_infiniteFar = r.Read("infiniteFar", false);
-		c.m_isActive = r.Read("active", true);
-		c.m_priority = r.Read("priority", 0);
 
-		// --- Perspective : FOV direct, ou modèle sténopé ---
-		if (j.contains("focalLength"))
+		// ── 1. PROJECTION : discriminant de premier niveau ─────────────
+		c.m_projection = r.ReadProjectionType("projection");
+
+		// ── 2. PLANS ──────────────────────────────────────────────────
+		c.m_nearPlane = r.Read("near", 0.1f);
+		c.m_infiniteFar = r.Read("infiniteFar", false);
+		c.m_farPlane = r.Read("far", 1000.0f);
+
+		if (c.m_infiniteFar && r.Has("far"))
+			Logger::warn("\033[33m[Camera] " + owner + " : 'far' est ignore (infiniteFar=true)\033[0m");
+
+		// ── 3. LENTILLE : chaque branche assigne TOUS ses champs ──────
+		// ** Orthographique **
+		if (c.m_projection == EProjectionType::Orthographic)
 		{
-			c.m_lensModel = r.Read("lensModel", 0) == 1 ? ELensModel::Filmback : ELensModel::FieldOfView;
-			c.m_focalLengthMm = r.Read("focalLength", 35.0f);
-			c.m_focalLengthMm = r.Read("focalLength", 35.0f);
-			c.m_filmHeightMm = r.Read("filmHeight", 24.0f);
-			//c.m_filmWidthMm = r.Read("filmWidth", 24.892f);
-			//c.m_filmHeightMm = r.Read("filmHeight", 18.669f);
-			c.m_infiniteFar = r.Read("infiniteFar", false);
-			c.m_gateFit = (r.Read("gateFit", std::string("fill")) == "overscan")
-				? EGateFit::Overscan : EGateFit::Fill;
+			c.m_lensModel = ELensModel::FieldOfView;      // sans objet, mais DEFINI
+			c.m_orthoHeight = r.Read("orthoHeight", 10.0f);
 		}
 		else
 		{
-			c.m_lensModel = ELensModel::FieldOfView;
-			c.m_fovYDeg = r.Read("fov", 45.0f);       // VERTICAL, en degrés
+			// ** Perspective **
+			const std::string lens = r.Read("lens", std::string("fov"));
+			c.m_lensModel = (lens == "filmback") ? ELensModel::Filmback : ELensModel::FieldOfView;
+			if (lens != "fov" && lens != "filmback")
+				Logger::warn("\033[33m[Camera] " + owner + " : 'lens' inconnu '" + lens + "' -> fov\033[0m");
+
+			if (c.m_lensModel == ELensModel::Filmback)
+			{
+				c.m_focalLengthMm = r.Read("focalLength", 35.0f);
+				c.m_filmHeightMm = r.Read("filmHeight", 24.0f);
+				c.m_gateFit = (r.Read("gateFit", std::string("fill")) == "overscan")
+					? EGateFit::Overscan : EGateFit::Fill;
+			}
+			else
+			{
+				c.m_fovYDeg = std::clamp(r.Read("fov", 45.0f), 1.0f, 179.0f);
+			}
 		}
 
-		c.m_orthoHeight = r.Read("orthoHeight", 10.0f);
-
-
+		// ── 4. GIZMO ──────────────────────────────────────────────────
 		if (r.Has("gizmo"))
 		{
-			JsonReader rg = r.Child("gizmo");             // "gizmo" marquee sur le parent
-			c.m_gizmoLength = rg.Read("length", 2.0f);    // "length" marquee sur l'enfant
-			rg.WarnUnread();                              // TNR du sous-objet
+			JsonReader rg = r.Child("gizmo");
+			c.m_gizmoLength = std::max(0.0f, rg.Read("length", 2.0f));
+			rg.WarnUnread();
 		}
 		else
-			c.m_gizmoLength = 0.0f;      // 0 = pas de gizmo
+			c.m_gizmoLength = 0.0f;
 
 
+		// ── 5. SELECTION ──────────────────────────────────────────────
+		c.m_isActive = r.Read("active", false);   // defaut FALSE : l'activite se declare
+		c.m_priority = r.Read("priority", 0);
 
-		// --- Garde-fous : une scène mal écrite ne doit pas casser le rendu ---
-		if (c.m_nearPlane <= 0.0f)            c.m_nearPlane = 0.1f;
-		if (c.m_farPlane <= c.m_nearPlane)   c.m_farPlane = c.m_nearPlane * 1000.0f;
-		c.m_fovYDeg = std::clamp(c.m_fovYDeg, 1.0f, 179.0f);
+		// ── 6. GARDE-FOUS QUI PARLENT ─────────────────────────────────
+		if (c.m_nearPlane <= 0.0f)
+		{
+			Logger::warn("[Camera] " + owner + " : near <= 0, force a 0.1");
+			c.m_nearPlane = 0.1f;
+		}
+		if (!c.m_infiniteFar && c.m_farPlane <= c.m_nearPlane)
+		{
+			Logger::warn("[Camera] " + owner + " : far <= near, force a near*1000");
+			c.m_farPlane = c.m_nearPlane * 1000.0f;
+		}
 
 		ctx.registry.addComponent(entity, c);
-		r.WarnUnread();                                                    // ← 1 fois : fermeture
+		r.WarnUnread();                                    // DERNIERE ligne du parse
 
-		// Sélection : la plus haute priorité gagne, pas "la dernière lue".
 		if (c.m_isActive)
 		{
-			const CameraComponent* current = (out_activeCamera != NULL_ENTITY)
-				? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
-				: nullptr;
-			if (!current || c.m_priority >= current->m_priority)
+			const CameraComponent* cur = (out_activeCamera != NULL_ENTITY)
+				? ctx.registry.TryGet<CameraComponent>(out_activeCamera) : nullptr;
+			if (!cur || c.m_priority >= cur->m_priority)
 				out_activeCamera = entity;
 		}
-		
-
-		
 	}
+
 	//********************************************************************
 	void SceneSerializer::ParseCameraFPS(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
@@ -649,31 +739,59 @@ namespace LV3
 		return true;
 	}
 
-	void SceneSerializer::SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh)
-	{
-		auto result = rm.LoadMeshChecked(gizmoMesh, {});
-		if (!result.has_value()) return;
-		const MeshHandle hGizmo = *result;
+	//void SceneSerializer::SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh)
+	//{
+	//	auto result = rm.LoadMeshChecked(gizmoMesh, {});
+	//	if (!result.has_value()) return;
+	//	const MeshHandle hGizmo = *result;
 
-		// 1. COLLECTER d'abord. Creer des entites pendant l'iteration
+	//	// 1. COLLECTER d'abord. Creer des entites pendant l'iteration
+	//	//    d'un ViewGroup invalide les tableaux denses du SparseSet.
+	//	std::vector<Entity> cameras;
+	//	for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
+	//		if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
+
+	//	// 2. Creer ensuite.
+	//	for (Entity cam : cameras)
+	//	{
+	//		Entity g = registry.CreateEntity();
+	//		registry.addComponent(g, NameComponent{ "__gizmo" });
+	//		registry.addComponent(g, TransformComponent{});
+	//		registry.addComponent(g, MeshComponent{ hGizmo });
+	//		registry.addComponent(g, CameraGizmoComponent{cam, registry.getComponent<CameraComponent>(cam).m_gizmoLength });
+	//		registry.addComponent(g, DebugVisualComponent{ Color{}, cam });
+	//		linkChildToParent(registry, g, cam);
+	//	}
+	//}
+
+	void SceneSerializer::SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets)
+	{
+
+		LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
+
+		// 1. COLLECTER d'abord : creer des entites pendant l'iteration
 		//    d'un ViewGroup invalide les tableaux denses du SparseSet.
 		std::vector<Entity> cameras;
 		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
 			if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
 
 		// 2. Creer ensuite.
-		for (Entity cam : cameras)
+		for (Entity camEntity : cameras)
 		{
+			const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
+
 			Entity g = registry.CreateEntity();
-			registry.addComponent(g, NameComponent{ "__gizmo" });
+			registry.addComponent(g, NameComponent{"__gizmo(" + EntityLabel(registry, camEntity) + ")" });
 			registry.addComponent(g, TransformComponent{});
-			registry.addComponent(g, MeshComponent{ hGizmo });
-			registry.addComponent(g, CameraGizmoComponent{
-				cam, registry.getComponent<CameraComponent>(cam).m_gizmoLength });
-			registry.addComponent(g, DebugVisualComponent{ Color{}, cam });
-			linkChildToParent(registry, g, cam);
+			registry.addComponent(g, MeshComponent{ assets.For(cam.m_projection) });
+			registry.addComponent(g, CameraGizmoComponent{ camEntity, cam.m_gizmoLength });
+			registry.addComponent(g, DebugVisualComponent{ Color{}, camEntity });
+			linkChildToParent(registry, g, camEntity);
 		}
 	}
+
+
+
 
 	/// <summary>
 	/// Fonction pour lier un enfant à un parent (et vice versa) dans le Registry

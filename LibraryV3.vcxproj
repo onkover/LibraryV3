@@ -206,6 +206,7 @@
     <ClInclude Include="Scene\SceneTypes.h" />
     <ClInclude Include="Scene\Serializer.hpp" />
     <ClInclude Include="Scene\SparseSet.hpp" />
+    <ClInclude Include="Scene\SpawnCameraGizmos.hpp" />
     <ClInclude Include="Scene\System.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -227,6 +228,7 @@
     <ClCompile Include="Ressources\ResourceManager.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp" />
     <ClCompile Include="Scene\Serializer.cpp" />
+    <ClCompile Include="Scene\SpawnCameraGizmos.cpp" />
     <ClCompile Include="Scene\System.cpp" />
   </ItemGroup>
   <ItemGroup>

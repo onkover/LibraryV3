@@ -12,6 +12,8 @@
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
 #include "../Ressources/ResourceManager.h"
+#include "SpawnCameraGizmos.hpp"
+
 
 
 namespace LV3
@@ -25,6 +27,9 @@ namespace LV3
 	// LA source unique de l'angle vertical. Personne ne recalcule ceci ailleurs.
 	[[nodiscard]] inline float CameraFovY(const CameraComponent& cam) noexcept
 	{
+		LV3_ASSERT(cam.m_lensModel == ELensModel::Filmback ||
+			(cam.m_fovYDeg >= 1.0f && cam.m_fovYDeg <= 179.0f));
+		
 		return (cam.m_lensModel == ELensModel::Filmback)
 			? Projection::FovYFromFocal(cam.m_focalLengthMm, cam.m_filmHeightMm)
 			: cam.m_fovYDeg * TO_RADIAN;
@@ -45,7 +50,8 @@ namespace LV3
 	//	void RenderSystem(Registry& registry, Entity activeCamera);
 	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
 //	void RenderView(Registry& registry, ResourceManager& rm, FrameBuffer& fb, DepthBuffer& db, const ViewData& view, ERenderMode mode);
-	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect);
+//	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect);
+	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 //	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);

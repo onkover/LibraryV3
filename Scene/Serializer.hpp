@@ -3,6 +3,7 @@
 #include <string>
 #include "../Ressources/ResourceManager.h"
 #include "Registry.hpp"
+#include "SpawnCameraGizmos.hpp"
 #include <unordered_map>
 
 namespace LV3
@@ -23,7 +24,8 @@ namespace LV3
             ResourceManager& pRM);
 
 //        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm);
-        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh);
+//        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh);
+        static void SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets);
 
 
         // ── Sérialisation ─────────────────────────────────────

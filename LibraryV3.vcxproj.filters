@@ -194,6 +194,9 @@
     <ClInclude Include="Lighting\Color.h">
       <Filter>Lighting</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\SpawnCameraGizmos.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -246,6 +249,9 @@
     </ClCompile>
     <ClCompile Include="Rendering\Clipper.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\SpawnCameraGizmos.cpp">
+      <Filter>Scene</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
