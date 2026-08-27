@@ -3,7 +3,6 @@
 #include <string>
 #include "../Ressources/ResourceManager.h"
 #include "Registry.hpp"
-#include "SpawnCameraGizmos.hpp"
 #include <unordered_map>
 
 namespace LV3
@@ -22,10 +21,6 @@ namespace LV3
             Registry& registry,
             Entity& out_activeCamera,
             ResourceManager& pRM);
-
-//        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm);
-//        static void SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh);
-        static void SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets);
 
 
         // ── Sérialisation ─────────────────────────────────────
@@ -60,7 +55,6 @@ namespace LV3
 
         };
 
-        static void linkChildToParent(Registry& registry, Entity child, Entity parent);
         static void ResolveDeferredReferences(ParseContext& ctx);
 
         static bool ParseNode(const void* jsonNode, ParseContext& ctx, Entity entity);
@@ -76,7 +70,5 @@ namespace LV3
         static bool ParseHierarchy(const void* pJsonNode, ParseContext& ctx);
 
 
-        // ── Sérialiseurs internes ─────────────────────────────
-    //    static void* SerializeNode(const SceneNode& node);   // retourne nlohmann::json*
     };
 }

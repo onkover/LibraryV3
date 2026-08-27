@@ -194,7 +194,13 @@
     <ClInclude Include="Lighting\Color.h">
       <Filter>Lighting</Filter>
     </ClInclude>
-    <ClInclude Include="Scene\SpawnCameraGizmos.hpp">
+    <ClInclude Include="Scene\Hierarchy.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\DebugGizmos.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SerializerHelpers.hpp">
       <Filter>Scene</Filter>
     </ClInclude>
   </ItemGroup>
@@ -250,7 +256,10 @@
     <ClCompile Include="Rendering\Clipper.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\SpawnCameraGizmos.cpp">
+    <ClCompile Include="Scene\DebugGizmos.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Hierarchy.cpp">
       <Filter>Scene</Filter>
     </ClCompile>
   </ItemGroup>

@@ -12,9 +12,6 @@
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
 #include "../Ressources/ResourceManager.h"
-#include "SpawnCameraGizmos.hpp"
-
-
 
 namespace LV3
 {
@@ -49,9 +46,7 @@ namespace LV3
 	void AnimationSystem(Registry& registry, float deltaTime);
 	//	void RenderSystem(Registry& registry, Entity activeCamera);
 	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
-//	void RenderView(Registry& registry, ResourceManager& rm, FrameBuffer& fb, DepthBuffer& db, const ViewData& view, ERenderMode mode);
-//	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect);
-	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
+//	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 //	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);

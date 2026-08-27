@@ -200,13 +200,15 @@
     <ClInclude Include="Ressources\ResourceHandle.h" />
     <ClInclude Include="Ressources\ResourceManager.h" />
     <ClInclude Include="Scene\Components\Component.hpp" />
+    <ClInclude Include="Scene\DebugGizmos.hpp" />
     <ClInclude Include="Scene\Entity.hpp" />
+    <ClInclude Include="Scene\Hierarchy.hpp" />
     <ClInclude Include="Scene\Registry.hpp" />
     <ClInclude Include="Scene\RenderSystem.h" />
     <ClInclude Include="Scene\SceneTypes.h" />
     <ClInclude Include="Scene\Serializer.hpp" />
+    <ClInclude Include="Scene\SerializerHelpers.hpp" />
     <ClInclude Include="Scene\SparseSet.hpp" />
-    <ClInclude Include="Scene\SpawnCameraGizmos.hpp" />
     <ClInclude Include="Scene\System.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -226,9 +228,10 @@
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />
+    <ClCompile Include="Scene\DebugGizmos.cpp" />
+    <ClCompile Include="Scene\Hierarchy.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp" />
     <ClCompile Include="Scene\Serializer.cpp" />
-    <ClCompile Include="Scene\SpawnCameraGizmos.cpp" />
     <ClCompile Include="Scene\System.cpp" />
   </ItemGroup>
   <ItemGroup>

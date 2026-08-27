@@ -1,9 +1,12 @@
 #pragma once
-#include "../maths/Projection.h"
-#include "../Ressources/ResourceManager.h"
+#include "../maths/Projection.h"    // EProjectionType
+//#include "SerializerHelpers.hpp"    // entity
+#include "Entity.hpp"
 
 namespace LV3
 {
+    class Registry;
+    class ResourceManager;
 
     struct GizmoAssets
     {
@@ -22,4 +25,8 @@ namespace LV3
     };
 
     GizmoAssets LoadGizmoAssets(ResourceManager& rm, const std::string gizmoMeshPerspect, const std::string gizmoMeshOrthogr);
+	void SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets);
+    void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
+
+
 }

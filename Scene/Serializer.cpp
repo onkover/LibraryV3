@@ -1,70 +1,14 @@
 #include "pch.h"
 
-
 #include <fstream>
-#include <filesystem>
-
 #include "../Core/Logger.h"
 #include "Serializer.hpp"
-#include "../Ressources/json.hpp"
 #include "Core/EventNames.h"
-
-using json = nlohmann::json;
-namespace fs = std::filesystem;
+#include "Hierarchy.hpp"
+#include "SerializerHelpers.hpp"
 
 namespace LV3
 {
-
-	/**********************************************
-
-		Helper
-
-	**********************************************/
-
-	// Résout un chemin relatif au fichier JSON
-	std::string ResolvePath(const std::string& baseDir, const std::string& rel)
-	{
-		if (rel.empty())
-			return {};
-
-		fs::path p = fs::path(baseDir) / fs::path(rel);
-
-		return p.lexically_normal().string();
-	}
-
-	// Lit un tableau JSON de 3 nombres et retourne un Vec3f. Si la clé est absente ou invalide, retourne la valeur par défaut.
-	Vec3f ReadVec3(const json& j, const char* key, const Vec3f& def) noexcept
-	{
-		if (!j.contains(key)) return def;
-		const json& a = j[key];
-		if (!a.is_array() || a.size() < 3) return def;
-		if (!a[0].is_number() || !a[1].is_number() || !a[2].is_number()) return def;
-		return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
-	}
-
-
-	EProjectionType ReadProjection(const json& j, const char* key) noexcept
-	{
-		const std::string s = j.value(key, std::string("perspective"));
-		return (s == "orthographic" || s == "ortho")
-			? EProjectionType::Orthographic
-			: EProjectionType::Perspective;
-	}
-
-	// Étiquette lisible d'une entité pour les diagnostics.
-	// Entity étant un uint32_t empaqueté, l'afficher brut donne 16777218
-	// au lieu de « index 2, génération 1 » — illisible.
-	std::string EntityLabel(Registry& reg, Entity e)
-	{
-		if (e == NULL_ENTITY) return "<NULL_ENTITY>";
-
-		const std::string name = reg.hasComponent<NameComponent>(e)
-			? reg.getComponent<NameComponent>(e).m_id
-			: std::string("<sans nom>");
-
-		return name + " (idx " + std::to_string(EntityIndex(e))
-			+ ", gen " + std::to_string(EntityGeneration(e)) + ")";
-	}
 
 	class JsonReader
 	{
@@ -764,63 +708,36 @@ namespace LV3
 	//	}
 	//}
 
-	void SceneSerializer::SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets)
-	{
+	//void SceneSerializer::SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets)
+	//{
 
-		LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
+	//	LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
 
-		// 1. COLLECTER d'abord : creer des entites pendant l'iteration
-		//    d'un ViewGroup invalide les tableaux denses du SparseSet.
-		std::vector<Entity> cameras;
-		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
-			if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
+	//	// 1. COLLECTER d'abord : creer des entites pendant l'iteration
+	//	//    d'un ViewGroup invalide les tableaux denses du SparseSet.
+	//	std::vector<Entity> cameras;
+	//	for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
+	//		if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
 
-		// 2. Creer ensuite.
-		for (Entity camEntity : cameras)
-		{
-			const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
+	//	// 2. Creer ensuite.
+	//	for (Entity camEntity : cameras)
+	//	{
+	//		const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
 
-			Entity g = registry.CreateEntity();
-			registry.addComponent(g, NameComponent{"__gizmo(" + EntityLabel(registry, camEntity) + ")" });
-			registry.addComponent(g, TransformComponent{});
-			registry.addComponent(g, MeshComponent{ assets.For(cam.m_projection) });
-			registry.addComponent(g, CameraGizmoComponent{ camEntity, cam.m_gizmoLength });
-			registry.addComponent(g, DebugVisualComponent{ Color{}, camEntity });
-			linkChildToParent(registry, g, camEntity);
-		}
-	}
-
-
+	//		Entity g = registry.CreateEntity();
+	//		registry.addComponent(g, NameComponent{"__gizmo(" + EntityLabel(registry, camEntity) + ")" });
+	//		registry.addComponent(g, TransformComponent{});
+	//		registry.addComponent(g, MeshComponent{ assets.For(cam.m_projection) });
+	//		registry.addComponent(g, CameraGizmoComponent{ camEntity, cam.m_gizmoLength });
+	//		registry.addComponent(g, DebugVisualComponent{ Color{}, camEntity });
+	//		linkChildToParent(registry, g, camEntity);
+	//	}
+	//}
 
 
-	/// <summary>
-	/// Fonction pour lier un enfant à un parent (et vice versa) dans le Registry
-	/// Pour une entité donnée dans HierarchyComponent, nous allons créer une nouvelle nouvelle hiérarchie pour référencer :
-	/// * son parent
-	/// * ses enfants
-	/// 
-	/// On recherche ensuite son parent pour référencer son enfant
-	/// </summary>
-	/// <param name="registry">Registre des composants</param>
-	/// <param name="child">entité enfant</param>
-	/// <param name="parent">entité parent</param>
-	void SceneSerializer::linkChildToParent(Registry& registry, Entity child, Entity parent)
-	{
-		std::cout << "LIAISON : Entité " << registry.getComponent<NameComponent>(child).m_id << " est maintenant enfant de " << registry.getComponent<NameComponent>(parent).m_id << std::endl;
 
-		// 1. Attache un composant Hierarchie à l'enfant pour référencer son futur parent
-		registry.addComponent(child, HierarchyComponent{ parent, {},false }); // pas besoin de std::move(composant) ici car le composant est construit directement en argument, donc c'est une prvalue
 
-		// 2. Ajoute l'enfant à la liste du parent
-		if (!registry.hasComponent<HierarchyComponent>(parent))
-		{
-			// Crée un composant parent s'il n'existe pas
-			registry.addComponent(parent, HierarchyComponent{ NULL_ENTITY, {}, true }); // parent vide, marqué comme racine
-		}
-		// Retrouve le parent (nouvellement créé ou pas) pour référencer son enfant
-		registry.getComponent<HierarchyComponent>(parent).m_children.push_back(child);
-	}
-
+	
 
 	//Attention au piège de ta scène : ton entité a "parent" : "Earth" et "target" : "Earth".Une caméra enfant de sa propre cible se déplace déjà avec elle — le contrôleur de suivi ajoutera son offset par - dessus le mouvement hérité.Tu obtiendras un décalage double.Pour une caméra de suivi, la règle est : pas de parent, ou parent = racine.Le suivi est le mécanisme d'attachement.
 	void SceneSerializer::ResolveDeferredReferences(ParseContext& ctx)

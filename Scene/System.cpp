@@ -829,47 +829,47 @@ namespace LV3
 	//	}
 	//}
 
-	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets)
-	{
-		for (auto&& [e, giz, tr, mc, dbg] :
-			registry.ViewGroup<CameraGizmoComponent, TransformComponent,
-			MeshComponent, DebugVisualComponent>())
-		{
-			const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
-			if (!cam) continue;
+	//void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets)
+	//{
+	//	for (auto&& [e, giz, tr, mc, dbg] :
+	//		registry.ViewGroup<CameraGizmoComponent, TransformComponent,
+	//		MeshComponent, DebugVisualComponent>())
+	//	{
+	//		const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
+	//		if (!cam) continue;
 
-			const float L = giz.m_length;
-			Vec3f wanted;
+	//		const float L = giz.m_length;
+	//		Vec3f wanted;
 
-			if (cam->m_projection == EProjectionType::Orthographic)
-			{
-				// Section CONSTANTE : Sx / Sy ne dependent PAS de L.
-				const float halfH = cam->m_orthoHeight * 0.5f;
-				wanted = { halfH * aspect, halfH, L };
-			}
-			else
-			{
-				// Section PROPORTIONNELLE a z : Sx / Sy sont multiplies par L.
-				const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
-				wanted = { L * tanHalf * aspect, L * tanHalf, L };
-			}
+	//		if (cam->m_projection == EProjectionType::Orthographic)
+	//		{
+	//			// Section CONSTANTE : Sx / Sy ne dependent PAS de L.
+	//			const float halfH = cam->m_orthoHeight * 0.5f;
+	//			wanted = { halfH * aspect, halfH, L };
+	//		}
+	//		else
+	//		{
+	//			// Section PROPORTIONNELLE a z : Sx / Sy sont multiplies par L.
+	//			const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
+	//			wanted = { L * tanHalf * aspect, L * tanHalf, L };
+	//		}
 
-			if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
-				std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
-				std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
-			{
-				tr.m_local.scale = wanted;
-				tr.m_dirty = true;
-			}
+	//		if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
+	//			std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
+	//			std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
+	//		{
+	//			tr.m_local.scale = wanted;
+	//			tr.m_dirty = true;
+	//		}
 
-			// Le type de projection peut changer a l'execution : le mesh suit.
-			const MeshHandle want = assets.For(cam->m_projection);
-			if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
+	//		// Le type de projection peut changer a l'execution : le mesh suit.
+	//		const MeshHandle want = assets.For(cam->m_projection);
+	//		if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
 
-			dbg.m_color = (giz.m_owner == activeCamera)
-				? Color{ 255, 216,  26 }
-			: Color{ 110, 112, 128 };
-		}
-	}
+	//		dbg.m_color = (giz.m_owner == activeCamera)
+	//			? Color{ 255, 216,  26 }
+	//		: Color{ 110, 112, 128 };
+	//	}
+	//}
 
 } // namespace LV3
