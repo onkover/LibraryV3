@@ -11,6 +11,7 @@
 #include "Hierarchy.hpp"
 #include "system.hpp"
 #include "SerializerHelpers.hpp"    // entity
+#include "CameraBinding.hpp"
 
     /**********************************************
 
@@ -100,7 +101,9 @@ namespace LV3
     // A executer avant
     // * LocalTransformSystem
     // * WorldTransformSystem
-    void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets)
+    void CameraGizmoSystem(Registry& registry, Entity activeCamera,
+        const CameraBinding* bindings, size_t count,
+        const GizmoAssets& assets)
     {
         for (auto&& [e, giz, tr, mc, dbg] :
             registry.ViewGroup<CameraGizmoComponent, TransformComponent,
@@ -109,37 +112,89 @@ namespace LV3
             const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
             if (!cam) continue;
 
-            const float L = giz.m_length;
-            Vec3f wanted;
+            // L'aspect vient du viewport ou CETTE camera est rendue.
+            const CameraBinding* b = nullptr;
+            for (size_t i = 0; i < count; ++i)
+                if (bindings[i].m_camera == giz.m_owner) { b = &bindings[i]; break; }
 
-            if (cam->m_projection == EProjectionType::Orthographic)
+            // Camera non rendue : on laisse le gizmo dans son dernier etat valide.
+            // Le mesh et la couleur, eux, restent a jour.
+            const float aspect = b ? b->m_viewport.Aspect() : 0.0f;
+            //const float aspect = 1536.0f / 800.0f;   // provoque l'ancien bug, reintroduit exprès
+
+            if (aspect > 0.0f)
             {
-                // Section CONSTANTE : Sx / Sy ne dependent PAS de L.
-                const float halfH = cam->m_orthoHeight * 0.5f;
-                wanted = { halfH * aspect, halfH, L };
-            }
-            else
-            {
-                // Section PROPORTIONNELLE a z : Sx / Sy sont multiplies par L.
-                const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
-                wanted = { L * tanHalf * aspect, L * tanHalf, L };
+                const float L = giz.m_length;
+                Vec3f wanted;
+
+                if (cam->m_projection == EProjectionType::Orthographic)
+                {
+                    const float halfH = cam->m_orthoHeight * 0.5f;
+                    wanted = { halfH * aspect, halfH, L };
+                }
+                else
+                {
+                    const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
+                    wanted = { L * tanHalf * aspect, L * tanHalf, L };
+                }
+
+                if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
+                    std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
+                    std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
+                {
+                    tr.m_local.scale = wanted;
+                    tr.m_dirty = true;
+                }
             }
 
-            if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
-                std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
-                std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
-            {
-                tr.m_local.scale = wanted;
-                tr.m_dirty = true;
-            }
-
-            // Le type de projection peut changer a l'execution : le mesh suit.
             const MeshHandle want = assets.For(cam->m_projection);
             if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
 
             dbg.m_color = (giz.m_owner == activeCamera)
-                ? Color{ 255, 216,  26 }
-            : Color{ 110, 112, 128 };
+                ? Color{ 255, 216,  26 } : Color{ 110, 112, 128 };
         }
     }
+    
+    //void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets)
+    //{
+    //    for (auto&& [e, giz, tr, mc, dbg] :
+    //        registry.ViewGroup<CameraGizmoComponent, TransformComponent,
+    //        MeshComponent, DebugVisualComponent>())
+    //    {
+    //        const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
+    //        if (!cam) continue;
+
+    //        const float L = giz.m_length;
+    //        Vec3f wanted;
+
+    //        if (cam->m_projection == EProjectionType::Orthographic)
+    //        {
+    //            // Section CONSTANTE : Sx / Sy ne dependent PAS de L.
+    //            const float halfH = cam->m_orthoHeight * 0.5f;
+    //            wanted = { halfH * aspect, halfH, L };
+    //        }
+    //        else
+    //        {
+    //            // Section PROPORTIONNELLE a z : Sx / Sy sont multiplies par L.
+    //            const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
+    //            wanted = { L * tanHalf * aspect, L * tanHalf, L };
+    //        }
+
+    //        if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
+    //            std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
+    //            std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
+    //        {
+    //            tr.m_local.scale = wanted;
+    //            tr.m_dirty = true;
+    //        }
+
+    //        // Le type de projection peut changer a l'execution : le mesh suit.
+    //        const MeshHandle want = assets.For(cam->m_projection);
+    //        if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
+
+    //        dbg.m_color = (giz.m_owner == activeCamera)
+    //            ? Color{ 255, 216,  26 }
+    //        : Color{ 110, 112, 128 };
+    //    }
+    //}
 }

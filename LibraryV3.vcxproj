@@ -199,6 +199,7 @@
     <ClInclude Include="Ressources\OBJLoadOptions.h" />
     <ClInclude Include="Ressources\ResourceHandle.h" />
     <ClInclude Include="Ressources\ResourceManager.h" />
+    <ClInclude Include="Scene\CameraBinding.hpp" />
     <ClInclude Include="Scene\Components\Component.hpp" />
     <ClInclude Include="Scene\DebugGizmos.hpp" />
     <ClInclude Include="Scene\Entity.hpp" />
@@ -228,6 +229,7 @@
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />
+    <ClCompile Include="Scene\CameraBinding.CPP" />
     <ClCompile Include="Scene\DebugGizmos.cpp" />
     <ClCompile Include="Scene\Hierarchy.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp" />

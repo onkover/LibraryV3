@@ -203,6 +203,9 @@
     <ClInclude Include="Scene\SerializerHelpers.hpp">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\CameraBinding.hpp">
+      <Filter>Scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -260,6 +263,9 @@
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Scene\Hierarchy.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\CameraBinding.CPP">
       <Filter>Scene</Filter>
     </ClCompile>
   </ItemGroup>

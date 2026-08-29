@@ -156,21 +156,32 @@ namespace LV3
 	/*
 	todo : Dansle cadre d'une shadow maps, tu voudras un ViewData pour une lumière. Or une lumière n'a ni TransformComponent de caméra, ni CameraComponent : elle a une matrice monde et une focale. Tu devras alors extraire le cœur pur :	
 	*/
-//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp)
-	ViewData BuildViewData(const TransformComponent& tr,const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept
+	ViewData BuildViewData(const Registry& registry, const CameraBinding& b) noexcept
 	{
-		ViewData v;
 
+		const auto& tr = registry.getComponent<TransformComponent>(b.m_camera);
+		const auto& cam = registry.getComponent<CameraComponent>(b.m_camera);
+
+		ViewData v;
+		
 		// ════════════════════════════════════════════════════════════════
 		//  ÉTAPE 0 — Contexte
 		//  Ce qui ne se calcule pas : on recopie ce qu'on nous donne.
 		// ════════════════════════════════════════════════════════════════
-		v.m_sourceCamera = camEntity;      // ETAPE 0, avec le reste du contexte
-		v.viewport = vp;					 // la destination en pixels (et l'aspect ratio)
+		v.m_sourceCamera = b.m_camera;		// ETAPE 0, avec le reste du contexte
+		v.viewport = b.m_viewport;			// la destination en pixels (et l'aspect ratio)
+		v.m_mode = b.m_mode;				// Mode de rendu pour la viewport
 		v.reverseZ = true;					  // convention du moteur, mémorisée pour le Z-buffer
-		v.nearPlane = cam.m_nearPlane;
-		v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
 
+		LV3_ASSERT(b.m_viewport.width > 0 && b.m_viewport.height > 0);
+		const float aspect = v.viewport.Aspect();   // une variable locale, lue une fois
+		LV3_ASSERT(std::isfinite(aspect) && aspect > 0.0f);
+
+		v.nearPlane = cam.m_nearPlane;
+		//v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
+		v.farPlane = cam.m_infiniteFar ? std::numeric_limits<float>::infinity() : cam.m_farPlane;
+
+		LV3_ASSERT(!(cam.m_projection == EProjectionType::Orthographic && cam.m_infiniteFar));
 
 		// ════════════════════════════════════════════════════════════════
 		//  ÉTAPE 1 — LA MATRICE VIEW (Monde → Vue)
@@ -207,12 +218,12 @@ namespace LV3
 
 		//  2b. Choisir la fabrique. L'ASPECT vient du VIEWPORT, jamais de la lentille.
 		if (cam.m_projection == EProjectionType::Orthographic)
-			v.projectionMatrix = Projection::OrthographicCentered(cam.m_orthoHeight, vp.Aspect(),
+			v.projectionMatrix = Projection::OrthographicCentered(cam.m_orthoHeight, aspect,
 				cam.m_nearPlane, cam.m_farPlane);
 		else if (cam.m_infiniteFar)
-			v.projectionMatrix = Projection::PerspectiveInfinite(fovY, vp.Aspect(), cam.m_nearPlane);
+			v.projectionMatrix = Projection::PerspectiveInfinite(fovY, aspect, cam.m_nearPlane);
 		else
-			v.projectionMatrix = Projection::Perspective(fovY, vp.Aspect(),
+			v.projectionMatrix = Projection::Perspective(fovY, aspect,
 				cam.m_nearPlane, cam.m_farPlane);
 
 

@@ -2,6 +2,7 @@
 #include "../maths/Projection.h"    // EProjectionType
 //#include "SerializerHelpers.hpp"    // entity
 #include "Entity.hpp"
+#include "CameraBinding.hpp"
 
 namespace LV3
 {
@@ -26,7 +27,7 @@ namespace LV3
 
     GizmoAssets LoadGizmoAssets(ResourceManager& rm, const std::string gizmoMeshPerspect, const std::string gizmoMeshOrthogr);
 	void SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets);
-    void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
-
+//    void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
+    void CameraGizmoSystem(Registry& registry, Entity activeCamera, const CameraBinding* bindings, size_t count, const GizmoAssets& assets);
 
 }

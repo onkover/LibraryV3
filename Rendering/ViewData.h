@@ -3,6 +3,7 @@
 #include "../Maths/Vectorlib.h"
 #include "../Maths/geometry/Frustum.h"
 #include "Viewport.h"
+#include "../Rendering/RenderTypes.h"
 
 namespace LV3
 {
@@ -13,20 +14,21 @@ namespace LV3
         Matrix44f projectionMatrix;        // Vue   -> Clip
         Matrix44f viewProjectionMatrix;    // Monde -> Clip
 
-        // --- Culling ---
+        // --- Frustum et Culling ---
         Frustum   frustum;                 // 6 plans, espace MONDE
+        float     nearPlane = 0.1f;
+        float     farPlane = 1000.0f;
+        bool      reverseZ = true;
 
         // --- Camera dans le monde ---
         Vec3f     position;
         Vec3f     forward;
 
-        // --- 
+        // --- Camera 
         Entity m_sourceCamera = NULL_ENTITY;   // entite d'ou provient cette vue
 
-        // --- Profondeur ---
-        float     nearPlane = 0.1f;
-        float     farPlane = 1000.0f;
-        bool      reverseZ = true;
+        // --- Mode de rendu
+        ERenderMode m_mode = ERenderMode::Solid;
 
         // --- Destination ---
         Viewport  viewport;

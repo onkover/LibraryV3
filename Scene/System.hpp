@@ -12,6 +12,7 @@
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
 #include "../Ressources/ResourceManager.h"
+#include "CameraBinding.hpp"
 
 namespace LV3
 {
@@ -50,7 +51,8 @@ namespace LV3
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 //	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
-	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept;
+//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept;
+	ViewData BuildViewData(const Registry& registry, const CameraBinding& b) noexcept;
 
 	class HealthSystem
 	{

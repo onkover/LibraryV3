@@ -33,10 +33,10 @@ namespace LV3
 
         // Fabrique : la taille vient TOUJOURS de la cible de rendu,
         // jamais d'un defaut ecrit dans ce header.
-        [[nodiscard]] void Resize(int xx, int yy, int w, int h) noexcept
-        {
-            x=xx, y=yy, width=w, height=h;
-        }
+        //[[nodiscard]] void Resize(int xx, int yy, int w, int h) noexcept
+        //{
+        //    x=xx, y=yy, width=w, height=h;
+        //}
         [[nodiscard]] static constexpr Viewport FullScreen(int w, int h) noexcept
         {
             return { 0, 0, w, h };
