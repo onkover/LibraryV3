@@ -21,7 +21,8 @@
   },
 
   "resources": {
-    "path": "assets/"
+    "path": "assets/",
+    "obj":  "meshes/"
   },
 
   "debug": { "depthDisplayRange": 80.0 }
