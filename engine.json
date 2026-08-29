@@ -22,5 +22,7 @@
 
   "resources": {
     "path": "assets/"
-  }
+  },
+
+  "debug": { "depthDisplayRange": 80.0 }
 }

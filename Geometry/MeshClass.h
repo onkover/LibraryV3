@@ -47,7 +47,15 @@ namespace LV3
         AABB3d       meshAABB;
 
         // ── API ───────────────────────────────────────────────
-		[[nodiscard]] size_t faceCount()   const noexcept { return faceNormals.size(); }    // il n'y a pas de liste de faces explicite, mais le nombre de faces est égal au nombre de normales de face (et d'AABBs, etc.)
+		// il n'y a pas de liste de faces explicite, mais le nombre de faces est égal au nombre de normales de face (et d'AABBs, etc.)
+        [[nodiscard]] size_t faceCount() const noexcept
+        {
+            if (indices.empty()) return 0;          // mesh vide : 0 face, quel que soit vertsPerFace
+            LV3_ASSERT(vertsPerFace > 0);
+            LV3_ASSERT(indices.size() % vertsPerFace == 0);
+            return indices.size() / vertsPerFace;
+        }
+
         [[nodiscard]] size_t vertexCount() const noexcept { return vertexPositions.size(); }
         [[nodiscard]] const AABB3d& GetMeshAABB() const noexcept { return meshAABB; }
 

@@ -56,17 +56,12 @@ namespace LV3
             }
         }
         
-        //void SetDepthRange(float nearPlane, float farPlane) noexcept
-        //{
-        //    m_ctx.nearPlane = nearPlane;
-        //    m_ctx.farPlane = farPlane;
-        //}
-
         void SetDepthDisplayRange(float rangeWorldUnits) noexcept
         {
             LV3_ASSERT(rangeWorldUnits > 0.0f);
             m_ctx.depthDisplayRange = rangeWorldUnits;
         }
+
         [[nodiscard]] const Viewport& GetViewport() const noexcept { return m_vp; }
         [[nodiscard]] ERenderMode     GetMode()     const noexcept { return m_mode; }
         [[nodiscard]] bool            IsReady()     const noexcept

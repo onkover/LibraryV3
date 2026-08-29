@@ -357,6 +357,7 @@ MeshHandle OBJLoader::BuildMesh(const ParseResult& parsed, const MaterialMap& ma
             const int fsz = static_cast<int>(face.size());
         
             // Valeur réelle du groupe à stocker dans le mesh (toujours depuis le fichier)
+//            LV3_ASSERT(parsed.faceSmoothingGroups.empty() || parsed.faceSmoothingGroups.size() == faceCount());
             const int sgStore = fi < parsed.faceSmoothingGroups.size() ? parsed.faceSmoothingGroups[fi] : 0;
             
             // Clé de déduplication : 0 quand le fichier a ses propres normales
@@ -523,6 +524,8 @@ void OBJLoader::ComputePerFaceData(MeshClass& mesh)
         uint32_t i0 = mesh.indices[t * 3], i1 = mesh.indices[t * 3 + 1], i2 = mesh.indices[t * 3 + 2];
         const Vec3f& p0 = mesh.vertexPositions[i0], & p1 = mesh.vertexPositions[i1], & p2 = mesh.vertexPositions[i2];
         
+        LV3_ASSERT(mesh.faceNormals.empty() || mesh.faceNormals.size() == mesh.faceCount());
+
         mesh.faceNormals[t] = V3Norm(V3Cross(V3Sub(p1, p0), V3Sub(p2, p0)));
         mesh.faceAABBs[t].min = V3Min(V3Min(p0, p1), p2);
         mesh.faceAABBs[t].max = V3Max(V3Max(p0, p1), p2);

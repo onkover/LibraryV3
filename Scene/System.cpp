@@ -170,16 +170,19 @@ namespace LV3
 		// ════════════════════════════════════════════════════════════════
 		v.m_sourceCamera = b.m_camera;		// ETAPE 0, avec le reste du contexte
 		v.viewport = b.m_viewport;			// la destination en pixels (et l'aspect ratio)
-		v.m_mode = b.m_mode;				// Mode de rendu pour la viewport
-		v.reverseZ = true;					  // convention du moteur, mémorisée pour le Z-buffer
+		v.mode = b.m_mode;				// Mode de rendu pour la viewport
+		v.reverseZ = true;					// convention du moteur, mémorisée pour le Z-buffer
 
 		LV3_ASSERT(b.m_viewport.width > 0 && b.m_viewport.height > 0);
 		const float aspect = v.viewport.Aspect();   // une variable locale, lue une fois
 		LV3_ASSERT(std::isfinite(aspect) && aspect > 0.0f);
 
 		v.nearPlane = cam.m_nearPlane;
-		//v.farPlane = cam.m_infiniteFar ? 1e30f : cam.m_farPlane;
-		v.farPlane = cam.m_infiniteFar ? std::numeric_limits<float>::infinity() : cam.m_farPlane;
+
+		LV3_ASSERT(cam.m_infiniteFar || std::isfinite(v.farPlane));
+		//v.farPlane = cam.m_infiniteFar ? std::numeric_limits<float>::infinity() : cam.m_farPlane;
+		v.hasFarPlane = !cam.m_infiniteFar;
+		v.farPlane = cam.m_farPlane;      // sans objet si hasFarPlane == false
 
 		LV3_ASSERT(!(cam.m_projection == EProjectionType::Orthographic && cam.m_infiniteFar));
 

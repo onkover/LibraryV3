@@ -100,12 +100,12 @@ namespace LV3
         Renderer& renderer, const ViewData& view)
     {
         renderer.SetViewport(view.viewport);        // l'état de la VUE
-        renderer.SetMode(view.m_mode);
-#ifdef _DEBUG
-        const int vi = g_viewIndex;          // index de CETTE vue
-        ++g_viewIndex;
-        ++g_viewsThisFrame;
-#endif
+        renderer.SetMode(view.mode);
+        #ifdef _DEBUG
+            const int vi = g_viewIndex;          // index de CETTE vue
+            ++g_viewIndex;
+            ++g_viewsThisFrame;
+        #endif
 
         for (auto&& [entity, meshComp, transform] : registry.ViewGroup<MeshComponent, TransformComponent>())
         {

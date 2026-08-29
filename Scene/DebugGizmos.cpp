@@ -46,13 +46,20 @@ namespace LV3
             else
                 Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())) + "\033[0m");
 
-            //const MeshClass* mg = rm.GetMesh(a.m_perspective);
-            //Logger::log("  faces=" + std::to_string(mg->faceCount())
-            //    + "  verts=" + std::to_string(mg->vertexPositions.size()));
 
-            //const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
-            //Logger::log("  faces=" + std::to_string(mg2->faceCount())
-            //    + "  verts=" + std::to_string(mg2->vertexPositions.size()));
+            Logger::log("\033[32m[Gizmo]\033[0m");
+            const MeshClass* mg = rm.GetMesh(a.m_perspective);
+            Logger::log("[Gizmo]  faces=" + std::to_string(mg->faceCount())
+                + "  verts=" + std::to_string(mg->vertexPositions.size()));
+
+            const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
+            Logger::log("[Gizmo]  faces=" + std::to_string(mg2->faceCount())
+                + "  verts=" + std::to_string(mg2->vertexPositions.size()));
+
+            Logger::log("[Gizmo] persp=" + std::to_string(rm.GetMesh(a.m_perspective)->faceCount())
+                + " faces, ortho=" + std::to_string(rm.GetMesh(a.m_orthographic)->faceCount())
+                + " faces");
+
             return a;
         }
         else

@@ -17,7 +17,12 @@ namespace LV3
         // --- Frustum et Culling ---
         Frustum   frustum;                 // 6 plans, espace MONDE
         float     nearPlane = 0.1f;
-        float     farPlane = 1000.0f;
+        float     farPlane = 1000.0f;       // sans objet si hasFarPlane == false
+
+        // hasFarPlane == false : le volume de vue est infini (PerspectiveInfinite).
+        // Tout calcul necessitant un far borne doit alors substituer une valeur d'affichage explicite -- jamais lire farPlane.
+        bool      hasFarPlane = true;
+
         bool      reverseZ = true;
 
         // --- Camera dans le monde ---
@@ -28,7 +33,7 @@ namespace LV3
         Entity m_sourceCamera = NULL_ENTITY;   // entite d'ou provient cette vue
 
         // --- Mode de rendu
-        ERenderMode m_mode = ERenderMode::Solid;
+        ERenderMode mode = ERenderMode::Solid;
 
         // --- Destination ---
         Viewport  viewport;
@@ -36,10 +41,10 @@ namespace LV3
         // --- Inverse : PARESSEUX (Gauss-Jordan, ne sert qu'au picking) ---
         [[nodiscard]] const Matrix44f& InvViewProjection() const noexcept
         {
-            if (!m_invValid) { m_invVP = viewProjectionMatrix.inverse(); m_invValid = true; }
-            return m_invVP;
+            if (!invValid) { invVP = viewProjectionMatrix.inverse(); invValid = true; }
+            return invVP;
         }
-        void InvalidateCache() noexcept { m_invValid = false; }
+        void InvalidateCache() noexcept { invValid = false; }
 
         // --- Monde -> CLIP (4D, AVANT la division) ---
         [[nodiscard]] LV3_FORCEINLINE Vec4f WorldToClip(const Vec3f& p) const noexcept
@@ -92,7 +97,7 @@ namespace LV3
         }
 
     private:
-        mutable Matrix44f m_invVP;
-        mutable bool      m_invValid = false;
+        mutable Matrix44f invVP;
+        mutable bool      invValid = false;
     };
 }

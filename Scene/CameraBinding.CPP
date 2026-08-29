@@ -37,6 +37,7 @@ namespace LV3
                 out[1] = { mainW, 0, w - mainW, h };
             }
             return 2;
+
         case ELayout::Quad:
             LV3_ASSERT(capacity >= 4);
             out[0] = { 0,  0,  hw,     hh };
@@ -100,11 +101,11 @@ namespace LV3
 
         // Aucune camera deux fois : son gizmo porte m_hideForCamera et serait
         // masque dans TOUTES les vues ou elle apparait, donc invisible partout.
-#ifdef _DEBUG
-        for (size_t i = 0; i < n; ++i)
-            for (size_t j = i + 1; j < n; ++j)
-                LV3_ASSERT(out[i].m_camera != out[j].m_camera);
-#endif
+        #ifdef _DEBUG
+            for (size_t i = 0; i < n; ++i)
+                for (size_t j = i + 1; j < n; ++j)
+                    LV3_ASSERT(out[i].m_camera != out[j].m_camera);
+        #endif
 
         return n;
     }
