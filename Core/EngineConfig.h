@@ -1,4 +1,6 @@
 #pragma once
+#include "EngineSettings.h"
+
 // ============================================================
 // Core/EngineConfig.h — HORS pch.h
 // Chargée depuis engine.json au démarrage
@@ -20,33 +22,55 @@ namespace LV3
 
     struct RendererConfig
     {
+        bool  rasterizer = true;
+        bool  raycaster = false;
         int   tileSize = LV3_DEFAULT_TILE_SIZE;
-        bool  multithread = LV3_DEFAULT_MULTITHREAD;
-        float shadowBias = 0.0001f;
+        int   maxBounces = LV3_DEFAULT_MAX_BOUNCES;
+        float shadowBias = LV3_DEFAULT_SHADOW_BIAS;
+        float alphaThresh = LV3_DEFAULT_ALPHA_TEST_THRESH;
+        bool  multithread = static_cast<bool>(LV3_DEFAULT_FEATURE_MULTITHREAD);
     };
 
     struct FeaturesConfig
     {
-        bool shadows = LV3_DEFAULT_SHADOWS;
-        bool fog = true;
-        bool wireframe = false;
-        bool stats = true;
+        bool shadows = static_cast<bool>(LV3_DEFAULT_FEATURE_SHADOWS);
+        bool fog = static_cast<bool>(LV3_DEFAULT_FEATURE_FOG);
+        bool wireframe = static_cast<bool>(LV3_DEFAULT_FEATURE_WIREFRAME);
+        bool stats = static_cast<bool>(LV3_DEFAULT_FEATURE_STATS);
+        bool raycast = static_cast<bool>(LV3_DEFAULT_FEATURE_RAYCAST);
+    };
+
+    struct ResourcesConfig
+    {
+        std::string path = LV3_DEFAULT_RESOURCE_PATH;
+        std::string pathMesh = LV3_DEFAULT_RESOURCE_PATH_MESH;
+        std::string pathGraphScene = LV3_DEFAULT_RESOURCE_PATH_SCENE;
+    };
+
+    // cf. Annexe A5 §13.3 — parametre de LISIBILITE, ne se derive jamais
+    // d'une grandeur geometrique (far plane, etc.)
+    struct DebugConfig
+    {
+        float depthDisplayRange = 80.0f;
     };
 
     struct EngineConfig
     {
-        RendererConfig renderer;
-        FeaturesConfig features;
-        std::string    resourcePath = "assets/";
+        RendererConfig  renderer;
+        FeaturesConfig  features;
+        ResourcesConfig resources;
+        DebugConfig     debug;
 
-        // Singleton d'accès — chargé une fois au démarrage
         static EngineConfig& Get()
         {
             static EngineConfig instance;
             return instance;
         }
 
-        void LoadFromJson(const std::string& path); // lit engine.json
+        // Charge engine.json et ecrase les valeurs par defaut ci-dessus.
+        // Retourne false si le fichier est introuvable ou malforme :
+        // *this garde alors ses defauts LV3_DEFAULT_*, jamais un etat partiel.
+        bool LoadFromJson(const std::string& path);
     };
 
 } // namespace LV3

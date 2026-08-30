@@ -34,7 +34,7 @@ namespace LV3
     #define LV3_DEFAULT_ALPHA_TEST_THRESH   0.5f    // Seuil EBlendMode::AlphaTest
 
     // -------------------------------------------------------
-    //  FEATURES — toggles système
+    //  FEATURES — toggles système0
     // Valeurs par défaut — utilisées UNIQUEMENT si engine.json est absent
     //  0 = système entier désactivé à la compilation
     //  Le code mort est éliminé par le compilateur (#if)
@@ -55,6 +55,8 @@ namespace LV3
     #define LV3_DEFAULT_MAX_TEXTURES        512     // Slots texture dans le ResourceManager
     #define LV3_DEFAULT_MAX_MESHES          256     // Slots mesh dans le ResourceManager
     #define LV3_DEFAULT_RESOURCE_PATH       "assets/"  // Chemin racine (défaut, surchargeable)
+    #define LV3_DEFAULT_RESOURCE_PATH_MESH  "assets/MESHES/"  // Chemin racine (défaut, surchargeable)
+    #define LV3_DEFAULT_RESOURCE_PATH_SCENE "assets/GRAPHSCENE/"  // Chemin racine (défaut, surchargeable)
 
 } // namespace LV3
 

@@ -171,7 +171,8 @@ namespace LV3
 
 
 
-//	Attention : aucun constructeur explicite, seulement des valeurs par défaut sur certains membres (radius = 1.0f, is_colliding = false).C'est important, car Emplace transmet ses arguments à un constructeur — et TriggerComponent n'a que le constructeur agrégé implicite(agrégat C++).
+//	Attention : aucun constructeur explicite, seulement des valeurs par défaut sur certains membres (radius = 1.0f, is_colliding = false).
+// C'est important, car Emplace transmet ses arguments à un constructeur — et TriggerComponent n'a que le constructeur agrégé implicite(agrégat C++).
 // Ça fonctionne, mais avec une règle stricte : l'ordre des arguments doit suivre exactement l'ordre de déclaration des membres
 // L'agrégat ne permet pas de sauter un membre au milieu pour garder le suivant à sa valeur par défaut si tu en fournis un après.
 	struct TriggerComponent

@@ -33,7 +33,7 @@ namespace LV3
             if (resultPerspect.has_value())
             {
                 a.m_perspective = *resultPerspect;
-                Logger::log("\033[32mLa camera en perspective est chargée\033[0m");
+                Logger::info("\033[32mLa camera en perspective est chargée\033[0m");
             }
             else
                 Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())) + "\033[0m");
@@ -41,22 +41,22 @@ namespace LV3
             if (resultOrthogr.has_value())
             {
                 a.m_orthographic = *resultOrthogr;
-                Logger::log("\033[32mLa camera Orthographique est chargée\033[0m");
+                Logger::info("\033[32mLa camera Orthographique est chargée\033[0m");
             }
             else
                 Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())) + "\033[0m");
 
 
-            Logger::log("\033[32m[Gizmo]\033[0m");
+            Logger::info("\033[32m[Gizmo]\033[0m");
             const MeshClass* mg = rm.GetMesh(a.m_perspective);
-            Logger::log("[Gizmo]  faces=" + std::to_string(mg->faceCount())
+            Logger::info("[Gizmo]  faces=" + std::to_string(mg->faceCount())
                 + "  verts=" + std::to_string(mg->vertexPositions.size()));
 
             const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
-            Logger::log("[Gizmo]  faces=" + std::to_string(mg2->faceCount())
+            Logger::info("[Gizmo]  faces=" + std::to_string(mg2->faceCount())
                 + "  verts=" + std::to_string(mg2->vertexPositions.size()));
 
-            Logger::log("[Gizmo] persp=" + std::to_string(rm.GetMesh(a.m_perspective)->faceCount())
+            Logger::info("[Gizmo] persp=" + std::to_string(rm.GetMesh(a.m_perspective)->faceCount())
                 + " faces, ortho=" + std::to_string(rm.GetMesh(a.m_orthographic)->faceCount())
                 + " faces");
 

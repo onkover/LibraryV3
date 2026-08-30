@@ -45,7 +45,7 @@ namespace LV3
 
         if (++g_frames < 60) return;
 
-        Logger::log("[CULL] " + std::to_string(g_frames) + " frames, "
+        Logger::info("[CULL] " + std::to_string(g_frames) + " frames, "
             + std::to_string(viewsThisFrame) + " vues/frame");
 
         for (int v = 0; v < kMaxViews; ++v)
@@ -53,7 +53,7 @@ namespace LV3
             const int total = g_perView[v].Total();
             if (total == 0) continue;
             const float inv = 100.0f / float(total);
-            Logger::log("   vue " + std::to_string(v) + " : "
+            Logger::info("   vue " + std::to_string(v) + " : "
                 + std::to_string(total) + " tests | Inside "
                 + std::to_string(int(g_perView[v].inside * inv)) + "% | Intersect "
                 + std::to_string(int(g_perView[v].intersect * inv)) + "% | Outside "

@@ -9,72 +9,8 @@
 
 namespace LV3
 {
-
-	class JsonReader
-	{
-	public:
-		JsonReader(const json& j, std::string comp, std::string owner) noexcept
-			: m_j(j), m_comp(std::move(comp)), m_owner(std::move(owner)) {
-		}
-
-		template<typename T>
-		[[nodiscard]] T Read(const char* key, T def)
-		{
-			m_seen.insert(key);                 // enregistré PARCE QU'on l'a lu
-			return m_j.value(key, def);
-		}
-
-		[[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f& def)
-		{
-			m_seen.insert(key);
-			return LV3::ReadVec3(m_j, key, def);
-		}
-
-		[[nodiscard]] EProjectionType ReadProjectionType(const char* key)
-		{
-			m_seen.insert(key);
-			return ReadProjection(m_j, key);
-		}
-
-		// Descente dans un sous-objet. NON const : elle consomme une cle.
-		[[nodiscard]] JsonReader Child(const char* key)
-		{
-			m_seen.insert(key);            // "gizmo" est lue ICI, en tant que CONTENEUR
-
-			// Objet vide de repli : duree de vie statique, donc jamais pendant.
-			static const json s_empty = json::object();
-
-			const auto it = m_j.find(key);
-			const json& sub = (it != m_j.end() && it->is_object()) ? *it : s_empty;
-
-			return JsonReader(sub, m_comp + "." + key, m_owner);
-		}
-
-		[[nodiscard]] bool Has(std::string_view key) const { return m_j.contains(key); }
-
-		// À appeler en DERNIER : toute clé du JSON jamais passée par Read() est inconnue.
-		void WarnUnread() const
-		{
-			for (auto& [key, _] : m_j.items())
-			{
-				if (key.starts_with('_')) continue;              // "_note" = commentaire assumé
-				if (!m_seen.contains(key))
-					Logger::warn("\033[31m[" + m_comp + "] cle ignoree '" + key + "' sur " + m_owner + "\033[0m");
-			}
-		}
-
-	private:
-		const json& m_j;
-		std::string                m_comp, m_owner;
-		std::set<std::string, std::less<>> m_seen;
-	};
-	/**********************************************
-
-	Fin Helper
-
-	**********************************************/
-
-
+	using LV3::JsonReader;
+	using nlo_json = nlohmann::json;
 
 	bool SceneSerializer::LoadSceneGraph(const std::string& sceneFilePath,
 		const std::string& jsonSceneFile,
@@ -84,35 +20,35 @@ namespace LV3
 	{
 
 		// --- 1. CHARGEMENT ET VALIDATION DU FICHIER JSON ---
-		Logger::log("\033[32mPremière passe : initialisation des données\033[0m");
-		Logger::log("- Lecteur et parsing du fichier json");
+		Logger::info("Première passe : initialisation des données");
+		Logger::info("- Lecteur et parsing du fichier json");
 
 		std::ifstream file(sceneFilePath + jsonSceneFile);
 		if (!file.is_open()) {
-			Logger::error("\033[31mSceneSerializer::Load — fichier introuvable : " + sceneFilePath + jsonSceneFile + "\033[0m");
+			Logger::error("SceneSerializer::Load — fichier introuvable : " + sceneFilePath + jsonSceneFile);
 			return false;
 		}
 
 		// 2. Parser le JSON
-		json sceneData;
+		nlo_json sceneData;
 		try
 		{
 			file >> sceneData;
 		}
-		catch (const json::parse_error& e)
+		catch (const nlo_json::parse_error& e)
 		{
-			Logger::error(std::string("\033[31mSceneSerializer::Load — JSON malformé : ") + e.what() + "\033[0m");
+			Logger::error(std::string("SceneSerializer::Load — JSON malformé : ") + e.what());
 			return false;
 		}
 
-		Logger::log("Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>());            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
+		Logger::info("******************************************************");
+		Logger::info("Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>());            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
 
 
 		if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
 		{
 			// Préparer le contexte de parsing
 			std::unordered_map<std::string, Entity> entityMap;
-			//        ParseContext ctx{ fs::path(sceneFilePath).parent_path().string(), pRM, entityMap, registry, out_activeCamera };
 			ParseContext ctx{ sceneFilePath, pRM, entityMap, registry, out_activeCamera };
 
 			for (const auto& nodeJson : sceneData["nodes"])
@@ -125,40 +61,39 @@ namespace LV3
 
 				if (!ParseNode(&nodeJson, ctx, entity))
 				{
-					Logger::error("\033[31mSceneSerializer::Load — erreur lors du parsing du noeud : " + id + "\033[0m");
+					Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
 					return false;
 				}
 
-				Logger::log(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
+				Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
 
 			}
-			Logger::log("Première passe terminée.");
-
-			Logger::log("\033[32mPhase 2 : Link des hiérarchie\033[0m");
+			Logger::info("Première passe terminée.\n");
+			Logger::info("*****************************");
+			Logger::info("Phase 2 : Link des hiérarchie");
 
 			for (const auto& nodeJson : sceneData["nodes"])
 			{
 				if (!ParseHierarchy(&nodeJson, ctx))
 				{
-					Logger::error("\033[31mSceneSerializer::Load — erreur lors des hiérarchies\033[0m");
+					Logger::error("SceneSerializer::Load — erreur lors des hiérarchies");
 					return false;
 				}
 			}
 
-			Logger::log("\033[32mDeuxième passe terminée. Hiérarchie assemblée. \033[0m");
-			Logger::log("\033[32mBuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées. \033[0m");
-			Logger::log("\033[32mConstruction de la scène terminée avec succès.\033[0m");
-
+			Logger::info("Deuxième passe terminée. Hiérarchie assemblée.");
+			Logger::info("BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
+			Logger::info("Construction de la scène terminée avec succès.");
 
 			ResolveDeferredReferences(ctx);
 
 		}
 		else
 		{
-			Logger::warn("\033[31mSceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath + " \033[0m");
+			Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
 		}
 
-		Logger::log("\033[32mSceneSerializer::Load — scène chargée : " + sceneFilePath + " \033[0m");
+		Logger::info("SceneSerializer::Load — scène chargée : " + sceneFilePath);
 
 
 
@@ -167,11 +102,11 @@ namespace LV3
 
 	bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& nodeJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!nodeJson.is_object()) return false;
 
 		if (!nodeJson.contains("components")) return true;
-		const json& comps = nodeJson["components"];
+		const nlo_json& comps = nodeJson["components"];
 
 		// ============================================================
 		//  Le Transform D'ABORD, hors de la boucle.
@@ -202,10 +137,10 @@ namespace LV3
 			else
 			{
 				// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
-				Logger::warn("\033[31mComposant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\033[0m");
+				Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
 			}
 		}
-		Logger::log("\033[32mTous les composants ont été parsés.\033[0m");
+		Logger::info("Tous les composants ont été parsés.");
 		return true;
 
 	}
@@ -213,16 +148,18 @@ namespace LV3
 	void SceneSerializer::ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
 
-		const json& compJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& compJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!compJson.is_object()) return;
-		
+
+		LV3::JsonReader r(compJson, "Transform", EntityLabel(ctx.registry, entity));
+
 		TransformComponent t;
-		t.m_local.position = ReadVec3(compJson, "translation", Vec3f::Zero());
-		t.m_local.scale = ReadVec3(compJson, "scale", Vec3f::One());
+		t.m_local.position = r.ReadVector("translation", Vec3f::Zero());
+		t.m_local.scale = r.ReadVector("scale", Vec3f::One());
 
 		// Le JSON stocke des DEGRES. Quat(v, true) fait la conversion lui-meme :
 		// ne PAS la faire une seconde fois ici.
-		const Vec3f eulerDeg = ReadVec3(compJson, "rotation", Vec3f::Zero());
+		const Vec3f eulerDeg = r.ReadVector("rotation", Vec3f::Zero());
 		t.m_local.rotation = Quatf(eulerDeg, true);
 
 		t.m_initialRotation = t.m_local.rotation;   // reference figee pour AnimationSystem
@@ -235,7 +172,7 @@ namespace LV3
 	}
 	void SceneSerializer::ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& j = *static_cast<const json*>(pJsonNode);
+		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
 
 		JsonReader r(j, "Mesh", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
@@ -262,7 +199,7 @@ namespace LV3
 				meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
 				: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
 				: "mesh vide";
-			Logger::error("\033[31mParseMesh — " + std::string(reason) + " : " + modelPath + "\033[0m");
+			Logger::error("ParseMesh — " + std::string(reason) + " : " + modelPath);
 			return;
 		}
 		const MeshHandle hMesh = *meshResult;
@@ -278,7 +215,7 @@ namespace LV3
 		}
 		else
 		{
-			Logger::warn("\033[31mParseMesh : pas de Transform sur " + EntityLabel(ctx.registry, entity) + " — orbite desactivee\033[0m");
+			Logger::warn("ParseMesh : pas de Transform sur " + EntityLabel(ctx.registry, entity) + " — orbite desactivée");
 		}
 
 		// --- 4. Construction sur place ---
@@ -296,124 +233,47 @@ namespace LV3
 
 		// todo lecture de la texture
 
-		static_assert(std::is_trivially_copyable_v<MeshComponent>,
-			"MeshComponent doit rester un POD : pas de std::string ni de conteneur");
+		static_assert(std::is_trivially_copyable_v<MeshComponent>, "MeshComponent doit rester un POD : pas de std::string ni de conteneur");
 
 		r.WarnUnread();                                                    // ← 1 fois : fermeture
-
 	}
 	
 
 	//***************************************************************************************
 	void SceneSerializer::ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& compJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!compJson.is_object()) return;
 
-		JsonReader r(compJson, "Light", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
+		const std::string owner = EntityLabel(ctx.registry, entity);
+		JsonReader r(compJson, "Light", owner);
+
+		std::string typeStr = r.Read("type", std::string("Ambient"));
 
 		LightComponent l;
-		if (compJson.contains("type"))
+
+		if (typeStr == "Point")				l.m_type = ELightType::Point;
+		else if (typeStr == "Directional")	l.m_type = ELightType::Directional;
+		else if (typeStr == "Spot")			l.m_type = ELightType::Spot;
+		else if (typeStr == "Ambient") 		l.m_type = ELightType::Ambient;
+		else
 		{
-			std::string typeStr = compJson["type"];
-			if (typeStr == "Point")
-				l.m_type = ELightType::Point;
-			else if (typeStr == "Directional")
-				l.m_type = ELightType::Directional;
-			else if (typeStr == "Spot")
-				l.m_type = ELightType::Spot;
-			else if (typeStr == "Ambient")
-				l.m_type = ELightType::Ambient;
-			else
-			{
-				l.m_type = ELightType::Ambient;
-				std::cout << "\033[31mAvertissement: Type de lumière inconnu '" << typeStr << "' sur le noeud '" << compJson.contains("type") << "'.\033[0m" << std::endl;
-				std::cout << "\033[31mAmbient par défaut\033[0m" << std::endl;
-			}
+			l.m_type = ELightType::Ambient;
+			Logger::warn("[Light] " + owner + " : type inconnu '" + typeStr + "' -> Ambient par defaut");
 		}
-		if (compJson.contains("color")) l.m_color = Vec3f{ compJson["color"][0], compJson["color"][1], compJson["color"][2] };
-		if (compJson.contains("intensity")) l.m_intensity = compJson["intensity"];
+
+		l.m_color = r.ReadVector("color", Vec3f::One());
+		l.m_intensity = r.Read("intensity", 1.0f);
 
 		ctx.registry.addComponent(entity, std::move(l)); // Transforme la copie forcée en déplacement 
 
 		r.WarnUnread();
-
 	}
 	//********************************************************************
 
-	//void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
-	//{
-	//	const json& j = *static_cast<const json*>(pJsonNode);
-	//	if (!j.is_object()) return;
-
-	//	JsonReader r(j, "Camera", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
-
-	//	CameraComponent c;
-	//	c.m_projection = r.ReadProjectionType("projection");
-	//	c.m_nearPlane = r.Read("near", 0.1f);
-	//	c.m_farPlane = r.Read("far", 1000.0f);
-	//	c.m_infiniteFar = r.Read("infiniteFar", false);
-	//	c.m_isActive = r.Read("active", true);
-	//	c.m_priority = r.Read("priority", 0);
-
-	//	// --- Perspective : FOV direct, ou modèle sténopé ---
-	//	if (j.contains("focalLength"))
-	//	{
-	//		c.m_lensModel = r.Read("lensModel", 0) == 1 ? ELensModel::Filmback : ELensModel::FieldOfView;
-	//		c.m_focalLengthMm = r.Read("focalLength", 35.0f);
-	//		c.m_focalLengthMm = r.Read("focalLength", 35.0f);
-	//		c.m_filmHeightMm = r.Read("filmHeight", 24.0f);
-	//		//c.m_filmWidthMm = r.Read("filmWidth", 24.892f);
-	//		//c.m_filmHeightMm = r.Read("filmHeight", 18.669f);
-	//		c.m_infiniteFar = r.Read("infiniteFar", false);
-	//		c.m_gateFit = (r.Read("gateFit", std::string("fill")) == "overscan")
-	//			? EGateFit::Overscan : EGateFit::Fill;
-	//	}
-	//	else
-	//	{
-	//		c.m_lensModel = ELensModel::FieldOfView;
-	//		c.m_fovYDeg = r.Read("fov", 45.0f);       // VERTICAL, en degrés
-	//	}
-
-	//	c.m_orthoHeight = r.Read("orthoHeight", 10.0f);
-
-
-	//	if (r.Has("gizmo"))
-	//	{
-	//		JsonReader rg = r.Child("gizmo");             // "gizmo" marquee sur le parent
-	//		c.m_gizmoLength = rg.Read("length", 2.0f);    // "length" marquee sur l'enfant
-	//		rg.WarnUnread();                              // TNR du sous-objet
-	//	}
-	//	else
-	//		c.m_gizmoLength = 0.0f;      // 0 = pas de gizmo
-
-
-
-	//	// --- Garde-fous : une scène mal écrite ne doit pas casser le rendu ---
-	//	if (c.m_nearPlane <= 0.0f)            c.m_nearPlane = 0.1f;
-	//	if (c.m_farPlane <= c.m_nearPlane)   c.m_farPlane = c.m_nearPlane * 1000.0f;
-	//	c.m_fovYDeg = std::clamp(c.m_fovYDeg, 1.0f, 179.0f);
-
-	//	ctx.registry.addComponent(entity, c);
-	//	r.WarnUnread();                                                    // ← 1 fois : fermeture
-
-	//	// Sélection : la plus haute priorité gagne, pas "la dernière lue".
-	//	if (c.m_isActive)
-	//	{
-	//		const CameraComponent* current = (out_activeCamera != NULL_ENTITY)
-	//			? ctx.registry.TryGet<CameraComponent>(out_activeCamera)
-	//			: nullptr;
-	//		if (!current || c.m_priority >= current->m_priority)
-	//			out_activeCamera = entity;
-	//	}
-	//	
-
-	//	
-	//}
-
 	void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
 	{
-		const json& j = *static_cast<const json*>(pJsonNode);
+		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
 
 		const std::string owner = EntityLabel(ctx.registry, entity);
@@ -422,7 +282,8 @@ namespace LV3
 		CameraComponent c;
 
 		// ── 1. PROJECTION : discriminant de premier niveau ─────────────
-		c.m_projection = r.ReadProjectionType("projection");
+//		c.m_projection = r.ReadProjectionType("projection");
+		c.m_projection = ReadProjectionType(r, "projection");
 
 		// ── 2. PLANS ──────────────────────────────────────────────────
 		c.m_nearPlane = r.Read("near", 0.1f);
@@ -487,7 +348,7 @@ namespace LV3
 			c.m_farPlane = c.m_nearPlane * 1000.0f;
 		}
 
-		ctx.registry.addComponent(entity, c);
+		ctx.registry.addComponent(entity, std::move(c));
 		r.WarnUnread();                                    // DERNIERE ligne du parse
 
 		if (c.m_isActive)
@@ -502,7 +363,7 @@ namespace LV3
 	//********************************************************************
 	void SceneSerializer::ParseCameraFPS(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& j = *static_cast<const json*>(pJsonNode);
+		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
 
 		JsonReader r(j, "CameraFPS", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
@@ -525,7 +386,7 @@ namespace LV3
 		}
 
 		c.m_pitchLimitDeg = std::clamp(c.m_pitchLimitDeg, 1.0f, 89.9f);
-		ctx.registry.addComponent(entity, c);
+		ctx.registry.addComponent(entity, std::move(c));
 
 		r.WarnUnread();
 	}
@@ -533,7 +394,7 @@ namespace LV3
 	//********************************************************************
 	void SceneSerializer::ParseCameraFollow(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& j = *static_cast<const json*>(pJsonNode);
+		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
 
 		JsonReader r(j, "CameraFollow", EntityLabel(ctx.registry, entity));   // ← 1 fois : ouverture
@@ -550,7 +411,7 @@ namespace LV3
 
 		// --- La cible est une RÉFÉRENCE AVANT : résolution différée ---
 		const std::string targetName = r.Read("target", std::string(""));
-		ctx.registry.addComponent(entity, c);
+		ctx.registry.addComponent(entity, std::move(c));
 
 		if (!targetName.empty())
 			ctx.pendingFollowTargets.push_back({ entity, targetName });
@@ -572,84 +433,133 @@ namespace LV3
 
 	void SceneSerializer::ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& compJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!compJson.is_object()) return;
 
+		const std::string owner = EntityLabel(ctx.registry, entity);
+		JsonReader r(compJson, "Trigger", owner);
 
-		// value() lit la clé si présente, sinon retourne le défaut fourni —
-		// remplace élégamment tes if/else répétés
-		const float radius = compJson.value("radius", 1.0f);
+		const float radius = r.Read("radius", 1.0f);
+		std::string onEnterEvent=r.Read("onEnterEvent", std::string{});
+		if (!IsKnownEvent(onEnterEvent)) Logger::warn("[Trigger] " + owner + " : évènement inconnu '" + onEnterEvent + "' — ne sera jamais recu.");
 
-		std::string onEnterEvent = compJson.value("onEnterEvent", std::string{});
-		if (!IsKnownEvent(onEnterEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onEnterEvent + "' — ne sera jamais recu\033[0m");
+		std::string onStayEvent = r.Read("onStayEvent", std::string{});
+		if (!IsKnownEvent(onStayEvent)) Logger::warn("[Trigger] " + owner + " : evenement inconnu '" + onStayEvent + "' — ne sera jamais recu.");
 
-		std::string onStayEvent = compJson.value("onStayEvent", std::string{});
-		if (!IsKnownEvent(onStayEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onStayEvent + "' — ne sera jamais recu\033[0m");
+		std::string onExitEvent = r.Read("onExitEvent", std::string{});
+		if (!IsKnownEvent(onExitEvent)) Logger::warn("[Trigger] " + owner + " : evenement inconnu '" + onExitEvent + "' — ne sera jamais recu.");
 
-		std::string onExitEvent = compJson.value("onExitEvent", std::string{});
-		if (!IsKnownEvent(onExitEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onExitEvent	 + "' — ne sera jamais recu\033[0m");
-
-		const bool isColliding = compJson.value("isColliding", false);
+		const bool isColliding = r.Read("isColliding", false);
 
 		// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur
 		// Attention à l'ordre des variables transmises !!!
 		ctx.registry.emplaceComponent<TriggerComponent>(
-										entity,
-										radius,
-										std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
-										std::move(onStayEvent),
-										std::move(onExitEvent),
-										false,						// is_colliding
-										std::set<Entity>{}			// overlapping_entities
-									);
+			entity,
+			radius,
+			std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
+			std::move(onStayEvent),
+			std::move(onExitEvent),
+			false,						// is_colliding
+			std::set<Entity>{}			// overlapping_entities
+		);
+
 		// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
 
-		//TriggerComponent t;
+
+		Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : " + std::to_string(radius));
+
+		r.WarnUnread();
 
 
-		//if (compJson.contains("radius"))
-		//    t.radius = compJson["radius"];
-		//else
-		//    t.radius = 1.0f; // valeur par défaut
 
 
-		//// Lit les noms des événements à publier
-		//if (compJson.contains("onEnterEvent")) t.onEnterEvent = compJson["onEnterEvent"];
-		//if (compJson.contains("onStayEvent")) t.onStayEvent = compJson["onStayEvent"];
-		//if (compJson.contains("onExitEvent")) t.onExitEvent = compJson["onExitEvent"];
 
-		//ctx.registry.addComponent(entity, t);
-		Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : ");
+
+
+		//const float radius = compJson.value("radius", 1.0f);
+
+		//std::string onEnterEvent = compJson.value("onEnterEvent", std::string{});
+		//if (!IsKnownEvent(onEnterEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onEnterEvent + "' — ne sera jamais recu\033[0m");
+
+		//std::string onStayEvent = compJson.value("onStayEvent", std::string{});
+		//if (!IsKnownEvent(onStayEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onStayEvent + "' — ne sera jamais recu\033[0m");
+
+		//std::string onExitEvent = compJson.value("onExitEvent", std::string{});
+		//if (!IsKnownEvent(onExitEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onExitEvent	 + "' — ne sera jamais recu\033[0m");
+
+		////const bool isColliding = compJson.value("isColliding", false);
+
+		//// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur
+		//// Attention à l'ordre des variables transmises !!!
+		//ctx.registry.emplaceComponent<TriggerComponent>(
+		//								entity,
+		//								radius,
+		//								std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
+		//								std::move(onStayEvent),
+		//								std::move(onExitEvent),
+		//								false,						// is_colliding
+		//								std::set<Entity>{}			// overlapping_entities
+		//							);
+		//// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
+
+		//
+		//Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : ");
+
 	}
 
 	void SceneSerializer::PlayerControl(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& compJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!compJson.is_object()) return;
 
+		const std::string owner = EntityLabel(ctx.registry, entity);
+		JsonReader r(compJson, "PlayerControl", owner);
+
 		PlayerControlComponent t;
-		if (compJson.contains("speed")) t.m_speed = compJson["speed"];
+		t.m_speed = r.Read("speed", 1.0f);
 
 		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
-														// POD trivial (float seul) — cohérence du réflexe, encore une fois.
+		// POD trivial (float seul) — cohérence du réflexe, encore une fois.
+
+		r.WarnUnread();
+
+		//PlayerControlComponent t;
+		//if (compJson.contains("speed")) t.m_speed = compJson["speed"];
+
+		//ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
+		//												// POD trivial (float seul) — cohérence du réflexe, encore une fois.
 
 	}
 
 	void SceneSerializer::ParseHealth(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
-		const json& compJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& compJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!compJson.is_object()) return;
+		
+		const std::string owner = EntityLabel(ctx.registry, entity);
+		JsonReader r(compJson, "Health", owner);
 
 		HealthComponent t;
-		if (compJson.contains("maxHealth")) t.m_maxHealth = compJson["maxHealth"];
+		t.m_maxHealth = r.Read("maxHealth", 100);
+		t.m_currentHealth = r.Read("m_currentHealth", 100);
 
 		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
+		// POD trivial (int seul) — cohérence du réflexe, encore une fois.
+
+		r.WarnUnread();
+
+
+		//HealthComponent t;
+		//if (compJson.contains("maxHealth")) t.m_maxHealth = compJson["maxHealth"];
+
+		//ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
 														// POD trivial (int seul) — cohérence du réflexe, encore une fois.
 	}
 
+
 	bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
 	{
-		const json& nodeJson = *static_cast<const json*>(pJsonNode);
+		const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!nodeJson.is_object()) return false;
 
 		// Vérifie si le noeud a un parent spécifié dans le JSON
@@ -682,61 +592,41 @@ namespace LV3
 		}
 		return true;
 	}
-
-	//void SceneSerializer::SpawnCameraGizmos(Registry& registry, ResourceManager& rm, const std::string gizmoMesh)
+	//bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
 	//{
-	//	auto result = rm.LoadMeshChecked(gizmoMesh, {});
-	//	if (!result.has_value()) return;
-	//	const MeshHandle hGizmo = *result;
+	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
+	//	if (!nodeJson.is_object()) return false;
 
-	//	// 1. COLLECTER d'abord. Creer des entites pendant l'iteration
-	//	//    d'un ViewGroup invalide les tableaux denses du SparseSet.
-	//	std::vector<Entity> cameras;
-	//	for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
-	//		if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
-
-	//	// 2. Creer ensuite.
-	//	for (Entity cam : cameras)
+	//	// Vérifie si le noeud a un parent spécifié dans le JSON
+	//	if (nodeJson.contains("parent"))
 	//	{
-	//		Entity g = registry.CreateEntity();
-	//		registry.addComponent(g, NameComponent{ "__gizmo" });
-	//		registry.addComponent(g, TransformComponent{});
-	//		registry.addComponent(g, MeshComponent{ hGizmo });
-	//		registry.addComponent(g, CameraGizmoComponent{cam, registry.getComponent<CameraComponent>(cam).m_gizmoLength });
-	//		registry.addComponent(g, DebugVisualComponent{ Color{}, cam });
-	//		linkChildToParent(registry, g, cam);
+	//		std::string childId = nodeJson["id"];
+	//		std::string parentId = nodeJson["parent"];
+
+	//		// On utilise la map pour retrouver les ID
+	//		Entity childEntity = ctx.entityMap[childId];
+	//		Entity parentEntity = ctx.entityMap[parentId];
+
+	//		// On crée le lien parent-enfant
+	//		linkChildToParent(ctx.registry, childEntity, parentEntity);
+
 	//	}
-	//}
-
-	//void SceneSerializer::SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets)
-	//{
-
-	//	LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
-
-	//	// 1. COLLECTER d'abord : creer des entites pendant l'iteration
-	//	//    d'un ViewGroup invalide les tableaux denses du SparseSet.
-	//	std::vector<Entity> cameras;
-	//	for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
-	//		if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
-
-	//	// 2. Creer ensuite.
-	//	for (Entity camEntity : cameras)
+	//	else
 	//	{
-	//		const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
-
-	//		Entity g = registry.CreateEntity();
-	//		registry.addComponent(g, NameComponent{"__gizmo(" + EntityLabel(registry, camEntity) + ")" });
-	//		registry.addComponent(g, TransformComponent{});
-	//		registry.addComponent(g, MeshComponent{ assets.For(cam.m_projection) });
-	//		registry.addComponent(g, CameraGizmoComponent{ camEntity, cam.m_gizmoLength });
-	//		registry.addComponent(g, DebugVisualComponent{ Color{}, camEntity });
-	//		linkChildToParent(registry, g, camEntity);
+	//		// S'il n'y a pas de parent, il s'agit donc de la racine (ex: Sun), 
+	//		// on doit quand même lui créer un HierarchyComponent "isRoot"
+	//		Entity rootEntity = ctx.entityMap.at(nodeJson["id"]);
+	//		if (!ctx.registry.hasComponent<HierarchyComponent>(rootEntity))
+	//		{
+	//			// Ici, rien à changer : HierarchyComponent{ {}, {}, true } est construit directement en argument, donc c'est une prvalue 
+	//			// le compilateur applique déjà le déplacement (voire l'élision de copie) sans ton intervention. Le std::move explicite n'apporte rien sur un temporaire déjà mouvable. C'est le cas exact où ta vigilance doit distinguer lvalue nommée (a besoin de std::move) de temporaire anonyme (n'en a pas besoin).
+	//			ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ NULL_ENTITY, {}, true });
+	//			// todo : optimisation F1 :  Une fois F1 en place, ce sera NULL_ENTITY qu'il faudra écrire ici, pas {}
+	//			// sinon un enfant sans parent explicite pointera silencieusement vers l'entité d'index 0 ({}, c'est-à-dire Entity{} soit 0)
+	//		}
 	//	}
+	//	return true;
 	//}
-
-
-
-
 	
 
 	//Attention au piège de ta scène : ton entité a "parent" : "Earth" et "target" : "Earth".Une caméra enfant de sa propre cible se déplace déjà avec elle — le contrôleur de suivi ajoutera son offset par - dessus le mouvement hérité.Tu obtiendras un décalage double.Pour une caméra de suivi, la règle est : pas de parent, ou parent = racine.Le suivi est le mécanisme d'attachement.

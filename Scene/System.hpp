@@ -72,7 +72,7 @@ namespace LV3
 
 						// Le log cite la MEME constante que le subscribe.
 						// Il lui est desormais impossible de diverger.
-						Logger::log(std::string("[HealthSystem] ") + Events::TakingDamage
+						Logger::info(std::string("[HealthSystem] ") + Events::TakingDamage
 							+ " sur idx " + std::to_string(EntityIndex(target))
 							+ " — vie restante : " + std::to_string(health->m_currentHealth));
 					});

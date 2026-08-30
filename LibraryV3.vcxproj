@@ -162,6 +162,7 @@
     <ClInclude Include="Core\EventBus.hpp" />
     <ClInclude Include="Core\EventNames.h" />
     <ClInclude Include="Core\InputState.h" />
+    <ClInclude Include="Core\JsonReader.h" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />
     <ClInclude Include="Geometry\FaceView.h" />
@@ -213,6 +214,7 @@
     <ClInclude Include="Scene\System.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Core\EngineConfig.cpp" />
     <ClCompile Include="Core\Logger.cpp" />
     <ClCompile Include="Geometry\MeshClass.cpp" />
     <ClCompile Include="Maths\Geometry\Frustum.cpp" />
@@ -238,9 +240,6 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="LibraryV3.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="engine.json" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Rendering\DepthBuffer.h" />

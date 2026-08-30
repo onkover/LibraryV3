@@ -276,7 +276,7 @@ namespace LV3
 //	//	if (!logged)
 //		{
 //	//		logged = true;
-//			Logger::log("[VIEW] infiniteFar=" + std::to_string(cam.m_infiniteFar)
+//			Logger::info("[VIEW] infiniteFar=" + std::to_string(cam.m_infiniteFar)
 //				+ "  m22=" + std::to_string(v.projectionMatrix[2][2])
 //				+ "  m32=" + std::to_string(v.projectionMatrix[3][2])
 //				+ "  planes=" + std::to_string(v.frustum.Count()));
@@ -677,7 +677,7 @@ namespace LV3
 					+ " : rotation != m_initialRotation  (Dot = " + std::to_string(d) + ")\033[0m");
 			}
 		}
-		Logger::log("\033[32m[BASELINE] " + std::to_string(failures) + " echec(s).\033[0m");
+		Logger::info("\033[32m[BASELINE] " + std::to_string(failures) + " echec(s).\033[0m");
 		LV3_ASSERT(failures == 0);
 	}
 

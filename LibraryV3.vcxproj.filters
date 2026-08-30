@@ -206,6 +206,9 @@
     <ClInclude Include="Scene\CameraBinding.hpp">
       <Filter>Scene</Filter>
     </ClInclude>
+    <ClInclude Include="Core\JsonReader.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -268,14 +271,14 @@
     <ClCompile Include="Scene\CameraBinding.CPP">
       <Filter>Scene</Filter>
     </ClCompile>
+    <ClCompile Include="Core\EngineConfig.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="LibraryV3.rc">
       <Filter>Fichiers de ressources</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="engine.json" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Rendering\DepthBuffer.h">

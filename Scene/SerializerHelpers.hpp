@@ -4,9 +4,9 @@
 #include <filesystem>
 #include <vector>
 #include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
-#include "../Ressources/json.hpp"
+//#include "../Ressources/json.hpp"
 #include "Registry.hpp"
-
+#include "../core/JsonReader.h"
 
 namespace LV3
 {
@@ -17,7 +17,6 @@ namespace LV3
 	**********************************************/
 
 	namespace fs = std::filesystem;
-	using json = nlohmann::json;
 
 // ***********************************************************************************
 
@@ -34,25 +33,16 @@ namespace LV3
 
 // ***********************************************************************************
 
-	// Lit un tableau JSON de 3 nombres et retourne un Vec3f. Si la clé est absente ou invalide, retourne la valeur par défaut.
-	[[nodiscard]] inline Vec3f ReadVec3(const json& j, const char* key, const Vec3f& def) noexcept
+	[[nodiscard]] inline EProjectionType ReadProjectionType(LV3::JsonReader& r, const char* key)
 	{
-		if (!j.contains(key)) return def;
-		const json& a = j[key];
-		if (!a.is_array() || a.size() < 3) return def;
-		if (!a[0].is_number() || !a[1].is_number() || !a[2].is_number()) return def;
-		return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+		const std::string s = r.Read(key, std::string("perspective"));
+		if (s == "orthographic" || s == "ortho") return EProjectionType::Orthographic;
+		if (s == "perspective" || s == "persp") return EProjectionType::Perspective;
+
+		Logger::warn("[Camera] projection inconnue '" + s + "' -> perspective");
+		return EProjectionType::Perspective;
 	}
 
-// ***********************************************************************************
-
-	[[nodiscard]] inline EProjectionType ReadProjection(const json& j, const char* key) noexcept
-	{
-		const std::string s = j.value(key, std::string("perspective"));
-		return (s == "orthographic" || s == "ortho")
-			? EProjectionType::Orthographic
-			: EProjectionType::Perspective;
-	}
 
 	// ***********************************************************************************
 
