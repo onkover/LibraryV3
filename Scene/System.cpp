@@ -343,7 +343,77 @@ namespace LV3
 	}
 
 	//********************************************************************
-	void FPSControllerSystem(Registry& registry, const InputState& in, float dt)
+	//  CameraZoomSystem — molette = zoom optique, JAMAIS un déplacement.
+	//
+	//  Un seul ratio mémorisé, réutilisé à l'endroit ou à l'envers selon
+	//  le sens physique du paramètre : FOV et orthoHeight RÉTRÉCISSENT
+	//  quand on zoome, la focale ALLONGE. Trois constantes indépendantes
+	//  auraient été trois occasions de se tromper de signe (cf. le
+	//  contre-exemple de la leçon précédente).
+	//
+	//  Multiplicatif, pas additif : orthoHeight (120), fovYDeg (45) et
+	//  focalLengthMm (35) n'ont pas la même échelle — un pas fixe aurait
+	//  demandé un réglage par champ. Un pourcentage par cran se comporte
+	//  pareil quelle que soit la valeur de départ.
+	// 
+	// Sens : molette avant sur une caméra perspective FOV → l'angle visible se resserre (pas l'inverse).
+	//		* Filmback: si tu as une caméra sténopé sous la main, vérifie que le zoom va dans le même sens perçu que le FOV, malgré la formule inversée en interne.
+	//		* Ortho : orthoHeight doit rétrécir en zoomant, et le gizmo(boîte) doit suivre visuellement sans lag.
+	//		* Shift : le zoom doit s'accélérer nettement en sprint, sans devenir instable (valeur qui saute d'un coup au clamp).
+	//		* Bornes : pousse volontairement jusqu'aux clamps (minFov, maxFocal, etc.) pour t'assurer qu'ils stoppent proprement plutôt que de produire un artefact visuel (division par zéro, frustum dégénéré).
+	//********************************************************************
+	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime)
+	{
+		if (in.wheelDelta == 0) return;
+
+		constexpr float zoomRatioPerNotch = 0.90f;   // 10 % par cran
+
+		const float wheel = static_cast<float>(in.wheelDelta);
+
+		for (auto&& [entity, cam, ctrl] :
+			registry.ViewGroup<CameraComponent, FPSControllerComponent>())
+		{
+			if (!ctrl.m_isEnabled) continue;
+
+			// Même logique que le déplacement : Shift accélère.
+			const float effectiveWheel = wheel * (in.sprint ? ctrl.m_sprintMultiplier : 1.0f);
+			const float shrink = std::pow(zoomRatioPerNotch, effectiveWheel);   // < 1 en avançant
+
+			switch (cam.m_projection)
+			{
+			case EProjectionType::Orthographic:
+			{
+				constexpr float minHeight = 0.5f;
+				constexpr float maxHeight = 5000.0f;
+
+				cam.m_orthoHeight = std::clamp(cam.m_orthoHeight * shrink, minHeight, maxHeight);
+				break;
+			}
+			case EProjectionType::Perspective:
+			{
+				if (cam.m_lensModel == ELensModel::FieldOfView)
+				{
+					constexpr float minFov = 1.0f;
+					constexpr float maxFov = 170.0f;
+
+					cam.m_fovYDeg = std::clamp(cam.m_fovYDeg * shrink, minFov, maxFov);
+				}
+				else // Filmback : zoomer = ALLONGER la focale -> ratio inversé
+				{
+					constexpr float minFocal = 1.0f;
+					constexpr float maxFocal = 2000.0f;
+
+					cam.m_focalLengthMm = std::clamp(cam.m_focalLengthMm / shrink, minFocal, maxFocal);
+				}
+				break;
+			}
+			}
+		}
+	}
+
+
+	//********************************************************************
+	void CameraFPSControllerSystem(Registry& registry, const InputState& in, float dt)
 	{
 		for (auto&& [entity, ctrl, tr] : registry.ViewGroup<FPSControllerComponent,
 			TransformComponent>())
@@ -673,11 +743,11 @@ namespace LV3
 			if (std::fabs(d - 1.0f) > 1e-5f)
 			{
 				++failures;
-				Logger::error("\033[31m[BASELINE] " + registry.getComponent<NameComponent>(entity).m_id
-					+ " : rotation != m_initialRotation  (Dot = " + std::to_string(d) + ")\033[0m");
+				Logger::error("[BASELINE] " + registry.getComponent<NameComponent>(entity).m_id
+					+ " : rotation != m_initialRotation  (Dot = " + std::to_string(d) + ")");
 			}
 		}
-		Logger::info("\033[32m[BASELINE] " + std::to_string(failures) + " echec(s).\033[0m");
+		Logger::info("[BASELINE] " + std::to_string(failures) + " echec(s).");
 		LV3_ASSERT(failures == 0);
 	}
 
@@ -698,7 +768,7 @@ namespace LV3
 			const float  n = q.r * q.r + q.v.norm();
 			if (std::fabs(n - 1.0f) > 1e-4f)
 			{
-				Logger::error("\033[31m[INVARIANT] " + name + " : quaternion non unitaire, |q|^2 = " + std::to_string(n) + "\033[0m");
+				Logger::error("[INVARIANT] " + name + " : quaternion non unitaire, |q|^2 = " + std::to_string(n) + "");
 				LV3_ASSERT(false);
 			}
 
@@ -707,7 +777,7 @@ namespace LV3
 			{
 				if (mesh.m_orbitRadius <= 0.0f)
 				{
-					Logger::error("\033[31m[INVARIANT] " + name + " : vitesse orbitale sans rayon\033[0m");
+					Logger::error("[INVARIANT] " + name + " : vitesse orbitale sans rayon");
 					LV3_ASSERT(false);
 				}
 				else
@@ -716,9 +786,9 @@ namespace LV3
 					const float  r = std::sqrt(p.x * p.x + p.z * p.z);
 					if (std::fabs(r - mesh.m_orbitRadius) > 1e-3f)
 					{
-						Logger::error("\033[31m[INVARIANT] " + name + " : rayon derive  "
+						Logger::error("INVARIANT] " + name + " : rayon derive  "
 							+ std::to_string(r) + " au lieu de "
-							+ std::to_string(mesh.m_orbitRadius) + "\033[0m");
+							+ std::to_string(mesh.m_orbitRadius) + "");
 						LV3_ASSERT(false);
 					}
 				}
@@ -728,7 +798,7 @@ namespace LV3
 			//     (le piege du sosie de Transform, avec scale = 0)
 			if (tr.m_local.scale.norm() < 1e-6f)
 			{
-				Logger::error("\033[31m[INVARIANT] " + name + " : echelle nulle\033[0m");
+				Logger::error("[INVARIANT] " + name + " : echelle nulle");
 				LV3_ASSERT(false);
 			}
 		}
@@ -774,9 +844,9 @@ namespace LV3
 					? registry.getComponent<NameComponent>(entity).m_id
 					: std::string("<sans nom>");
 			
-				Logger::error("\033[31m[INVARIANT] " + name +
+				Logger::error("[INVARIANT] " + name +
 					" : FPSControllerComponent ET CameraFollowComponent actifs simultanement"
-						" — le systeme execute en second ecrasera le Transform du premier\033[0m");
+						" — le systeme execute en second ecrasera le Transform du premier");
 			LV3_ASSERT(false);
 		}
 	}
@@ -809,81 +879,7 @@ namespace LV3
 				<< "  spin=" << m->m_currentRotationAngle << "\n";
 			return;
 		}
-		Logger::warn("\033[31m[TRACE] entite '" + name + "' introuvable\033[0m");
+		Logger::warn("[TRACE] entite '" + name + "' introuvable");
 	}
-
-	// ============================================================
-
-	//void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect)
-	//{
-	//	for (auto&& [e, giz, tr, dbg] :
-	//		registry.ViewGroup<CameraGizmoComponent, TransformComponent, DebugVisualComponent>())
-	//	{
-	//		const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
-	//		if (!cam) continue;
-
-	//		// a) forme : derivee du fov REEL, chaque frame -> le zoom suit
-	//		const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
-	//		const float L = giz.m_length;
-
-	//		const Vec3f wanted{ L * tanHalf * aspect, L * tanHalf, L };
-
-	//		if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
-	//			std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
-	//			std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
-	//		{
-	//			tr.m_local.scale = wanted;
-	//			tr.m_dirty = true;      // le contrat avec LocalTransformSystem
-	//		}
-
-	//		// b) etat : la dissociation demandee
-	//		dbg.m_color = (giz.m_owner == activeCamera)
-	//			? Color{ 255, 216,  26 }    // ACTIVE  : ambre
-	//		: Color{ 110, 112, 128 };   // inactive : gris froid
-	//	}
-	//}
-
-	//void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets)
-	//{
-	//	for (auto&& [e, giz, tr, mc, dbg] :
-	//		registry.ViewGroup<CameraGizmoComponent, TransformComponent,
-	//		MeshComponent, DebugVisualComponent>())
-	//	{
-	//		const CameraComponent* cam = registry.TryGet<CameraComponent>(giz.m_owner);
-	//		if (!cam) continue;
-
-	//		const float L = giz.m_length;
-	//		Vec3f wanted;
-
-	//		if (cam->m_projection == EProjectionType::Orthographic)
-	//		{
-	//			// Section CONSTANTE : Sx / Sy ne dependent PAS de L.
-	//			const float halfH = cam->m_orthoHeight * 0.5f;
-	//			wanted = { halfH * aspect, halfH, L };
-	//		}
-	//		else
-	//		{
-	//			// Section PROPORTIONNELLE a z : Sx / Sy sont multiplies par L.
-	//			const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
-	//			wanted = { L * tanHalf * aspect, L * tanHalf, L };
-	//		}
-
-	//		if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
-	//			std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
-	//			std::fabs(wanted.z - tr.m_local.scale.z) > 1e-6f)
-	//		{
-	//			tr.m_local.scale = wanted;
-	//			tr.m_dirty = true;
-	//		}
-
-	//		// Le type de projection peut changer a l'execution : le mesh suit.
-	//		const MeshHandle want = assets.For(cam->m_projection);
-	//		if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
-
-	//		dbg.m_color = (giz.m_owner == activeCamera)
-	//			? Color{ 255, 216,  26 }
-	//		: Color{ 110, 112, 128 };
-	//	}
-	//}
 
 } // namespace LV3

@@ -42,6 +42,7 @@
 #include "Core/CoreTypes.h"		
 #include "Maths/MathTypes.h"
 #include "Maths/Transform.h"
+#include "Core/InputState.h"
 
 //#include <Resources/MathTypes.h>
 //#include <Resources/ResourceHandle.h>

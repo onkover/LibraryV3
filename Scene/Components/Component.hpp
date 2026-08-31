@@ -130,6 +130,7 @@ namespace LV3
 		float m_yawDeg = 0.0f;
 		float m_pitchDeg = 0.0f;
 	};
+	
 	//********************************************************************
 	/* 
 	RÉFÉRENCE, pas de propriété : le ResourceManager reste l'unique propriétaire.

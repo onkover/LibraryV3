@@ -17,8 +17,9 @@
 namespace LV3
 {
 // --- Camera ---
-	void FPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
+	void CameraFPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
 	void CameraFollowSystem(Registry& registry, float deltaTime);
+	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime);
 	[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
 	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
 	
@@ -47,11 +48,8 @@ namespace LV3
 	void AnimationSystem(Registry& registry, float deltaTime);
 	//	void RenderSystem(Registry& registry, Entity activeCamera);
 	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
-//	void CameraGizmoSystem(Registry& registry, Entity activeCamera, float aspect, const GizmoAssets& assets);
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
-//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp);
-//	ViewData BuildViewData(const TransformComponent& tr, const CameraComponent& cam, const Viewport& vp, Entity camEntity) noexcept;
 	ViewData BuildViewData(const Registry& registry, const CameraBinding& b) noexcept;
 
 	class HealthSystem
