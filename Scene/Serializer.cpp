@@ -12,6 +12,9 @@ namespace LV3
 	using LV3::JsonReader;
 	using nlo_json = nlohmann::json;
 
+
+
+
 	bool SceneSerializer::LoadSceneGraph(const std::string& sceneFilePath,
 		const std::string& jsonSceneFile,
 		Registry& registry,
@@ -55,6 +58,12 @@ namespace LV3
 			{
 				// Crée une Entité vide et la stocke dans la , 
 				std::string id = nodeJson["id"];
+				if (ctx.entityMap.count(id))    // ou entityMap.contains(id) en C++20+
+				{
+					Logger::error("LoadSceneGraph — id dupliqué : '" + id + "'");
+					return false;
+				}
+
 				Entity entity = registry.CreateEntity();
 				entityMap[id] = entity;
 				registry.addComponent<NameComponent>(entity, NameComponent{ id });
@@ -86,7 +95,7 @@ namespace LV3
 			Logger::info("Construction de la scène terminée avec succès.");
 
 			ResolveDeferredReferences(ctx);
-
+			ValidateHierarchy(registry);
 		}
 		else
 		{
@@ -99,6 +108,9 @@ namespace LV3
 
 		return true;
 	}
+
+
+
 
 	bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
@@ -192,7 +204,7 @@ namespace LV3
 		opts.flipUVsVertically = false;
 		opts.generateNormalsIfMissing = true;
 
-		auto meshResult = ctx.pRM.LoadMeshChecked(modelPath, opts);
+		auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
 		if (!meshResult.has_value())
 		{
 			const char* reason =
@@ -449,7 +461,10 @@ namespace LV3
 		std::string onExitEvent = r.Read("onExitEvent", std::string{});
 		if (!IsKnownEvent(onExitEvent)) Logger::warn("[Trigger] " + owner + " : evenement inconnu '" + onExitEvent + "' — ne sera jamais recu.");
 
-		const bool isColliding = r.Read("isColliding", false);
+		// PAS de lecture de 'isColliding' : c'est un ÉTAT, écrit par le TriggerSystem
+		// à l'exécution — jamais une donnée d'auteur (R10 : un système entretient un
+		// invariant, il ne le fabrique pas). Un trigger naît toujours "pas en collision".
+		//		const bool isColliding = r.Read("isColliding", false);
 
 		// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur
 		// Attention à l'ordre des variables transmises !!!
@@ -470,41 +485,6 @@ namespace LV3
 
 		r.WarnUnread();
 
-
-
-
-
-
-
-		//const float radius = compJson.value("radius", 1.0f);
-
-		//std::string onEnterEvent = compJson.value("onEnterEvent", std::string{});
-		//if (!IsKnownEvent(onEnterEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onEnterEvent + "' — ne sera jamais recu\033[0m");
-
-		//std::string onStayEvent = compJson.value("onStayEvent", std::string{});
-		//if (!IsKnownEvent(onStayEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onStayEvent + "' — ne sera jamais recu\033[0m");
-
-		//std::string onExitEvent = compJson.value("onExitEvent", std::string{});
-		//if (!IsKnownEvent(onExitEvent)) Logger::warn("\033[31mTrigger : evenement inconnu '" + onExitEvent	 + "' — ne sera jamais recu\033[0m");
-
-		////const bool isColliding = compJson.value("isColliding", false);
-
-		//// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur
-		//// Attention à l'ordre des variables transmises !!!
-		//ctx.registry.emplaceComponent<TriggerComponent>(
-		//								entity,
-		//								radius,
-		//								std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
-		//								std::move(onStayEvent),
-		//								std::move(onExitEvent),
-		//								false,						// is_colliding
-		//								std::set<Entity>{}			// overlapping_entities
-		//							);
-		//// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
-
-		//
-		//Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : ");
-
 	}
 
 	void SceneSerializer::PlayerControl(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -522,13 +502,6 @@ namespace LV3
 		// POD trivial (float seul) — cohérence du réflexe, encore une fois.
 
 		r.WarnUnread();
-
-		//PlayerControlComponent t;
-		//if (compJson.contains("speed")) t.m_speed = compJson["speed"];
-
-		//ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
-		//												// POD trivial (float seul) — cohérence du réflexe, encore une fois.
-
 	}
 
 	void SceneSerializer::ParseHealth(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -548,12 +521,6 @@ namespace LV3
 
 		r.WarnUnread();
 
-
-		//HealthComponent t;
-		//if (compJson.contains("maxHealth")) t.m_maxHealth = compJson["maxHealth"];
-
-		//ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
-														// POD trivial (int seul) — cohérence du réflexe, encore une fois.
 	}
 
 
@@ -562,72 +529,28 @@ namespace LV3
 		const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
 		if (!nodeJson.is_object()) return false;
 
-		// Vérifie si le noeud a un parent spécifié dans le JSON
 		if (nodeJson.contains("parent"))
 		{
-			std::string childId = nodeJson["id"];
-			std::string parentId = nodeJson["parent"];
+			const std::string childId = nodeJson["id"];
+			const std::string parentId = nodeJson["parent"];
 
-			// On utilise la map pour retrouver les ID
-			Entity childEntity = ctx.entityMap[childId];
-			Entity parentEntity = ctx.entityMap[parentId];
+			// R28 : operator[] d'une map n'est JAMAIS un lookup — il insère.
+			// Ici, un parent mal orthographié fabriquait Entity(0) : l'objet
+			// devenait enfant du PREMIER noeud de la scène, sans un mot.
+			const auto itChild = ctx.entityMap.find(childId);
+			const auto itParent = ctx.entityMap.find(parentId);
+			LV3_ASSERT(itChild != ctx.entityMap.end());   // créé en passe 1, sinon bug interne
 
-			// On crée le lien parent-enfant
-			linkChildToParent(ctx.registry, childEntity, parentEntity);
-
-		}
-		else
-		{
-			// S'il n'y a pas de parent, il s'agit donc de la racine (ex: Sun), 
-			// on doit quand même lui créer un HierarchyComponent "isRoot"
-			Entity rootEntity = ctx.entityMap.at(nodeJson["id"]);
-			if (!ctx.registry.hasComponent<HierarchyComponent>(rootEntity))
+			if (itParent == ctx.entityMap.end())
 			{
-				// Ici, rien à changer : HierarchyComponent{ {}, {}, true } est construit directement en argument, donc c'est une prvalue 
-				// le compilateur applique déjà le déplacement (voire l'élision de copie) sans ton intervention. Le std::move explicite n'apporte rien sur un temporaire déjà mouvable. C'est le cas exact où ta vigilance doit distinguer lvalue nommée (a besoin de std::move) de temporaire anonyme (n'en a pas besoin).
-				ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ NULL_ENTITY, {}, true });
-				// todo : optimisation F1 :  Une fois F1 en place, ce sera NULL_ENTITY qu'il faudra écrire ici, pas {}
-				// sinon un enfant sans parent explicite pointera silencieusement vers l'entité d'index 0 ({}, c'est-à-dire Entity{} soit 0)
+				Logger::error("ParseHierarchy — parent '" + parentId + "' introuvable pour '" + childId + "'");
+				return false;      // un graphe faux ne se charge pas « presque bien »
 			}
+
+			linkChildToParent(ctx.registry, itChild->second, itParent->second);
 		}
 		return true;
 	}
-	//bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
-	//{
-	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
-	//	if (!nodeJson.is_object()) return false;
-
-	//	// Vérifie si le noeud a un parent spécifié dans le JSON
-	//	if (nodeJson.contains("parent"))
-	//	{
-	//		std::string childId = nodeJson["id"];
-	//		std::string parentId = nodeJson["parent"];
-
-	//		// On utilise la map pour retrouver les ID
-	//		Entity childEntity = ctx.entityMap[childId];
-	//		Entity parentEntity = ctx.entityMap[parentId];
-
-	//		// On crée le lien parent-enfant
-	//		linkChildToParent(ctx.registry, childEntity, parentEntity);
-
-	//	}
-	//	else
-	//	{
-	//		// S'il n'y a pas de parent, il s'agit donc de la racine (ex: Sun), 
-	//		// on doit quand même lui créer un HierarchyComponent "isRoot"
-	//		Entity rootEntity = ctx.entityMap.at(nodeJson["id"]);
-	//		if (!ctx.registry.hasComponent<HierarchyComponent>(rootEntity))
-	//		{
-	//			// Ici, rien à changer : HierarchyComponent{ {}, {}, true } est construit directement en argument, donc c'est une prvalue 
-	//			// le compilateur applique déjà le déplacement (voire l'élision de copie) sans ton intervention. Le std::move explicite n'apporte rien sur un temporaire déjà mouvable. C'est le cas exact où ta vigilance doit distinguer lvalue nommée (a besoin de std::move) de temporaire anonyme (n'en a pas besoin).
-	//			ctx.registry.addComponent<HierarchyComponent>(rootEntity, HierarchyComponent{ NULL_ENTITY, {}, true });
-	//			// todo : optimisation F1 :  Une fois F1 en place, ce sera NULL_ENTITY qu'il faudra écrire ici, pas {}
-	//			// sinon un enfant sans parent explicite pointera silencieusement vers l'entité d'index 0 ({}, c'est-à-dire Entity{} soit 0)
-	//		}
-	//	}
-	//	return true;
-	//}
-	
 
 	//Attention au piège de ta scène : ton entité a "parent" : "Earth" et "target" : "Earth".Une caméra enfant de sa propre cible se déplace déjà avec elle — le contrôleur de suivi ajoutera son offset par - dessus le mouvement hérité.Tu obtiendras un décalage double.Pour une caméra de suivi, la règle est : pas de parent, ou parent = racine.Le suivi est le mécanisme d'attachement.
 	void SceneSerializer::ResolveDeferredReferences(ParseContext& ctx)
@@ -647,6 +570,8 @@ namespace LV3
 		}
 		ctx.pendingFollowTargets.clear();
 	}
+
+
 
 
 }

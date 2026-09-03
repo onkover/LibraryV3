@@ -21,9 +21,14 @@ namespace LV3
 	{
 		Entity m_parent = NULL_ENTITY;
 		std::vector <Entity> m_children;
-		bool m_isRoot = false;
+//		bool m_isRoot = false;
+
 	};
 
+	[[nodiscard]] constexpr bool IsRoot(const HierarchyComponent& h) noexcept
+	{
+		return h.m_parent == NULL_ENTITY;
+	}
 	//********************************************************************
 
 	struct NameComponent

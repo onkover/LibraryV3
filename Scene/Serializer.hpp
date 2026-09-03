@@ -69,6 +69,5 @@ namespace LV3
         static void ParseHealth(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static bool ParseHierarchy(const void* pJsonNode, ParseContext& ctx);
 
-
     };
 }

@@ -117,6 +117,7 @@ namespace LV3
 		2. Pour un accès en O(1), nous n'allons pas utiliser de std::map avec type_index (qui est en O(log N)). Nous allons attribuer un ID entier unique (0, 1, 2...) à chaque type de composant.
 
 	*/
+
 	class Registry
 	{
 	public:

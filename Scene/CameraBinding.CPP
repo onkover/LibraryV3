@@ -49,42 +49,6 @@ namespace LV3
         return 0;   // enum hors domaine
     }
 
-
-    //[[nodiscard]] size_t BuildCameraBindings(Entity activeCamera, Entity observerCamera,
-    //    int fbWidth, int fbHeight,
-    //    CameraBinding* out, size_t capacity)
-    //{
-    //    LV3_ASSERT(out && capacity >= 2);
-    //    LV3_ASSERT(activeCamera != NULL_ENTITY);
-    //    LV3_ASSERT(observerCamera != NULL_ENTITY);
-    //    LV3_ASSERT(activeCamera != observerCamera);   // sinon un gizmo masque des DEUX cotes
-
-    //    const int half = fbWidth / 2;
-
-    //    out[0] = { activeCamera,   Viewport{ 0,    0, half,           fbHeight }, ERenderMode::Solid };
-    //    out[1] = { observerCamera, Viewport{ half, 0, fbWidth - half, fbHeight }, ERenderMode::Wireframe };
-
-    //    return 2;
-    //}
-
-    //size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount,
-    //    int w, int h, CameraBinding* out, size_t capacity)
-    //{
-    //    Viewport vps[8];
-    //    const size_t n = BuildLayout(layout, w, h, vps, std::size(vps));
-
-    //    // Le layout et la liste de cameras doivent s'accorder. Sinon on l'apprend ICI,
-    //    // pas trois systemes plus loin sur un NULL_ENTITY.
-    //    LV3_ASSERT(n == slotCount && n <= capacity);
-
-    //    for (size_t i = 0; i < n; ++i)
-    //    {
-    //        LV3_ASSERT(slots[i].m_camera != NULL_ENTITY);
-    //        out[i] = { slots[i].m_camera, vps[i], slots[i].m_mode };
-    //    }
-    //    return n;
-    //}
-
     size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount,
         int w, int h, CameraBinding* out, size_t capacity)
     {

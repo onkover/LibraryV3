@@ -7,7 +7,7 @@
 #include "../Ressources/ResourceManager.h"
 #include "System.hpp"
 #include "../Core/Logger.h"
-
+#include "Hierarchy.hpp"
 
 //#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
@@ -123,7 +123,7 @@ namespace LV3
 		const Matrix44f identity = Matrix44f::Identity();
 
 		for (auto&& [entity, hierarchy] : registry.ViewGroup<HierarchyComponent>())
-			if (hierarchy.m_isRoot)
+			if (IsRoot(registry, entity))
 				PropagateWorld(registry, entity, identity);
 	}
 	//********************************************************************
@@ -603,7 +603,7 @@ namespace LV3
 				if (registry.hasComponent<TransformComponent>(entity))
 				{
 					if (!registry.hasComponent<HierarchyComponent>(entity)
-						|| registry.getComponent<HierarchyComponent>(entity).m_isRoot)
+						|| IsRoot(registry, entity))
 					{
 						DebugDisplaySystemRecursive(registry, entity, 0);
 					}
