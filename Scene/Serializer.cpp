@@ -345,6 +345,7 @@ namespace LV3
 
 
 		// ── 5. SELECTION ──────────────────────────────────────────────
+		c.m_category = ReadCameraCategory(r, "category");
 		c.m_isActive = r.Read("active", false);   // defaut FALSE : l'activite se declare
 		c.m_priority = r.Read("priority", 0);
 

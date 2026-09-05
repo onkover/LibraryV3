@@ -22,7 +22,8 @@ namespace LV3
 	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime);
 	/*[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
 	[[nodiscard]] Entity FindActiveCamera(Registry& registry);*/
-	size_t CollectActiveCameras(Registry& registry, Entity* out, size_t capacity);
+	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, size_t capacity);
+	Entity NextCamera(Registry& registry, ECameraCategory category, Entity current);
 
 	
 	// LA source unique de l'angle vertical. Personne ne recalcule ceci ailleurs.

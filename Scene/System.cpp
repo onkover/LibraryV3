@@ -178,7 +178,7 @@ namespace LV3
 	//  avec warning — deux caméras à priorité égale sont un choix
 	//  d'auteur non exprimé, pas une situation normale.
 	// ============================================================
-	size_t CollectActiveCameras(Registry& registry, Entity* out, size_t capacity)
+	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, size_t capacity)
 	{
 		struct Slot { Entity e; int prio; };
 		Slot   found[8];                      // borne large : plus de 8 caméras ACTIVES est un bug de scène
@@ -187,6 +187,7 @@ namespace LV3
 		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
 		{
 			if (!cam.m_isActive) continue;
+			if (cam.m_category != category)  continue;
 			if (n >= std::size(found))
 			{
 				Logger::warn("[Camera] plus de 8 caméras actives — excédent ignoré");
@@ -215,6 +216,23 @@ namespace LV3
 		for (size_t i = 0; i < nOut; ++i) out[i] = found[i].e;
 		return nOut;
 	}
+	//********************************************************************
+	// Caméra suivante dans la catégorie, en boucle (ordre = priorité décroissante).
+	// current absent de la liste (détruite, désactivée) -> retourne la première.
+	// Catégorie vide -> NULL_ENTITY : au consommateur de décider quoi en faire.
+	Entity NextCamera(Registry& registry, ECameraCategory category, Entity current)
+	{
+		Entity cams[8];
+		const size_t n = CollectActiveCameras(registry, category, cams, std::size(cams));
+		if (n == 0) return NULL_ENTITY;
+
+		for (size_t i = 0; i < n; ++i)
+			if (cams[i] == current)
+				return cams[(i + 1) % n];   // le suivant, en boucle
+
+		return cams[0];                     // sélection périmée : retour au premier
+	}
+
 	//********************************************************************
 	/*
 	todo : Dansle cadre d'une shadow maps, tu voudras un ViewData pour une lumière. Or une lumière n'a ni TransformComponent de caméra, ni CameraComponent : elle a une matrice monde et une focale. Tu devras alors extraire le cœur pur :	

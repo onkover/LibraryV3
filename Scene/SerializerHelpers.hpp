@@ -43,6 +43,16 @@ namespace LV3
 		return EProjectionType::Perspective;
 	}
 
+	// ***********************************************************************************
+
+	static ECameraCategory ReadCameraCategory(JsonReader& r, const char* key)
+	{
+		const std::string s = r.Read(key, std::string("gameplay"));
+		if (s == "gameplay") return ECameraCategory::Gameplay;
+		if (s == "debug")    return ECameraCategory::Debug;
+		Logger::warn("[Camera] categorie inconnue '" + s + "' -> gameplay");
+		return ECameraCategory::Gameplay;
+	}
 
 	// ***********************************************************************************
 

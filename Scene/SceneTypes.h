@@ -75,7 +75,7 @@ namespace LV3
         return (mask & layer) != ELayerMask::None;
     }
 
-} // namespace LV3
+
 
 
 /*
@@ -99,3 +99,14 @@ uint8_t = 8 bits = 8 couches maximum.
 Unity en a 32. On prend uint32_t dès le départ — changer le type sous-jacent d'un bitmask en cours de projet casse la sérialisation des scènes.
 
 */
+
+// Catégorie d'une caméra : à quel USAGE de vue elle candidate.
+// Liste close, multi-système (Serializer la parse, l'EXE la requête) — 
+// même critère de placement que ELayerMask.
+    enum class ECameraCategory : uint8_t
+    {
+        Gameplay,   // vues "à travers lesquelles on joue" : FPS, Follow...
+        Debug       // vues d'observation externe : dessus, côté, dessous...
+    };
+
+} // namespace LV3

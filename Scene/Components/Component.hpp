@@ -12,6 +12,7 @@
 #include "../../Ressources/ResourceHandle.h"
 #include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
 #include "Maths/Transform.h" 
+#include "SceneTypes.h"
 
 namespace LV3
 {
@@ -75,6 +76,11 @@ namespace LV3
 
 		// --- Orthographique ---
 		float m_orthoHeight = 10.0f;      // hauteur visible en unités monde
+
+		// --- Candidature ---
+		ECameraCategory m_category = ECameraCategory::Gameplay;
+										// une caméra sans catégorie est une caméra de jeu : le défaut
+										// couvre le cas courant, le debug se déclare.
 
 		// --- Sélection ---
 		bool m_isActive = true;	
