@@ -18,7 +18,7 @@ namespace LV3
 	bool SceneSerializer::LoadSceneGraph(const std::string& sceneFilePath,
 		const std::string& jsonSceneFile,
 		Registry& registry,
-		Entity& out_activeCamera,
+//		Entity& out_activeCamera,
 		ResourceManager& pRM)
 	{
 
@@ -52,7 +52,7 @@ namespace LV3
 		{
 			// Préparer le contexte de parsing
 			std::unordered_map<std::string, Entity> entityMap;
-			ParseContext ctx{ sceneFilePath, pRM, entityMap, registry, out_activeCamera };
+			ParseContext ctx{ sceneFilePath, pRM, entityMap, registry };// , out_activeCamera };
 
 			for (const auto& nodeJson : sceneData["nodes"])
 			{
@@ -140,7 +140,7 @@ namespace LV3
 			if (compName == "Transform")     continue;              // deja fait ci-dessus
 			else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
 			else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
-			else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity, ctx.out_activeCamera);
+			else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity);// , ctx.out_activeCamera);
 			else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
 			else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
 			else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
@@ -283,7 +283,7 @@ namespace LV3
 	}
 	//********************************************************************
 
-	void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera)
+	void SceneSerializer::ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity)// , Entity& out_activeCamera)
 	{
 		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
@@ -361,15 +361,18 @@ namespace LV3
 		}
 
 		ctx.registry.addComponent(entity, std::move(c));
-		r.WarnUnread();                                    // DERNIERE ligne du parse
-
-		if (c.m_isActive)
-		{
-			const CameraComponent* cur = (out_activeCamera != NULL_ENTITY)
-				? ctx.registry.TryGet<CameraComponent>(out_activeCamera) : nullptr;
-			if (!cur || c.m_priority >= cur->m_priority)
-				out_activeCamera = entity;
-		}
+		r.WarnUnread();
+		
+		// PAS d'élection ici : "qui rend" est une requête PAR FRAME
+		// (CollectActiveCameras) — m_isActive change à l'exécution.
+		
+		//if (c.m_isActive)
+		//{
+		//	const CameraComponent* cur = (out_activeCamera != NULL_ENTITY)
+		//		? ctx.registry.TryGet<CameraComponent>(out_activeCamera) : nullptr;
+		//	if (!cur || c.m_priority >= cur->m_priority)
+		//		out_activeCamera = entity;
+		//}
 	}
 
 	//********************************************************************
@@ -481,7 +484,7 @@ namespace LV3
 		// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
 
 
-		Logger::warn("INFO: Entité : " + EntityLabel(ctx.registry, entity) + " a un trigger de rayon : " + std::to_string(radius));
+		Logger::info("[Trigger] " + owner + " : rayon " + std::to_string(radius));
 
 		r.WarnUnread();
 

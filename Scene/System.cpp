@@ -118,39 +118,102 @@ namespace LV3
 	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
 	/// Propage les matrices monde depuis les racines. Une seule passe, O(n).
 	/// Exige que LocalTransformSystem ait déjà mis m_localMatrix à jour.
+	//void WorldTransformSystem(Registry& registry)
+	//{
+	//	const Matrix44f identity = Matrix44f::Identity();
+
+	//	for (auto&& [entity, hierarchy] : registry.ViewGroup<HierarchyComponent>())
+	//		if (IsRoot(registry, entity))
+	//			PropagateWorld(registry, entity, identity);
+	//}
 	void WorldTransformSystem(Registry& registry)
 	{
 		const Matrix44f identity = Matrix44f::Identity();
 
+		// 1. Les arbres : descente depuis les racines hiérarchisées
 		for (auto&& [entity, hierarchy] : registry.ViewGroup<HierarchyComponent>())
-			if (IsRoot(registry, entity))
+			if (IsRoot(hierarchy))
 				PropagateWorld(registry, entity, identity);
+
+		// 2. Les solitaires : Transform sans Hierarchy → monde = local
+		SparseSet<TransformComponent>* pool = registry.getStorage<TransformComponent>();
+		if (!pool) return;
+		auto& transforms = pool->GetDenseData();
+		auto& entities = pool->GetDenseEntities();
+		for (size_t i = 0; i < transforms.size(); ++i)
+			if (!registry.hasComponent<HierarchyComponent>(entities[i]))
+				transforms[i].m_worldMatrix = transforms[i].m_localMatrix;
 	}
 	//********************************************************************
 
-	Entity FindActiveCamera(Registry& registry)
-	{
-		Entity best = NULL_ENTITY;
-		int    bestPriority = std::numeric_limits<int>::min();
+	//Entity FindActiveCamera(Registry& registry)
+	//{
+	//	Entity best = NULL_ENTITY;
+	//	int    bestPriority = std::numeric_limits<int>::min();
 
-		for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+	//	for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+	//	{
+	//		if (!cam.m_isActive) continue;
+	//		if (cam.m_priority > bestPriority) { bestPriority = cam.m_priority; best = entity; }
+	//	}
+	//	return best;
+	//}
+
+	////********************************************************************
+
+	//Entity FindCameraByName(Registry& registry, const std::string& name)
+	//{
+	//	for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+	//	{
+	//		const NameComponent* n = registry.TryGet<NameComponent>(entity);
+	//		if (n && n->m_id == name) return entity;
+	//	}
+	//	return NULL_ENTITY;
+	//}
+
+	// ============================================================
+	//  CollectActiveCameras — L'UNIQUE vérité sur "qui rend".
+	//  Retourne les caméras actives, triées par priorité décroissante.
+	//  Égalité de priorité : départage par index d'entité (déterministe),
+	//  avec warning — deux caméras à priorité égale sont un choix
+	//  d'auteur non exprimé, pas une situation normale.
+	// ============================================================
+	size_t CollectActiveCameras(Registry& registry, Entity* out, size_t capacity)
+	{
+		struct Slot { Entity e; int prio; };
+		Slot   found[8];                      // borne large : plus de 8 caméras ACTIVES est un bug de scène
+		size_t n = 0;
+
+		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
 		{
 			if (!cam.m_isActive) continue;
-			if (cam.m_priority > bestPriority) { bestPriority = cam.m_priority; best = entity; }
+			if (n >= std::size(found))
+			{
+				Logger::warn("[Camera] plus de 8 caméras actives — excédent ignoré");
+				break;
+			}
+			found[n++] = { e, cam.m_priority };
 		}
-		return best;
-	}
 
-	//********************************************************************
-
-	Entity FindCameraByName(Registry& registry, const std::string& name)
-	{
-		for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
+		// Tri par insertion : n est minuscule, la stabilité et le zéro-alloc priment.
+		for (size_t i = 1; i < n; ++i)
 		{
-			const NameComponent* n = registry.TryGet<NameComponent>(entity);
-			if (n && n->m_id == name) return entity;
+			Slot s = found[i];
+			size_t j = i;
+			for (; j > 0 && (found[j - 1].prio < s.prio
+				|| (found[j - 1].prio == s.prio && EntityIndex(found[j - 1].e) > EntityIndex(s.e))); --j)
+				found[j] = found[j - 1];
+			found[j] = s;
 		}
-		return NULL_ENTITY;
+
+		for (size_t i = 1; i < n; ++i)
+			if (found[i].prio == found[i - 1].prio)
+				Logger::warn("[Camera] priorités égales (" + std::to_string(found[i].prio)
+					+ ") — départage par ordre de création, exprime ton intention dans le JSON");
+
+		const size_t nOut = std::min(n, capacity);
+		for (size_t i = 0; i < nOut; ++i) out[i] = found[i].e;
+		return nOut;
 	}
 	//********************************************************************
 	/*
@@ -600,17 +663,12 @@ namespace LV3
 	{
 		registry.ForEachAlive([&](Entity entity)
 			{
-				if (registry.hasComponent<TransformComponent>(entity))
+				if (registry.hasComponent<TransformComponent>(entity)
+					&& IsRoot(registry, entity))          // ← la surcharge (Registry, Entity)
 				{
-					if (!registry.hasComponent<HierarchyComponent>(entity)
-						|| IsRoot(registry, entity))
-					{
-						DebugDisplaySystemRecursive(registry, entity, 0);
-					}
+					DebugDisplaySystemRecursive(registry, entity, 0);
 				}
 			});
-
-
 	}
 
 	

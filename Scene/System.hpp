@@ -20,8 +20,10 @@ namespace LV3
 	void CameraFPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
 	void CameraFollowSystem(Registry& registry, float deltaTime);
 	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime);
-	[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
-	[[nodiscard]] Entity FindActiveCamera(Registry& registry);
+	/*[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
+	[[nodiscard]] Entity FindActiveCamera(Registry& registry);*/
+	size_t CollectActiveCameras(Registry& registry, Entity* out, size_t capacity);
+
 	
 	// LA source unique de l'angle vertical. Personne ne recalcule ceci ailleurs.
 	[[nodiscard]] inline float CameraFovY(const CameraComponent& cam) noexcept

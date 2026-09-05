@@ -19,7 +19,7 @@ namespace LV3
         static bool LoadSceneGraph(const std::string& sceneFilePath,
             const std::string& jsonSceneFile,
             Registry& registry,
-            Entity& out_activeCamera,
+//            Entity& out_activeCamera,
             ResourceManager& pRM);
 
 
@@ -45,7 +45,7 @@ namespace LV3
             ResourceManager& pRM;  // référence vers le gestionnaire de ressources
             std::unordered_map<std::string, Entity>& entityMap; // map temporaire pour retrouver les entités par leur ID de noeud
             Registry& registry;
-            Entity& out_activeCamera;       // référence vers l'entité de la caméra active (sera modifiée si un noeud "Camera" est trouvé)
+//            Entity& out_activeCamera;       // référence vers l'entité de la caméra active (sera modifiée si un noeud "Camera" est trouvé)
 
             // --------------------------
             // démarre vide, se remplit dans ParseCameraFollow (push_back), et se vide dans ResolveDeferredReferences. LoadSceneGraph n'a rien à en faire.
@@ -61,7 +61,7 @@ namespace LV3
         static void ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity);
-        static void ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity, Entity& out_activeCamera);
+        static void ParseCamera(const void* pJsonNode, ParseContext& ctx, Entity entity);// , Entity& out_activeCamera);
         static void ParseCameraFPS(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseCameraFollow(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity);
