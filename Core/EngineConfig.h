@@ -1,5 +1,6 @@
 #pragma once
 #include "EngineSettings.h"
+#include "../Core/SimulationClock.h"
 
 // ============================================================
 // Core/EngineConfig.h — HORS pch.h
@@ -47,13 +48,6 @@ namespace LV3
         std::string pathGraphScene = LV3_DEFAULT_RESOURCE_PATH_SCENE;
     };
 
-    struct SimulationConfig
-    {
-        float daysPerSecond = LV3_DEFAULT_TIME_SCALE;
-    };
-
-    // cf. Annexe A5 §13.3 — parametre de LISIBILITE, ne se derive jamais
-    // d'une grandeur geometrique (far plane, etc.)
     struct DebugConfig
     {
         float depthDisplayRange = 80.0f;
@@ -65,7 +59,7 @@ namespace LV3
         FeaturesConfig  features;
         ResourcesConfig resources;
         DebugConfig     debug;
-		SimulationConfig simulation;
+		SimulationClockSettings simulation;
 
         static EngineConfig& Get()
         {

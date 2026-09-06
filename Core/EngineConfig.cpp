@@ -93,8 +93,18 @@ namespace LV3
 
             if (r.Has("simulation"))
             {
-                JsonReader rs = r.Child("simulation");
-                simulation.daysPerSecond = rs.Read("daysPerSecond", LV3_DEFAULT_TIME_SCALE);
+                JsonReader rs = r.Child("simulationclock");
+
+				// Lecture des paramètres de simulation par défaut pour chaque frame
+                simulation.m_timeScale = rs.Read("TimeScale", LV3_DEFAULT_TIME_SCALE);
+                simulation.m_simTime = rs.Read("SimTime", LV3_DEFAULT_SIMTIME_SCALE);
+
+				// Lecture des paramètres de simulation un fois pour l'ensemble des crans de simulation
+				simulation.m_step = rs.Read("daysPerSecond", LV3_DEFAULT_STEP_SCALE);
+                simulation.m_sprint = rs.Read("simTime", LV3_DEFAULT_SPRINT_SCALE);
+                simulation.m_min = rs.Read("Step", LV3_DEFAULT_MIN_SCALE);
+                simulation.m_max = rs.Read("Sprint", LV3_DEFAULT_MAX_SCALE);
+
                 rs.WarnUnread();
             }
 
