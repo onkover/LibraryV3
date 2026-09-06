@@ -58,6 +58,8 @@ namespace LV3
     #define LV3_DEFAULT_RESOURCE_PATH_MESH  "assets/MESHES/"  // Chemin racine (défaut, surchargeable)
     #define LV3_DEFAULT_RESOURCE_PATH_SCENE "assets/GRAPHSCENE/"  // Chemin racine (défaut, surchargeable)
 
+    #define LV3_DEFAULT_TIME_SCALE          0.20f   // Jours simulés par seconde réelle
+
 } // namespace LV3
 
 /*

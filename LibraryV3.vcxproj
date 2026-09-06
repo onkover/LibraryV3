@@ -165,6 +165,7 @@
     <ClInclude Include="Core\JsonReader.h" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />
+    <ClInclude Include="Core\SimulationClock.h" />
     <ClInclude Include="Geometry\FaceView.h" />
     <ClInclude Include="Geometry\Material.h" />
     <ClInclude Include="Geometry\MeshClass.h" />

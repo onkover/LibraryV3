@@ -89,6 +89,15 @@ namespace LV3
                 rd.WarnUnread();
             }
 
+            // ── simulation ──────────────────────────────────
+
+            if (r.Has("simulation"))
+            {
+                JsonReader rs = r.Child("simulation");
+                simulation.daysPerSecond = rs.Read("daysPerSecond", LV3_DEFAULT_TIME_SCALE);
+                rs.WarnUnread();
+            }
+
             r.WarnUnread();
         }
         catch (const nlohmann::json::exception& e)

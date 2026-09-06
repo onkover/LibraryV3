@@ -209,6 +209,9 @@
     <ClInclude Include="Core\JsonReader.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Core\SimulationClock.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
