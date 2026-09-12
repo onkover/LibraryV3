@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Rasterizer.h"
+#include "core/logger.h"
 
 namespace LV3
 {
@@ -68,6 +69,18 @@ namespace LV3
         const bool tl2 = IsTopLeft(p0, p1);
 
         const float invArea = 1.0f / area;
+
+
+
+#ifdef _DEBUG
+        const float bboxArea = float(maxX - minX) * float(maxY - minY);   // apres ClampBox
+        if (bboxArea > 0.0f && std::fabs(area) < 1e-4f * bboxArea)
+            Logger::warn("[RASTER] triangle quasi degenere : |area|=" + std::to_string(std::fabs(area))
+                + "  bbox=" + std::to_string(bboxArea)
+                + "  ratio=" + std::to_string(std::fabs(area) / bboxArea) + "\n");
+#endif
+
+
 
         for (int y = minY; y < maxY; ++y)
         {

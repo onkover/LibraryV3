@@ -209,8 +209,7 @@ namespace LV3
 
 		for (size_t i = 1; i < n; ++i)
 			if (found[i].prio == found[i - 1].prio)
-				Logger::warn("[Camera] priorités égales (" + std::to_string(found[i].prio)
-					+ ") — départage par ordre de création, exprime ton intention dans le JSON");
+				Logger::warn("[Camera] priorités égales (" + std::to_string(found[i].prio) + ") — départage par ordre de création, exprime ton intention dans le JSON");
 
 		const size_t nOut = std::min(n, capacity);
 		for (size_t i = 0; i < nOut; ++i) out[i] = found[i].e;
@@ -663,7 +662,7 @@ namespace LV3
 		Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
 		Vec3f localPosition = Vec3f(transform.m_localMatrix[3][0], transform.m_localMatrix[3][1], transform.m_localMatrix[3][2]);
 
-		transform.m_dirty = false; // Reset dirty flag after displaying
+		//transform.m_dirty = false; // Reset dirty flag after displaying
 		std::cout << " - " << name.m_id
 			<< "	Local(" << localPosition.x << ", " << localPosition.y << ", " << localPosition.z << ")    " 
 			<< "	World(" << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << ")" << std::endl;

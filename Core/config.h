@@ -51,10 +51,13 @@ namespace LV3
 		#define LV3_DEBUG           1
 		#define LV3_ASSERT(x)       assert(x)
 		#define LV3_DEBUG_LOG       1
+		#define LV3_VERBOSE_LOG     1		// affiche le maximum d'info à l'écran
 	#else												// mode  "Release"
 		#define LV3_DEBUG           0
 		#define LV3_ASSERT(x)       ((void)0)
 		#define LV3_DEBUG_LOG       0
+		#define LV3_VERBOSE_LOG     0
+
 	#endif
 	/*
 	Utilisation avec un #if (le code ne sera même pas compilé en Release)
