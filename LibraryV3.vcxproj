@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <LV3BuildDir>$(MSBuildThisFileDirectory)..\3d_Bases\22.RefactoNouvelleLibrairieV3\Build\</LV3BuildDir>
+  </PropertyGroup>
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -60,102 +63,91 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(LV3BuildDir)LV3.Common.props" Condition="exists('$(LV3BuildDir)LV3.Common.props')" />
+    <Import Project="$(LV3BuildDir)LV3.User.props" Condition="exists('$(LV3BuildDir)LV3.User.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(LV3BuildDir)LV3.Common.props" Condition="exists('$(LV3BuildDir)LV3.Common.props')" />
+    <Import Project="$(LV3BuildDir)LV3.User.props" Condition="exists('$(LV3BuildDir)LV3.User.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(LV3BuildDir)LV3.Common.props" Condition="exists('$(LV3BuildDir)LV3.Common.props')" />
+    <Import Project="$(LV3BuildDir)LV3.User.props" Condition="exists('$(LV3BuildDir)LV3.User.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
+    <Import Project="$(LV3BuildDir)LV3.Common.props" Condition="exists('$(LV3BuildDir)LV3.Common.props')" />
+    <Import Project="$(LV3BuildDir)LV3.User.props" Condition="exists('$(LV3BuildDir)LV3.User.props')" />
+  </ImportGroup> 
   <PropertyGroup Label="UserMacros" />
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <!-- ============================================================
+       Reglages VALABLES POUR TOUTES LES CONFIGURATIONS.
+       $(ProjectDir) dans les includes : c'est ce qui fait resoudre
+       les #include "Core/..." depuis la racine de la LIB.
+       L'en-tete precompile est identique partout : il n'a aucune
+       raison d'etre declare quatre fois.
+       ============================================================ -->
+  <ItemDefinitionGroup>
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>
       </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>
       </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_LIB;PROJECT_DIR=R"($(ProjectDir))";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>Default</ConformanceMode>
-      <LanguageStandard>stdcpp23</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>
       </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>
       </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Core\Compiler.h" />
     <ClInclude Include="Core\config.h" />
+    <ClInclude Include="Core\ContentRoot.h" />
     <ClInclude Include="Core\CoreTypes.h" />
     <ClInclude Include="Core\EngineConfig.h" />
     <ClInclude Include="Core\EngineSettings.h" />
@@ -186,6 +178,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Rendering\Clipper.h" />
     <ClInclude Include="Rendering\ClipVertex.h" />
+    <ClInclude Include="Rendering\DepthBuffer.h" />
     <ClInclude Include="Rendering\Fragment.h" />
     <ClInclude Include="Rendering\FrameBuffer.h" />
     <ClInclude Include="Rendering\Rasterizer.h" />
@@ -215,6 +208,7 @@
     <ClInclude Include="Scene\System.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Core\ContentRoot.cpp" />
     <ClCompile Include="Core\EngineConfig.cpp" />
     <ClCompile Include="Core\Logger.cpp" />
     <ClCompile Include="Geometry\MeshClass.cpp" />
@@ -222,7 +216,10 @@
     <ClCompile Include="Maths\Projection.cpp" />
     <ClCompile Include="Maths\Transform.cpp" />
     <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <!-- SANS Condition : c'est le fichier qui CREE l'en-tete precompile.
+           Limite a Debug|x64, toutes les autres configurations cherchaient
+           un .pch que personne ne produisait -> erreur C1083. -->
+      <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Rendering\Clipper.cpp" />
     <ClCompile Include="Rendering\Fragment.cpp" />
@@ -242,11 +239,11 @@
   <ItemGroup>
     <ResourceCompile Include="LibraryV3.rc" />
   </ItemGroup>
-  <ItemGroup>
-    <Text Include="Rendering\DepthBuffer.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
+  <Target Name="LV3CheckProps" BeforeTargets="ClCompile" Condition="'$(LV3CommonPropsLoaded)' != 'true'">
+    <Error Text="LV3.Common.props introuvable via LV3BuildDir=$(LV3BuildDir) — les reglages communs ne sont PAS appliques. Corrige LV3BuildDir dans ce .vcxproj." />
+  </Target>
 </Project>

@@ -24,7 +24,7 @@
 #include <string_view>
 #include <iostream>
 #include <limits>
-
+#include <version>
 
 // --- C++20 ---
 #include <span>
@@ -32,9 +32,14 @@
 #include <format>
 
 // --- C++23 ---
-#if __cplusplus >= 202302L
-	#include <expected>		// std::expected est utile pour retourner soit une valeur valide, soit une erreur, sans lever d'exception.
+//#if __cplusplus >= 202302L
+//	#include <expected>		// std::expected est utile pour retourner soit une valeur valide, soit une erreur, sans lever d'exception.
+//#endif
+
+#if !defined(__cpp_lib_expected) || __cpp_lib_expected < 202202L
+	#error "LibraryV3 exige std::expected. Verifie LanguageStandard=stdcpp23 dans CETTE configuration."
 #endif
+#include <expected>
 
 // --- Core moteur (toujours présent) ---
 #include "core/Compiler.h"			// LV3_FORCEINLINE

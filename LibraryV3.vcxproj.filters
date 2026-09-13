@@ -212,6 +212,9 @@
     <ClInclude Include="Core\SimulationClock.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Core\ContentRoot.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -275,6 +278,9 @@
       <Filter>Scene</Filter>
     </ClCompile>
     <ClCompile Include="Core\EngineConfig.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\ContentRoot.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
