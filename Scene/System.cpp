@@ -662,7 +662,6 @@ namespace LV3
 		Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
 		Vec3f localPosition = Vec3f(transform.m_localMatrix[3][0], transform.m_localMatrix[3][1], transform.m_localMatrix[3][2]);
 
-		//transform.m_dirty = false; // Reset dirty flag after displaying
 		std::cout << " - " << name.m_id
 			<< "	Local(" << localPosition.x << ", " << localPosition.y << ", " << localPosition.z << ")    " 
 			<< "	World(" << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << ")" << std::endl;

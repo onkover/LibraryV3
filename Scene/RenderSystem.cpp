@@ -113,10 +113,10 @@ namespace LV3
             // ── 0. FILTRE DE VUE ─────────────────────────────────────────
              // Un visuel de debug peut se declarer invisible depuis SA PROPRE vue.
              // RenderView ignore ce qu'est une camera : il ne connait qu'une regle
-             // generique "cet objet est masque pour la vue qui vient de cette entite
+             // generique "cet objet est masqué pour la vue qui vient de cette entite
             const DebugVisualComponent* dbg = registry.TryGet<DebugVisualComponent>(entity);
-            if (dbg && dbg->m_hideForCamera == view.m_sourceCamera) continue;
-
+            if (dbg && dbg->m_hideForCamera == view.m_sourceCamera) continue;       // par exemple, le gizmo de FPS_Camera est inconditionnellement rejeté de la vue de FPS_Camera
+                                                                                    // Une caméra ne voit jamais son propre gizmo, sinon elle rendrait l'intérieur de son propre frustum, tranché par le near plane, plein écran.
 
             const MeshClass* mesh = rm.GetMesh(meshComp.m_meshHandle);
             if (!mesh || mesh->faceCount() == 0) continue;

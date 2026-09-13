@@ -72,13 +72,13 @@ namespace LV3
 
 
 
-#ifdef _DEBUG
-        const float bboxArea = float(maxX - minX) * float(maxY - minY);   // apres ClampBox
-        if (bboxArea > 0.0f && std::fabs(area) < 1e-4f * bboxArea)
-            Logger::warn("[RASTER] triangle quasi degenere : |area|=" + std::to_string(std::fabs(area))
-                + "  bbox=" + std::to_string(bboxArea)
-                + "  ratio=" + std::to_string(std::fabs(area) / bboxArea) + "\n");
-#endif
+//#ifdef _DEBUG
+//        const float bboxArea = float(maxX - minX) * float(maxY - minY);   // apres ClampBox
+//        if (bboxArea > 0.0f && std::fabs(area) < 1e-4f * bboxArea)
+//            Logger::warn("[RASTER] triangle quasi degenere : |area|=" + std::to_string(std::fabs(area))
+//                + "  bbox=" + std::to_string(bboxArea)
+//                + "  ratio=" + std::to_string(std::fabs(area) / bboxArea) + "\n");
+//#endif
 
 
 

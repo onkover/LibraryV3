@@ -248,7 +248,11 @@ namespace LV3
 	struct CameraGizmoComponent
 	{
 		Entity m_owner = NULL_ENTITY;
-		float  m_length = 3.0f;          // longueur d'affichage, PAS le farPlane
+		// Taille d'affichage du gizmo, dans les DEUX modes :
+		//   perspective : demi-section = L·tan(fovY/2)  — maquette a l'echelle 1
+		//   ortho       : demi-section = L              — maquette a l'echelle L/(orthoHeight/2)
+		// Ce n'est jamais le farPlane.
+		float  m_length = 3.0f;
 	};
 
 	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);

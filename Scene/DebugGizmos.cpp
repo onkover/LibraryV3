@@ -134,16 +134,8 @@ namespace LV3
                 const float L = giz.m_length;
                 Vec3f wanted;
 
-                if (cam->m_projection == EProjectionType::Orthographic)
-                {
-                    const float halfH = cam->m_orthoHeight * 0.5f;
-                    wanted = { halfH * aspect, halfH, L };
-                }
-                else
-                {
-                    const float tanHalf = std::tan(CameraFovY(*cam) * 0.5f);
-                    wanted = { L * tanHalf * aspect, L * tanHalf, L };
-                }
+                const Vec2f halfSection = GizmoHalfSection(*cam, L);
+                wanted = { halfSection.x * aspect, halfSection.y, L };
 
                 if (std::fabs(wanted.x - tr.m_local.scale.x) > 1e-6f ||
                     std::fabs(wanted.y - tr.m_local.scale.y) > 1e-6f ||
@@ -152,6 +144,11 @@ namespace LV3
                     tr.m_local.scale = wanted;
                     tr.m_dirty = true;
                 }
+
+               /* std::string name = registry.hasComponent<NameComponent>(e)
+                    ? registry.getComponent<NameComponent>(e).m_id
+                    : std::string("<sans nom>");
+                Logger::info("[gizmo]" + name + "->scale(" + std::to_string(wanted.x) + ", " + std::to_string(wanted.y) + ", " + std::to_string(wanted.z) + ")");*/
             }
 
             const MeshHandle want = assets.For(cam->m_projection);
