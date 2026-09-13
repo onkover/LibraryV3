@@ -258,12 +258,17 @@ namespace LV3
 	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);
 
 	// GENERIQUE : la couche rendu ignore ce qu'est une camera.
+	//struct DebugVisualComponent
+	//{
+	//	Color  m_color;
+	//	Entity m_hideForCamera = NULL_ENTITY;   // masque si la vue vient de cette camera
+	//};
 	struct DebugVisualComponent
 	{
 		Color  m_color;
-		Entity m_hideForCamera = NULL_ENTITY;   // masque si la vue vient de cette camera
+		Entity m_hideForCamera = NULL_ENTITY;
+		bool   m_visible = true;
 	};
-
 	static_assert(std::is_trivially_copyable_v<DebugVisualComponent>);
 
 }

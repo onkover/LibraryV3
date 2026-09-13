@@ -115,6 +115,7 @@ namespace LV3
              // RenderView ignore ce qu'est une camera : il ne connait qu'une regle
              // generique "cet objet est masqué pour la vue qui vient de cette entite
             const DebugVisualComponent* dbg = registry.TryGet<DebugVisualComponent>(entity);
+//            if (dbg && (!dbg->m_visible || dbg->m_hideForCamera == view.m_sourceCamera)) continue;
             if (dbg && dbg->m_hideForCamera == view.m_sourceCamera) continue;       // par exemple, le gizmo de FPS_Camera est inconditionnellement rejeté de la vue de FPS_Camera
                                                                                     // Une caméra ne voit jamais son propre gizmo, sinon elle rendrait l'intérieur de son propre frustum, tranché par le near plane, plein écran.
 

@@ -156,6 +156,11 @@ namespace LV3
 
             dbg.m_color = (giz.m_owner == activeCamera)
                 ? Color{ 255, 216,  26 } : Color{ 110, 112, 128 };
+
+            const bool isActive = (giz.m_owner == activeCamera);
+            dbg.m_color = isActive ? Color{ 255,216,26 } : Color{ 110,112,128 };
+            dbg.m_visible = isActive;
+
         }
     }
     
