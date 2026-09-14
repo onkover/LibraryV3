@@ -180,14 +180,14 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
 // ── API interne (Loaders) ─────────────────────────────
 
 MeshHandle ResourceManager::RegisterMesh(std::unique_ptr<MeshClass> mesh) {
-    assert(mesh != nullptr);
+    LV3_ASSERT(mesh != nullptr);
     const MeshHandle h = AllocateMeshHandle();
     m_meshes.emplace(h.id, std::move(mesh));
     return h;
 }
 
 MaterialHandle ResourceManager::RegisterMaterial(std::unique_ptr<Material> mat){
-    assert(mat!=nullptr);
+    LV3_ASSERT(mat!=nullptr);
     const std::string& name=mat->GetName();
     auto it=m_nameToMaterial.find(name);
     if(it!=m_nameToMaterial.end()) return it->second;

@@ -102,7 +102,8 @@ namespace LV3
         {
             if (IsContentRoot(exeDir))
             {
-                Logger::info("[Content] racine = dossier de l'executable : " + exeDir.string());
+                //Logger::info("[Content] racine = dossier de l'executable : " + exeDir.string());
+                LV3_LOG_DEBUG("[Content] racine = dossier de l'executable : " + exeDir.string());
                 return exeDir;
             }
             tried.push_back(exeDir);

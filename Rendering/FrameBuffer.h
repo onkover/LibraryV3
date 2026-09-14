@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <cassert>
+//#include <cassert>
 #include <bit>
 #include <algorithm>
 #include <type_traits>
@@ -32,8 +32,8 @@ namespace LV3
             m_Width = w;
             m_Height = h;
 
-            assert(lockedPixels != nullptr && "FrameBuffer::Bind — pixels null");
-            assert(pitchBytes > 0 && "FrameBuffer::Bind — pitch invalide (SDL_LockTexture a-t-il réussi ?)");
+            LV3_ASSERT(lockedPixels != nullptr && "FrameBuffer::Bind — pixels null");
+            LV3_ASSERT(pitchBytes > 0 && "FrameBuffer::Bind — pitch invalide (SDL_LockTexture a-t-il réussi ?)");
 
         }
         void Unbind() noexcept { m_Pixels = nullptr; m_Pitch = 0; }

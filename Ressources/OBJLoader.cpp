@@ -389,7 +389,7 @@ MeshHandle OBJLoader::BuildMesh(const ParseResult& parsed, const MaterialMap& ma
                     {
                         // Nouveau sommet : ajoute les données et enregistre l'index
                         const uint32_t ni = static_cast<uint32_t>(mesh->vertexPositions.size());
-                        assert(ri.pos >= 0 && ri.pos < static_cast<int>(parsed.rawVertex.size()));
+                        LV3_ASSERT(ri.pos >= 0 && ri.pos < static_cast<int>(parsed.rawVertex.size()));
                         
                         // Ajoute la position
                         mesh->vertexPositions.push_back(parsed.rawVertex[ri.pos]);

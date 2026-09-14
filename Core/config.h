@@ -2,9 +2,9 @@
 /*
 Fichier de configuration
 
-Contient que les données "gravées dans le marbre" car il un changement de valeur recompilera le projet
-
 */
+#include <cstdio>     // fprintf, fflush
+#include <cstdlib>    // abort
 
 namespace LV3
 {
@@ -44,38 +44,83 @@ namespace LV3
 	constexpr float inchToMm = 25.4f;
 
 	//  ************************************************************************************************
-	// _DEBUG définie automatiquement lorsque vous configurez votre projet sur "Debug"
-	// Cela permet d'activer des vérifications et des journaux supplémentaires pour le débogage.
 
-	#ifdef _DEBUG
-		#define LV3_DEBUG           1
-		#define LV3_ASSERT(x)       assert(x)
-		#define LV3_DEBUG_LOG       1
-		#define LV3_VERBOSE_LOG     1		// affiche le maximum d'info à l'écran
-	#else												// mode  "Release"
-		#define LV3_DEBUG           0
-		#define LV3_ASSERT(x)       ((void)0)
-		#define LV3_DEBUG_LOG       0
-		#define LV3_VERBOSE_LOG     0
-
-	#endif
-	/*
-	Utilisation avec un #if (le code ne sera même pas compilé en Release)
-    #if LV3_DEBUG_LOG
-        std::cout << "[DEBUG] Début du traitement des données.\n";
-    #endif
-	    
-    // Utilisation avec un if classique (le compilateur optimisera et retirera le bloc en Release)
-    if (LV3_DEBUG) 
+	[[noreturn]] inline void AssertFailed(const char* expr, const char* file, int line)
 	{
-        // Faire une vérification coûteuse qui n'est utile qu'en développement
-    }
-	
-	
-	// On s'assure que b n'est pas égal à 0. 
-    // Si b == 0 en mode Debug, le programme s'arrête net ici.
-	#include <cassert> // Nécessaire pour que assert(x) fonctionne en Debug
-    LV3_ASSERT(b != 0);
-	*/
-	//  ************************************************************************************************
+		std::fprintf(stderr, "\n[LV3_ASSERT] %s\n  %s:%d\n", expr, file, line);
+		std::fflush(stderr);
+		#ifdef _MSC_VER
+			__debugbreak();     // s'arrete DANS le debogueur, au bon endroit
+		#endif
+		std::abort();
+	}
+
 }
+
+// ── config.h ────────────────────────────────────────────────────
+// QUATRE commutateurs INDEPENDANTS. Chacun sous #ifndef : une
+// configuration du projet peut le forcer sans toucher a ce fichier.
+// Les valeurs par defaut derivent de _DEBUG, donc Debug et Release
+// se comportent exactement comme avant.
+
+// 1. Invariants permanents (CheckSceneInvariants, ValidateHierarchy...).
+//    Le SEUL qu'on voudra activer en Release, pour mesurer sans filet coupe.
+#ifndef LV3_ASSERTS_ENABLED
+	#ifdef _DEBUG
+		#define LV3_ASSERTS_ENABLED 1
+	#else
+		#define LV3_ASSERTS_ENABLED 0
+	#endif
+#endif
+
+// 2. Code de developpement (RenderSystem console, dumps...).
+#ifndef LV3_DEBUG
+	#ifdef _DEBUG
+		#define LV3_DEBUG 1
+	#else
+		#define LV3_DEBUG 0
+	#endif
+#endif
+
+// 3. Journaux de diagnostic.
+#ifndef LV3_DEBUG_LOG
+	#ifdef _DEBUG
+		#define LV3_DEBUG_LOG 1
+	#else
+		#define LV3_DEBUG_LOG 0
+	#endif
+#endif
+
+// 4. Journaux verbeux (le maximum d'info a l'ecran).
+#ifndef LV3_VERBOSE_LOG
+	#ifdef _DEBUG
+		#define LV3_VERBOSE_LOG 1
+	#else
+		#define LV3_VERBOSE_LOG 0
+	#endif
+#endif
+
+#if LV3_DEBUG_LOG
+	#define LV3_LOG_DEBUG(msg)   LV3::Logger::info(msg)
+#else
+	#define LV3_LOG_DEBUG(msg)   ((void)0)
+#endif
+
+#if LV3_VERBOSE_LOG
+	#define LV3_LOG_VERBOSE(msg) LV3::Logger::info(msg)
+#else
+	#define LV3_LOG_VERBOSE(msg) ((void)0)
+#endif
+
+
+
+#if LV3_ASSERTS_ENABLED
+	// __VA_ARGS__ et non (x) : une expression contenant une virgule
+	// -- LV3_ASSERT(std::min(a,b) > 0) -- serait vue comme DEUX arguments.
+	#define LV3_ASSERT(...) \
+			do { if (!(__VA_ARGS__)) LV3::AssertFailed(#__VA_ARGS__, __FILE__, __LINE__); } while (0)
+#else
+	// sizeof : l'expression est COMPILEE (donc verifiee par le compilateur
+	// et comptee comme un usage des variables) mais jamais EVALUEE.
+	#define LV3_ASSERT(...) ((void)sizeof(!(__VA_ARGS__)))
+#endif

@@ -16,7 +16,7 @@ namespace LV3
 {
    
 
-#ifdef _DEBUG
+#if LV3_DEBUG
     namespace   // interne au .cpp : aucun symbole exporté
     {
         struct CullStats
@@ -34,11 +34,11 @@ namespace LV3
         CullStats g_cull;
         CullStats g_accum;
     }
-#endif
+
 
     void ReportCullStats()
     {
-#ifdef _DEBUG
+
         const int viewsThisFrame = g_viewsThisFrame;
         g_viewIndex = 0;                     // remise à zéro POUR LA FRAME SUIVANTE
         g_viewsThisFrame = 0;
@@ -61,9 +61,9 @@ namespace LV3
             g_perView[v].Reset();
         }
         g_frames = 0;
-#endif
-    }
 
+    }
+#endif
 
 
 
@@ -128,7 +128,7 @@ namespace LV3
             //    == EIntersect::Outside) continue;
             const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
 
-#ifdef _DEBUG
+        #if LV3_DEBUG
             if (vi < kMaxViews)
             {
                 switch (vis)
@@ -138,7 +138,7 @@ namespace LV3
                 case EIntersect::Outside:   ++g_perView[vi].outside;   break;
                 }
             }
-#endif
+        #endif
 
 
             if (vis == EIntersect::Outside) continue;
@@ -210,5 +210,4 @@ namespace LV3
 
         }
     }
-
 }

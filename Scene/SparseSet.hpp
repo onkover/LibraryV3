@@ -118,7 +118,7 @@ namespace LV3
 		/// <returns>Référence au ComponentType attaché à l'entité, permettant de lire ou modifier le composant. Comportement indéfini si l'entité n'a pas ce composant.</returns>
 		ComponentType& Get(Entity entity)
 		{
-			assert(Contains(entity));			// On s'assure quele composant est là.
+			LV3_ASSERT(Contains(entity));			// On s'assure quele composant est là.
 												// m_Sparse[entity] peut valoir INVALID_INDEX
 												// Assert = gratuit en Release, fatal et bruyant en Debug.
 
@@ -133,11 +133,10 @@ namespace LV3
 		/// <returns>Référence constante vers le ComponentType associé à l'entité. Comportement indéfini si l'entité n'est pas présente dans le conteneur (l'appel suppose que l'entité a un composant).</returns>
 		const ComponentType& Get(Entity entity) const
 		{
-			assert(Contains(entity));			// On s'assure quele composant est là.
+			LV3_ASSERT(Contains(entity));			// On s'assure quele composant est là.
 												// m_Sparse[entity] peut valoir INVALID_INDEX
 												// Assert = gratuit en Release, fatal et bruyant en Debug.
 
-			assert(Contains(entity));
 			return m_Dense[m_Sparse.Get(EntityIndex(entity))];
 		}
 
@@ -159,7 +158,7 @@ namespace LV3
 
 			// Contrat : si Contains() est faux, le slot sparse DOIT être vierge. S'il pointe encore quelque part,
 			// c'est qu'un composant d'une génération précédente n'a pas été nettoyé → DestroyEntity a fauté.
-			assert(m_Sparse.Get(idx) == INVALID_INDEX && "Composant fantôme d'une génération antérieure détecté");
+			LV3_ASSERT(m_Sparse.Get(idx) == INVALID_INDEX && "Composant fantôme d'une génération antérieure détecté");
 
 			const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
 			m_Sparse.Set(idx, dense_index);		// était : m_Sparse[idx] = dense_index
@@ -187,7 +186,7 @@ namespace LV3
 			// buffer du vector : zéro copie, zéro déplacement intermédiaire.
 			
 			const std::uint32_t idx = EntityIndex(entity);
-			assert(!Contains(entity) && "Emplace : le composant existe déjà");
+			LV3_ASSERT(!Contains(entity) && "Emplace : le composant existe déjà");
 
 			const uint32_t dense_index = static_cast<uint32_t>(m_Dense.size());
 			m_Sparse.Set(idx, dense_index);		// était : m_Sparse[idx] = dense_index

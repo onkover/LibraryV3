@@ -32,8 +32,8 @@ namespace LV3
 
     struct FragmentContext
     {
-        #ifdef _DEBUG
-                uint32_t magic = kFragmentContextMagic;   // vérifié par assertion au cast
+        #if LV3_ASSERTS_ENABLED
+                uint32_t magic = kFragmentContextMagic;   // existe pour qu'une assertion puisse vérifier qu'on n'a pas fait passer le mauvais void*
         #endif
 
         FrameBuffer* fb = nullptr;
@@ -60,9 +60,10 @@ namespace LV3
         auto* ctx = static_cast<FragmentContext*>(userData);
     
         LV3_ASSERT(ctx != nullptr && "FragmentContext : userData nul");
+    #if LV3_ASSERTS_ENABLED
         LV3_ASSERT(ctx->magic == kFragmentContextMagic &&
             "FragmentContext : contexte incompatible derriere le void*");
-        
+    #endif    
         return ctx;
     }
 

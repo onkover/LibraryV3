@@ -134,7 +134,7 @@ namespace LV3
 			else
 			{
 				idx = static_cast<std::uint32_t>(m_Generations.size());
-				assert(idx < ENTITY_INDEX_MASK && "Capacité d'entités épuisée (16,7 M) — le dernier index est réservé à NULL_ENTITY");
+				LV3_ASSERT(idx < ENTITY_INDEX_MASK && "Capacité d'entités épuisée (16,7 M) — le dernier index est réservé à NULL_ENTITY");
 				m_Generations.push_back(0u);
 				m_Alive.push_back(false);
 			}
@@ -162,7 +162,7 @@ namespace LV3
 			
 		*/
 
-			assert(IsAlive(e) && "DestroyEntity : double destruction ou handle périmé");
+			LV3_ASSERT(IsAlive(e) && "DestroyEntity : double destruction ou handle périmé");
 			if (!IsAlive(e))
 				return;										// garde-fou silencieux en Release
 
@@ -261,7 +261,7 @@ namespace LV3
 			// La version const ne peut PAS créer le storage.
 			// Elle doit s'assurer que le storage existe et que le composant est présent.
 			const SparseSet<T>* storage = getStorage<T>();		// Utilise la version const de getStorage
-			assert(storage && storage->Contains(entity));			// Vérification stricte en debug : si absent, c'est une erreur de logique
+			LV3_ASSERT(storage && storage->Contains(entity));			// Vérification stricte en debug : si absent, c'est une erreur de logique
 			return storage->Get(entity);
 		}
 
