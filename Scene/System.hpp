@@ -19,10 +19,10 @@ namespace LV3
 // --- Camera ---
 	void CameraFPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
 	void CameraFollowSystem(Registry& registry, float deltaTime);
-	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime);
+	void CameraZoomSystem(Registry& registry, const InputState& in);
 	/*[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
 	[[nodiscard]] Entity FindActiveCamera(Registry& registry);*/
-	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, size_t capacity);
+	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, const size_t capacity);
 	Entity NextCamera(Registry& registry, ECameraCategory category, Entity current);
 
 	
@@ -49,8 +49,7 @@ namespace LV3
 
 	// --- Les systèmes---
 	void AnimationSystem(Registry& registry, float deltaTime);
-	//	void RenderSystem(Registry& registry, Entity activeCamera);
-	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager);
+	void DrawHierarchySystem(Registry& registry, ResourceManager& resourceManager);
 	void PlayerInputSystem(Registry& registry, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 	ViewData BuildViewData(const Registry& registry, const CameraBinding& b) noexcept;

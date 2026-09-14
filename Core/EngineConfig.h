@@ -60,7 +60,7 @@ namespace LV3
         ResourcesConfig resources;
         DebugConfig     debug;
 		SimulationClockSettings simulation;
-
+        
         static EngineConfig& Get()
         {
             static EngineConfig instance;

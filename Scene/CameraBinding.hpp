@@ -27,13 +27,10 @@ namespace LV3
     };
 
     // LE point unique ou se decide quelle camera rend quel viewport.
-    // Split a 4, minimap, picture-in-picture : cette fonction seule change.
-    //[[nodiscard]] size_t BuildCameraBindings(Entity activeCamera, Entity observerCamera,
-    //    int fbWidth, int fbHeight,
-    //    CameraBinding* out, size_t capacity);
-    size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount, int w, int h, CameraBinding* out, size_t capacity);
+    // exemple : Split a 4, minimap, picture-in-picture : cette fonction seule change.
+    size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount, int w, int h, CameraBinding* out);
 
     // Decoupe un rectangle. Aucune notion de camera.
-    [[nodiscard]] size_t BuildLayout(ELayout layout, int w, int h, Viewport* out, size_t capacity);
+    [[nodiscard]] size_t BuildLayout(ELayout layout, int w, int h, Viewport* out);
 
 }

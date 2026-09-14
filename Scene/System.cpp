@@ -8,6 +8,7 @@
 #include "System.hpp"
 #include "../Core/Logger.h"
 #include "Hierarchy.hpp"
+#include "Core/EngineSettings.h"
 
 //#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
@@ -118,14 +119,7 @@ namespace LV3
 	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
 	/// Propage les matrices monde depuis les racines. Une seule passe, O(n).
 	/// Exige que LocalTransformSystem ait déjà mis m_localMatrix à jour.
-	//void WorldTransformSystem(Registry& registry)
-	//{
-	//	const Matrix44f identity = Matrix44f::Identity();
 
-	//	for (auto&& [entity, hierarchy] : registry.ViewGroup<HierarchyComponent>())
-	//		if (IsRoot(registry, entity))
-	//			PropagateWorld(registry, entity, identity);
-	//}
 	void WorldTransformSystem(Registry& registry)
 	{
 		const Matrix44f identity = Matrix44f::Identity();
@@ -166,6 +160,7 @@ namespace LV3
 	//	for (auto&& [entity, cam] : registry.ViewGroup<CameraComponent>())
 	//	{
 	//		const NameComponent* n = registry.TryGet<NameComponent>(entity);
+	//		const NameComponent* n = registry.TryGet<NameComponent>(entity);
 	//		if (n && n->m_id == name) return entity;
 	//	}
 	//	return NULL_ENTITY;
@@ -178,10 +173,10 @@ namespace LV3
 	//  avec warning — deux caméras à priorité égale sont un choix
 	//  d'auteur non exprimé, pas une situation normale.
 	// ============================================================
-	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, size_t capacity)
+	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, const size_t capacity)
 	{
 		struct Slot { Entity e; int prio; };
-		Slot   found[8];                      // borne large : plus de 8 caméras ACTIVES est un bug de scène
+		Slot   found[LV3_MAX_CAMERA];							// bornage large
 		size_t n = 0;
 
 		for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
@@ -190,7 +185,7 @@ namespace LV3
 			if (cam.m_category != category)  continue;
 			if (n >= std::size(found))
 			{
-				Logger::warn("[Camera] plus de 8 caméras actives — excédent ignoré");
+				Logger::warn("[Camera] plus de " + std::to_string(LV3_MAX_CAMERA) + " caméras actives — excédent ignoré");
 				break;
 			}
 			found[n++] = { e, cam.m_priority };
@@ -221,7 +216,7 @@ namespace LV3
 	// Catégorie vide -> NULL_ENTITY : au consommateur de décider quoi en faire.
 	Entity NextCamera(Registry& registry, ECameraCategory category, Entity current)
 	{
-		Entity cams[8];
+		Entity cams[LV3_MAX_CAMERA];	// bornage large
 		const size_t n = CollectActiveCameras(registry, category, cams, std::size(cams));
 		if (n == 0) return NULL_ENTITY;
 
@@ -442,7 +437,7 @@ namespace LV3
 	//		* Shift : le zoom doit s'accélérer nettement en sprint, sans devenir instable (valeur qui saute d'un coup au clamp).
 	//		* Bornes : pousse volontairement jusqu'aux clamps (minFov, maxFocal, etc.) pour t'assurer qu'ils stoppent proprement plutôt que de produire un artefact visuel (division par zéro, frustum dégénéré).
 	//********************************************************************
-	void CameraZoomSystem(Registry& registry, const InputState& in, float deltaTime)
+	void CameraZoomSystem(Registry& registry, const InputState& in)
 	{
 		if (in.wheelDelta == 0) return;
 
@@ -691,22 +686,8 @@ namespace LV3
 	}
 
 	
-	void RenderSystem(Registry& registry, Entity activeCamera, ResourceManager& resourceManager)
+	void DrawHierarchySystem(Registry& registry, ResourceManager& resourceManager)
 	{
-
-
-
-		// 1. Obtenir la matrice de Vue
-		 
-		// TODO: calculer la matrice de vue via l'inverse de activeCamera.worldTransform
-			//Matrix44f viewMatrix(1.0f);
-			//if (registry.hasComponent<TransformComponent>(activeCamera)) {
-			//	viewMatrix = glm::inverse(registry.getComponent<TransformComponent>(activeCamera).worldTransform);
-			//}		
-
-		// (Ici, calculer la matrice de Projection...)
-		// ...
-
 		std::cout << std::endl;
 
 		// 2. Itération linéaire sur tous les maillages

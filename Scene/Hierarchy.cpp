@@ -61,10 +61,11 @@ namespace LV3
 	{
 		LV3_ASSERT(child != parent && child != NULL_ENTITY && parent != NULL_ENTITY);
 
-		const HierarchyComponent* hc = registry.TryGet<HierarchyComponent>(child);
-		LV3_ASSERT((!hc || hc->m_parent == NULL_ENTITY)
-			&& "Construction : cet enfant a déjà un parent — utiliser SetParent");
-
+		#ifdef _DEBUG
+			const HierarchyComponent* hc = registry.TryGet<HierarchyComponent>(child);
+			LV3_ASSERT((!hc || hc->m_parent == NULL_ENTITY)
+				&& "Construction : cet enfant a déjà un parent — utiliser SetParent");
+		#endif
 		AttachToParent(registry, child, parent);
 	}
 

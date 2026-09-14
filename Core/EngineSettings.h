@@ -22,6 +22,8 @@ namespace LV3
     #define LV3_MAX_SUBMESHES       32      // SubMeshes par MeshClass
     #define LV3_MAX_RENDER_LAYERS   32      // Couches de rendu (ELayerMask)
     #define LV3_MAX_ENTITIES        4096    // Entités dans le Registry ECS
+    #define LV3_MAX_CAMERA          32      // Nombre de liaisons caméra lues
+    #define LV3_MAX_VIEWPORT        4      // Nombre de viewport affichées simultanément
 
     // -------------------------------------------------------
     //  RENDERER CPU

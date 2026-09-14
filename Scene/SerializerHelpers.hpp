@@ -45,7 +45,7 @@ namespace LV3
 
 	// ***********************************************************************************
 
-	static ECameraCategory ReadCameraCategory(JsonReader& r, const char* key)
+	[[nodiscard]] inline ECameraCategory ReadCameraCategory(JsonReader& r, const char* key)
 	{
 		const std::string s = r.Read(key, std::string("gameplay"));
 		if (s == "gameplay") return ECameraCategory::Gameplay;
