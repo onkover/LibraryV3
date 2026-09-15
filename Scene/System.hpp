@@ -20,8 +20,6 @@ namespace LV3
 	void CameraFPSControllerSystem(Registry& reg, const InputState& in, float deltaTime);
 	void CameraFollowSystem(Registry& registry, float deltaTime);
 	void CameraZoomSystem(Registry& registry, const InputState& in);
-	/*[[nodiscard]] Entity FindCameraByName(Registry& registry, const std::string& name);
-	[[nodiscard]] Entity FindActiveCamera(Registry& registry);*/
 	size_t CollectActiveCameras(Registry& registry, ECameraCategory category, Entity* out, const size_t capacity);
 	Entity NextCamera(Registry& registry, ECameraCategory category, Entity current);
 
@@ -89,12 +87,12 @@ namespace LV3
 			eventBus.subscribe(Events::StartedTakingDamage,
 				[]([[maybe_unused]] Entity e1, [[maybe_unused]] Entity e2)	// [[maybe_unused]] pour taire l'avertissement
 				{
-					std::cout << "[AudioSystem] *Joue son de grésillement (début)*" << std::endl;
+					Logger::info("[AudioSystem] *Joue son de grésillement (début)*");
 				});
 			eventBus.subscribe(Events::StoppedTakingDamage,
 				[]([[maybe_unused]] Entity e1, [[maybe_unused]] Entity e2)	// [[maybe_unused]] pour taire l'avertissement
 				{
-					std::cout << "[AudioSystem] *Arrête le son de grésillement (fin)*" << std::endl;
+					Logger::info("[AudioSystem] *Arrête le son de grésillement (fin)*");
 				});
 
 		}

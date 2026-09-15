@@ -100,6 +100,13 @@ namespace LV3
 	#endif
 #endif
 
+// 5. Dump console de la hierarchie, PAR FRAME (DrawHierarchySystem).
+//    Independant de LV3_DEBUG : sinon CHAQUE build Debug l'allume,
+//    meme quand ce n'est pas ca qu'on debug. A activer ponctuellement.
+#ifndef LV3_DUMP_HIERARCHY
+	#define LV3_DUMP_HIERARCHY 0
+#endif
+
 #if LV3_DEBUG_LOG
 	#define LV3_LOG_DEBUG(msg)   LV3::Logger::info(msg)
 #else

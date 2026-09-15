@@ -143,6 +143,20 @@ namespace LV3
 	};
 	
 	//********************************************************************
+	// Le gizmo sait quelle camera il decrit.
+	struct CameraGizmoComponent
+	{
+		Entity m_owner = NULL_ENTITY;
+		// Taille d'affichage du gizmo, dans les DEUX modes :
+		//   perspective : demi-section = L·tan(fovY/2)  — maquette a l'echelle 1
+		//   ortho       : demi-section = L              — maquette a l'echelle L/(orthoHeight/2)
+		// Ce n'est jamais le farPlane.
+		float  m_length = 3.0f;
+	};
+
+	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);
+
+	//********************************************************************
 	/* 
 	RÉFÉRENCE, pas de propriété : le ResourceManager reste l'unique propriétaire.
 	Résolution : resourceManager.GetMesh(m_mesh) au moment de l'usage (rendu, culling, etc.)
@@ -187,38 +201,71 @@ namespace LV3
 // C'est important, car Emplace transmet ses arguments à un constructeur — et TriggerComponent n'a que le constructeur agrégé implicite(agrégat C++).
 // Ça fonctionne, mais avec une règle stricte : l'ordre des arguments doit suivre exactement l'ordre de déclaration des membres
 // L'agrégat ne permet pas de sauter un membre au milieu pour garder le suivant à sa valeur par défaut si tu en fournis un après.
+	//struct TriggerComponent
+	//{
+	//public:
+	//	float radius = 1.0f; // La taille de notre trigger sphérique
+
+	//	// Noms des événements que ce trigger publiera
+	//	std::string onEnterEvent = "";
+	//	std::string onStayEvent = "";
+	//	std::string onExitEvent = "";
+
+	//	// État (mis à jour par le TriggerSystem)
+	//	bool is_colliding =false;
+	//	std::set<Entity> overlapping_entities; // Avec qui on collisionne
+
+	//};
+	// Ensemble borné, à plat, sans allocation. kMax borne le nombre de triggers
+// simultanément superposés à CE trigger. Un dépassement est un signal de
+// conception (dimensionnement de la scène à revoir), pas un crash :
+// TriggerSystem le journalise, il ne le silence pas.
+	//struct OverlapSet
+	//{
+	//	static constexpr size_t kMax = 8;
+	//	Entity  m_entities[kMax]{};
+	//	uint8_t m_count = 0;
+
+	//	[[nodiscard]] bool Contains(Entity e) const noexcept
+	//	{
+	//		for (uint8_t i = 0; i < m_count; ++i)
+	//			if (m_entities[i] == e) return true;
+	//		return false;
+	//	}
+
+	//	bool Insert(Entity e) noexcept   // false si complet — à l'appelant de décider
+	//	{
+	//		if (m_count >= kMax) return false;
+	//		m_entities[m_count++] = e;
+	//		return true;
+	//	}
+
+	//	auto begin() const noexcept { return m_entities; }
+	//	auto end()   const noexcept { return m_entities + m_count; }
+	//};
+	//static_assert(std::is_trivially_copyable_v<OverlapSet>, "OverlapSet doit rester trivialement copiable");
+
 	struct TriggerComponent
 	{
-	public:
-		//Vec3f halfSize{ 1, 1, 1 }; // Taille de la boîte (demi-dimensions)
-		//bool isColliding = false; // État
-
-		float radius = 1.0f; // La taille de notre trigger sphérique
+		// La taille de notre trigger sphérique
+		float radius = 1.0f;
 
 		// Noms des événements que ce trigger publiera
 		std::string onEnterEvent = "";
 		std::string onStayEvent = "";
 		std::string onExitEvent = "";
-
+		
 		// État (mis à jour par le TriggerSystem)
-		bool is_colliding =false;
-		std::set<Entity> overlapping_entities; // Avec qui on collisionne
-
-		// Constructeur explicite : seuls radius et onEnterEvent sont obligatoires
-	/*	explicit TriggerComponent(float r, 
-									std::string onEnter = "", 
-									std::string onStay = "", 
-									std::string onExit = "",
-									bool isColliding)
-									: radius(r), 
-									onEnterEvent(std::move(onEnter)), 
-									onStayEvent(std::move(onStay)), 
-									onExitEvent(std::move(onExit)),
-									is_colliding(isColliding)
-		{
-		}*/
+		bool is_colliding = false;
+		//OverlapSet overlapping_entities;   // remplace std::set<Entity>
+			// Persistant, capacité JAMAIS relâchée : un trigger point-à-point reste à
+	// quelques octets, un trigger de zone (AsteroidBelt-Zone, KuiperBelt-Zone)
+	// grandit une fois jusqu'à son pic reel puis se réutilise indéfiniment.
+	// Pas de plafond arbitraire — la cardinalité réelle du gameplay decide.
+		std::vector<Entity> overlapping_entities;
 	};
 
+	//static_assert(std::is_trivially_copyable_v<TriggerComponent>, "TriggerComponent doit rester trivialement copiable");
 	//********************************************************************
 
 	struct HealthComponent {
@@ -243,20 +290,6 @@ namespace LV3
 	};
 
 	//********************************************************************
-
-	// Le gizmo sait quelle camera il decrit.
-	struct CameraGizmoComponent
-	{
-		Entity m_owner = NULL_ENTITY;
-		// Taille d'affichage du gizmo, dans les DEUX modes :
-		//   perspective : demi-section = L·tan(fovY/2)  — maquette a l'echelle 1
-		//   ortho       : demi-section = L              — maquette a l'echelle L/(orthoHeight/2)
-		// Ce n'est jamais le farPlane.
-		float  m_length = 3.0f;
-	};
-
-	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);
-
 	// GENERIQUE : la couche rendu ignore ce qu'est une camera.
 	//struct DebugVisualComponent
 	//{

@@ -479,7 +479,7 @@ namespace LV3
 			std::move(onStayEvent),
 			std::move(onExitEvent),
 			false,						// is_colliding
-			std::set<Entity>{}			// overlapping_entities
+			std::vector<Entity>{}
 		);
 
 		// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants

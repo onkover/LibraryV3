@@ -33,21 +33,21 @@ namespace LV3
             if (resultPerspect.has_value())
             {
                 a.m_perspective = *resultPerspect;
-                Logger::info("\033[32mLa camera en perspective est chargée\033[0m");
+                Logger::info("La camera en perspective est chargée");
             }
             else
-                Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())) + "\033[0m");
+                Logger::error("[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())));
 
             if (resultOrthogr.has_value())
             {
                 a.m_orthographic = *resultOrthogr;
-                Logger::info("\033[32mLa camera Orthographique est chargée\033[0m");
+                Logger::info("La camera Orthographique est chargée");
             }
             else
-                Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())) + "\033[0m");
+                Logger::error("[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())));
 
 
-            Logger::info("\033[32m[Gizmo]\033[0m");
+            Logger::info("[Gizmo]\033[0m");
             const MeshClass* mg = rm.GetMesh(a.m_perspective);
             Logger::info("[Gizmo]  faces=" + std::to_string(mg->faceCount())
                 + "  verts=" + std::to_string(mg->vertexPositions.size()));
@@ -65,9 +65,9 @@ namespace LV3
         else
         {
             if (!resultPerspect)
-                Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())) + "\033[0m");
+                Logger::error("[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())));
             if (!resultOrthogr)
-                Logger::error("\033[33m[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())) + "\033[0m");
+                Logger::error("[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())));
 
             return {};
         }

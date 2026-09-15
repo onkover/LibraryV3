@@ -567,78 +567,218 @@ namespace LV3
 
 	*/
 
-	void TriggerSystem(Registry& registry, EventBus& eventBus)
+	//void TriggerSystem(Registry& registry, EventBus& eventBus)
+	//{
+	//	for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+	//	{
+	//		Vec3f pos1 = Vec3f{ transform1.m_worldMatrix[3][0],
+	//		transform1.m_worldMatrix[3][1],
+	//		transform1.m_worldMatrix[3][2] };
+
+	//		// 1. Préparer la liste des collisions de CETTE frame
+	//		std::set<Entity> newOverlaps;
+
+	//		// 2. Boucle N*N pour trouver les collisions
+
+	//		for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+	//		{
+	//			if (entity1 == entity2) continue;
+
+	//			Vec3f pos2 = Vec3f{ transform2.m_worldMatrix[3][0],
+	//							transform2.m_worldMatrix[3][1],
+	//							transform2.m_worldMatrix[3][2] };
+
+	//			// Test de collision Sphère vs Sphère
+	//			// --- LE TEST DE COLLISION (Sphère vs Sphère) ---
+	//			float distance = (pos1 - pos2).length(); // 	glm::distance(pos1, pos2);
+	//			float combined_radius = trigger1.radius + trigger2.radius;
+
+
+	//			if (distance < combined_radius)
+	//			{
+	//				newOverlaps.insert(entity2); // On touche e2
+	//			}
+	//		}
+
+	//		// 3. Comparer l'état actuel (newOverlaps) avec l'état précédent (trigger1.overlapping_entities)
+	//		auto& oldOverlaps = trigger1.overlapping_entities;
+
+	//		// --- Logique ON_ENTER et ON_STAY ---
+	//		for (const Entity& newEntity : newOverlaps) {
+	//			if (oldOverlaps.count(newEntity)) {
+	//				// Était déjà là -> ON_STAY
+	//				if (!trigger1.onStayEvent.empty()) {
+	//					std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onStayEvent << std::endl;
+	//					eventBus.publish(trigger1.onStayEvent, entity1, newEntity);
+	//				}
+	//			}
+	//			else {
+	//				// Vient d'arriver -> ON_ENTER
+	//				if (!trigger1.onEnterEvent.empty()) {
+	//					std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onEnterEvent << std::endl;
+	//					eventBus.publish(trigger1.onEnterEvent, entity1, newEntity);
+	//				}
+	//			}
+	//		}
+
+	//		// --- Logique ON_EXIT ---
+	//		for (const Entity& oldEntity : oldOverlaps) {
+	//			if (!newOverlaps.count(oldEntity)) {
+	//				// Était là, mais n'y est plus -> ON_EXIT
+	//				if (!trigger1.onExitEvent.empty()) {
+	//					std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onExitEvent << std::endl;
+	//					eventBus.publish(trigger1.onExitEvent, entity1, oldEntity);
+	//				}
+	//			}
+	//		}
+
+	//		// 4. Mettre à jour l'état pour la prochaine frame
+	//		trigger1.overlapping_entities = newOverlaps;
+	//	}
+
+	//	return;
+	//}
+
+//	void TriggerSystem(Registry& registry, EventBus& eventBus)
+//	{
+//		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+//		{
+//			Vec3f pos1{ transform1.m_worldMatrix[3][0], transform1.m_worldMatrix[3][1], transform1.m_worldMatrix[3][2] };
+//
+//			OverlapSet newOverlaps;   // sur la pile, POD, zéro allocation
+//
+//			for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+//			{
+//				if (entity1 == entity2) continue;
+//				Vec3f pos2{ transform2.m_worldMatrix[3][0], transform2.m_worldMatrix[3][1], transform2.m_worldMatrix[3][2] };
+//
+//				if ((pos1 - pos2).length() < trigger1.radius + trigger2.radius)
+//				{
+//					if (!newOverlaps.Insert(entity2))
+//					{
+//						const std::string name = registry.hasComponent<NameComponent>(entity1)
+//							? registry.getComponent<NameComponent>(entity1).m_id
+//							: std::string("<sans nom>");
+//						Logger::warn("[TriggerSystem] " + name + " : capacite d'overlap depassee ("
+//							+ std::to_string(OverlapSet::kMax) + ")");
+//					}
+//					//Logger::warn("[TriggerSystem] capacite d'overlap depassee (" + std::to_string(OverlapSet::kMax) + ")");
+//				}
+//			}
+//
+//			auto& oldOverlaps = trigger1.overlapping_entities;
+//
+//			for (const Entity e : newOverlaps)
+//			{
+//				const bool wasThere = oldOverlaps.Contains(e);
+//				const std::string& ev = wasThere ? trigger1.onStayEvent : trigger1.onEnterEvent;
+//				if (!ev.empty())
+//				{
+//#if LV3_DEBUG
+//					Logger::info("[TriggerSystem] " + ev);
+//#endif
+//					eventBus.publish(ev, entity1, e);
+//				}
+//			}
+//			for (const Entity e : oldOverlaps)
+//			{
+//				if (!newOverlaps.Contains(e) && !trigger1.onExitEvent.empty())
+//				{
+//#if LV3_DEBUG
+//					Logger::info("[TriggerSystem] " + trigger1.onExitEvent);
+//#endif
+//					eventBus.publish(trigger1.onExitEvent, entity1, e);
+//				}
+//			}
+//
+//			trigger1.overlapping_entities = newOverlaps;   // copie POD, pas une reallocation d'arbre
+//		}
+//	}
+// System.cpp — TriggerSystem
+void TriggerSystem(Registry& registry, EventBus& eventBus)
+{
+	// Scratch de frame, static : sa capacite ne redescend jamais. Pas thread-safe —
+	// non-probleme tant que ce systeme reste mono-thread (le "multithread": true
+	// d'engine.json est un mensonge deja identifie en Phase 2).
+	static std::vector<Entity> newOverlaps;
+
+	for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 	{
-		for (auto&& [entity1, trigger1, transform1] : registry.ViewGroup<TriggerComponent, TransformComponent>())
+		Vec3f pos1{ transform1.m_worldMatrix[3][0], transform1.m_worldMatrix[3][1], transform1.m_worldMatrix[3][2] };
+
+		newOverlaps.clear();   // garde la capacite acquise, ne libere rien
+
+		for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
-			Vec3f pos1 = Vec3f{ transform1.m_worldMatrix[3][0],
-			transform1.m_worldMatrix[3][1],
-			transform1.m_worldMatrix[3][2] };
+			if (entity1 == entity2) continue;
+			Vec3f pos2{ transform2.m_worldMatrix[3][0], transform2.m_worldMatrix[3][1], transform2.m_worldMatrix[3][2] };
 
-			// 1. Préparer la liste des collisions de CETTE frame
-			std::set<Entity> newOverlaps;
-
-			// 2. Boucle N*N pour trouver les collisions
-
-			for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
-			{
-				if (entity1 == entity2) continue;
-
-				Vec3f pos2 = Vec3f{ transform2.m_worldMatrix[3][0],
-								transform2.m_worldMatrix[3][1],
-								transform2.m_worldMatrix[3][2] };
-
-				// Test de collision Sphère vs Sphère
-				// --- LE TEST DE COLLISION (Sphère vs Sphère) ---
-				float distance = (pos1 - pos2).length(); // 	glm::distance(pos1, pos2);
-				float combined_radius = trigger1.radius + trigger2.radius;
-
-
-				if (distance < combined_radius)
-				{
-					newOverlaps.insert(entity2); // On touche e2
-				}
-			}
-
-			// 3. Comparer l'état actuel (newOverlaps) avec l'état précédent (trigger1.overlapping_entities)
-			auto& oldOverlaps = trigger1.overlapping_entities;
-
-			// --- Logique ON_ENTER et ON_STAY ---
-			for (const Entity& newEntity : newOverlaps) {
-				if (oldOverlaps.count(newEntity)) {
-					// Était déjà là -> ON_STAY
-					if (!trigger1.onStayEvent.empty()) {
-						std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onStayEvent << std::endl;
-						eventBus.publish(trigger1.onStayEvent, entity1, newEntity);
-					}
-				}
-				else {
-					// Vient d'arriver -> ON_ENTER
-					if (!trigger1.onEnterEvent.empty()) {
-						std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onEnterEvent << std::endl;
-						eventBus.publish(trigger1.onEnterEvent, entity1, newEntity);
-					}
-				}
-			}
-
-			// --- Logique ON_EXIT ---
-			for (const Entity& oldEntity : oldOverlaps) {
-				if (!newOverlaps.count(oldEntity)) {
-					// Était là, mais n'y est plus -> ON_EXIT
-					if (!trigger1.onExitEvent.empty()) {
-						std::cout << "[TriggerSystem] PUBLICATION DE L'EVENEMENT: " << trigger1.onExitEvent << std::endl;
-						eventBus.publish(trigger1.onExitEvent, entity1, oldEntity);
-					}
-				}
-			}
-
-			// 4. Mettre à jour l'état pour la prochaine frame
-			trigger1.overlapping_entities = newOverlaps;
+			if ((pos1 - pos2).length() < trigger1.radius + trigger2.radius)
+				newOverlaps.push_back(entity2);   // plus de plafond, plus de perte
 		}
 
-		return;
-	}
+		auto& oldOverlaps = trigger1.overlapping_entities;
+		auto contains = [](const std::vector<Entity>& v, Entity e) {
+			return std::find(v.begin(), v.end(), e) != v.end();
+			};
 
+		for (const Entity e : newOverlaps)
+		{
+			const bool wasThere = contains(oldOverlaps, e);
+			const std::string& ev = wasThere ? trigger1.onStayEvent : trigger1.onEnterEvent;
+			if (!ev.empty())
+			{
+#if LV3_DEBUG
+				const std::string name1 = registry.hasComponent<NameComponent>(entity1)
+					? registry.getComponent<NameComponent>(entity1).m_id : "<sans nom>";
+				const std::string name2 = registry.hasComponent<NameComponent>(e)
+					? registry.getComponent<NameComponent>(e).m_id : "<sans nom>";
+				Logger::info(std::string("[TriggerSystem] ") + (wasThere ? "STAY  " : "ENTER ")
+					+ name1 + " -> " + name2 + "  (" + ev + ")");
+#endif
+				eventBus.publish(ev, entity1, e);
+			}
+		}
+		for (const Entity e : oldOverlaps)
+		{
+			if (!contains(newOverlaps, e) && !trigger1.onExitEvent.empty())
+			{
+#if LV3_DEBUG
+				const std::string name1 = registry.hasComponent<NameComponent>(entity1)
+					? registry.getComponent<NameComponent>(entity1).m_id : "<sans nom>";
+				const std::string name2 = registry.hasComponent<NameComponent>(e)
+					? registry.getComponent<NameComponent>(e).m_id : "<sans nom>";
+				Logger::info(std::string("[TriggerSystem] EXIT  ") + name1 + " -> " + name2
+					+ "  (" + trigger1.onExitEvent + ")");
+#endif
+				eventBus.publish(trigger1.onExitEvent, entity1, e);
+			}
+		}
+		/*for (const Entity e : newOverlaps)
+		{
+			const std::string& ev = contains(oldOverlaps, e) ? trigger1.onStayEvent : trigger1.onEnterEvent;
+			if (!ev.empty())
+			{
+#if LV3_DEBUG
+				Logger::info("[TriggerSystem] " + ev);
+#endif
+				eventBus.publish(ev, entity1, e);
+			}
+		}
+		for (const Entity e : oldOverlaps)
+		{
+			if (!contains(newOverlaps, e) && !trigger1.onExitEvent.empty())
+			{
+#if LV3_DEBUG
+				Logger::info("[TriggerSystem] " + trigger1.onExitEvent);
+#endif
+				eventBus.publish(trigger1.onExitEvent, entity1, e);
+			}
+		}*/
+
+		trigger1.overlapping_entities = newOverlaps;   // reutilise la capacite si suffisante, sinon grandit UNE fois
+	}
+}
 	//********************************************************************
 
 	void DebugDisplaySystemRecursive(Registry& registry, Entity entity, int ident)
@@ -676,13 +816,13 @@ namespace LV3
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
 	{
 		registry.ForEachAlive([&](Entity entity)
+		{
+			if (registry.hasComponent<TransformComponent>(entity)
+				&& IsRoot(registry, entity))          // ← la surcharge (Registry, Entity)
 			{
-				if (registry.hasComponent<TransformComponent>(entity)
-					&& IsRoot(registry, entity))          // ← la surcharge (Registry, Entity)
-				{
-					DebugDisplaySystemRecursive(registry, entity, 0);
-				}
-			});
+				DebugDisplaySystemRecursive(registry, entity, 0);
+			}
+		});
 	}
 
 	
