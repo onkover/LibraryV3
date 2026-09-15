@@ -215,6 +215,7 @@
     <ClInclude Include="Core\ContentRoot.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\DepthBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -288,10 +289,5 @@
     <ResourceCompile Include="LibraryV3.rc">
       <Filter>Fichiers de ressources</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Rendering\DepthBuffer.h">
-      <Filter>Rendering</Filter>
-    </Text>
   </ItemGroup>
 </Project>

@@ -6,12 +6,13 @@
 namespace LV3
 {
 
-#ifdef _DEBUG
+#if LV3_ASSERTS_ENABLED
     // Sentinelle de vérification du contexte passé via void*.
     // Valeur arbitraire mais NON nulle et NON triviale : une struct mal castée
     // ou de la mémoire non initialisée a une probabilité négligeable de la produire.
     // Parade au bug n°17 (L05) : static_cast<T*>(void*) réussit TOUJOURS.
     inline constexpr uint32_t kFragmentContextMagic = 0xF2A9C0DEu;
+
 #endif
 
     // ── Contextes de shading ──
