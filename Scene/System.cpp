@@ -710,7 +710,10 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 
 		for (auto&& [entity2, trigger2, transform2] : registry.ViewGroup<TriggerComponent, TransformComponent>())
 		{
+			// test avant
 			if (entity1 == entity2) continue;
+			if (trigger1.role == trigger2.role) continue;   // jamais zone-zone, jamais probe-probe
+
 			Vec3f pos2{ transform2.m_worldMatrix[3][0], transform2.m_worldMatrix[3][1], transform2.m_worldMatrix[3][2] };
 
 			if ((pos1 - pos2).length() < trigger1.radius + trigger2.radius)
@@ -754,28 +757,7 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 				eventBus.publish(trigger1.onExitEvent, entity1, e);
 			}
 		}
-		/*for (const Entity e : newOverlaps)
-		{
-			const std::string& ev = contains(oldOverlaps, e) ? trigger1.onStayEvent : trigger1.onEnterEvent;
-			if (!ev.empty())
-			{
-#if LV3_DEBUG
-				Logger::info("[TriggerSystem] " + ev);
-#endif
-				eventBus.publish(ev, entity1, e);
-			}
-		}
-		for (const Entity e : oldOverlaps)
-		{
-			if (!contains(newOverlaps, e) && !trigger1.onExitEvent.empty())
-			{
-#if LV3_DEBUG
-				Logger::info("[TriggerSystem] " + trigger1.onExitEvent);
-#endif
-				eventBus.publish(trigger1.onExitEvent, entity1, e);
-			}
-		}*/
-
+	
 		trigger1.overlapping_entities = newOverlaps;   // reutilise la capacite si suffisante, sinon grandit UNE fois
 	}
 }

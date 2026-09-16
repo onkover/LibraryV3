@@ -456,6 +456,9 @@ namespace LV3
 		JsonReader r(compJson, "Trigger", owner);
 
 		const float radius = r.Read("radius", 1.0f);
+
+		const ETriggerRole role = ReadTriggerRole(r, "role", owner);
+
 		std::string onEnterEvent=r.Read("onEnterEvent", std::string{});
 		if (!IsKnownEvent(onEnterEvent)) Logger::warn("[Trigger] " + owner + " : évènement inconnu '" + onEnterEvent + "' — ne sera jamais recu.");
 
@@ -470,11 +473,13 @@ namespace LV3
 		// invariant, il ne le fabrique pas). Un trigger naît toujours "pas en collision".
 		//		const bool isColliding = r.Read("isColliding", false);
 
+
 		// On evite de construire un TriggerComponent local et de la transférer ensuite car cela induirait une copie de celui-ci via son constructeur
 		// Attention à l'ordre des variables transmises !!!
 		ctx.registry.emplaceComponent<TriggerComponent>(
 			entity,
 			radius,
+			role,
 			std::move(onEnterEvent),	// std::move : les strings locales ne servent plus après, autant les céder
 			std::move(onStayEvent),
 			std::move(onExitEvent),
@@ -484,8 +489,7 @@ namespace LV3
 
 		// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
 
-
-		Logger::info("[Trigger] " + owner + " : rayon " + std::to_string(radius));
+		Logger::info("[Trigger] " + owner + " : rayon " + std::to_string(radius) + ", role  = ETriggerRole::" + std::to_string(static_cast<int>(role)));
 
 		r.WarnUnread();
 

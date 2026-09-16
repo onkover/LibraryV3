@@ -98,6 +98,8 @@ namespace LV3
         }
 
         // --- 2. A cote de l'executable ----------------------------------
+#ifdef LV3_PROJECT_DIR
+
         if (const std::filesystem::path exeDir = ExecutableDir(); !exeDir.empty())
         {
             if (IsContentRoot(exeDir))
@@ -108,6 +110,7 @@ namespace LV3
             }
             tried.push_back(exeDir);
         }
+#endif
 
         // --- 3. Candidats fournis par l'application ---------------------
         //     Le moteur ne les interprete pas : il les teste dans l'ordre recu.

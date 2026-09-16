@@ -28,7 +28,7 @@ namespace LV3
             m_seen.insert(key);
             if (!Has(key))
             {
-                Logger::warn("[" + m_comp + "] cle absente '" + key + "' sur " + m_owner + ". Prise en compte de la clé par défaut.");
+                Logger::warn("[" + m_comp + "] cle absente '" + key + "' sur " + m_owner + ". Prise en compte de la clé par défaut : ");
                 return def;
             }
             try

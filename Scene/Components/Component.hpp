@@ -245,23 +245,30 @@ namespace LV3
 	//};
 	//static_assert(std::is_trivially_copyable_v<OverlapSet>, "OverlapSet doit rester trivialement copiable");
 
+	enum class ETriggerRole : uint8_t
+	{
+		Zone = 0,   // valeur par défaut : zone statique (danger, effet, sûreté...)
+		Probe = 1    // ce qui traverse les zones (vaisseau du joueur)
+	};
+
+
 	struct TriggerComponent
 	{
 		// La taille de notre trigger sphérique
 		float radius = 1.0f;
+		ETriggerRole role = ETriggerRole::Zone;
 
 		// Noms des événements que ce trigger publiera
-		std::string onEnterEvent = "";
-		std::string onStayEvent = "";
-		std::string onExitEvent = "";
+		std::string onEnterEvent = "", onStayEvent = "", onExitEvent = "";
 		
 		// État (mis à jour par le TriggerSystem)
 		bool is_colliding = false;
+		
 		//OverlapSet overlapping_entities;   // remplace std::set<Entity>
-			// Persistant, capacité JAMAIS relâchée : un trigger point-à-point reste à
-	// quelques octets, un trigger de zone (AsteroidBelt-Zone, KuiperBelt-Zone)
-	// grandit une fois jusqu'à son pic reel puis se réutilise indéfiniment.
-	// Pas de plafond arbitraire — la cardinalité réelle du gameplay decide.
+		// Persistant, capacité JAMAIS relâchée : un trigger point-à-point reste à
+		// quelques octets, un trigger de zone (AsteroidBelt-Zone, KuiperBelt-Zone)
+		// grandit une fois jusqu'à son pic reel puis se réutilise indéfiniment.
+		// Pas de plafond arbitraire — la cardinalité réelle du gameplay decide.
 		std::vector<Entity> overlapping_entities;
 	};
 

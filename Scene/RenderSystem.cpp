@@ -17,6 +17,7 @@ namespace LV3
    
 
 #if LV3_DEBUG
+
     namespace   // interne au .cpp : aucun symbole exporté
     {
         struct CullStats
@@ -45,8 +46,7 @@ namespace LV3
 
         if (++g_frames < 60) return;
 
-        Logger::info("[CULL] " + std::to_string(g_frames) + " frames, "
-            + std::to_string(viewsThisFrame) + " vues/frame");
+        Logger::info("[CULL] " + std::to_string(g_frames) + " frames, " + std::to_string(viewsThisFrame) + " vues/frame");
 
         for (int v = 0; v < kMaxViews; ++v)
         {
@@ -61,7 +61,6 @@ namespace LV3
             g_perView[v].Reset();
         }
         g_frames = 0;
-
     }
 #endif
 

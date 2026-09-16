@@ -94,7 +94,7 @@ namespace LV3
 // 4. Journaux verbeux (le maximum d'info a l'ecran).
 #ifndef LV3_VERBOSE_LOG
 	#ifdef _DEBUG
-		#define LV3_VERBOSE_LOG 1
+		#define LV3_VERBOSE_LOG 0
 	#else
 		#define LV3_VERBOSE_LOG 0
 	#endif

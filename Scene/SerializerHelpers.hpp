@@ -71,5 +71,14 @@ namespace LV3
 			+ ", gen " + std::to_string(EntityGeneration(e)) + ")";
 	}
 
+	[[nodiscard]] inline ETriggerRole ReadTriggerRole(LV3::JsonReader& r, const char* key, const std::string& owner)
+	{
+		const std::string roleStr = r.Read(key, std::string("zone"));
+		if (roleStr == "zone")  return ETriggerRole::Zone;
+		if (roleStr == "probe") return ETriggerRole::Probe;
+
+		Logger::warn("[Trigger] " + owner + " : role inconnu '" + roleStr + "' — traite comme 'zone'.");
+		return ETriggerRole::Zone;
+	}
 
 }
