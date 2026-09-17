@@ -143,7 +143,7 @@ namespace LV3
 			else
 			{
 				idx = static_cast<std::uint32_t>(m_Generations.size());
-				LV3_ASSERT(idx < ENTITY_INDEX_MASK && "Capacité d'entités épuisée (16,7 M) — le dernier index est réservé à NULL_ENTITY");
+				LV3_ASSERT(idx < ENTITY_INDEX_MASK && "Capacité d'entités épuisée (65 536) — le dernier index est réservé à NULL_ENTITY");
 				m_Generations.push_back(0u);
 				m_Alive.push_back(false);
 			}
@@ -183,7 +183,7 @@ namespace LV3
 					storage->OnEntityDestroyed(e);
 
 			const std::uint32_t idx = EntityIndex(e);
-			++m_Generations[idx];							// uint8_t : le wrap 255→0 est volontaire et assumé
+			++m_Generations[idx];							// uint16_t : le wrap 65535→0 est volontaire et assumé
 			m_Alive[idx] = false;
 			--m_AliveCount;
 			m_FreeIndices.push_back(idx);
@@ -576,8 +576,8 @@ namespace LV3
 	private:
 		std::vector<std::unique_ptr<IComponentStorage>> m_Storages;		// Le conteneur principal de pointeurs sur un SparseSet<T> pour un type T. O(1) pour l'accès par index.
 
-		// génération d'entité : 8 bits pour la génération, 24 bits pour l'index
-		std::vector<std::uint8_t>  m_Generations;	// génération courante de chaque slot
+		// génération d'entité
+		std::vector<std::uint16_t>  m_Generations;	// génération courante de chaque slot
 		std::vector<bool>          m_Alive;			// slot occupé ? (sert à l'itération par index)
 													// m_Alive est redondant pour IsAlive — la comparaison de génération suffit, car un slot détruit a déjà sa génération incrémentée, donc aucun handle émis ne peut la matcher tant qu'on n'a pas recréé. m_Alive existe pour un autre besoin : itérer tous les slots vivants sans consulter la free-list en O(N).
 		std::vector<std::uint32_t> m_FreeIndices;	// indices recyclables (LIFO)
