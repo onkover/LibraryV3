@@ -96,26 +96,27 @@ namespace LV3
 	}
 
 
-
 	//********************************************************************
-	// Descente récursive : chaque nœud est visité UNE fois.
+
 	void PropagateWorld(Registry& reg, Entity e, const Matrix44f& parentWorld)
 	{
-		TransformComponent* tr = reg.TryGet<TransformComponent>(e);
-		if (!tr) return;
+		// Par defaut, ce noeud ne contribue aucune transformation propre :
+		// il transmet le monde du parent tel quel (nœud d'organisation, sans TransformComponent).
+		Matrix44f world = parentWorld;
 
-		// Vecteur-ligne : v · M_enfant · M_parent  ->  enfant À GAUCHE
-		tr->m_worldMatrix = tr->m_localMatrix * parentWorld;
-
-		// COPIE avant de récurser : `tr` peut pendre si le stockage bouge.
-		const Matrix44f world = tr->m_worldMatrix;
+		if (TransformComponent* tr = reg.TryGet<TransformComponent>(e))
+		{
+			// Vecteur-ligne : v · M_enfant · M_parent  ->  enfant À GAUCHE
+			tr->m_worldMatrix = tr->m_localMatrix * parentWorld;
+			world = tr->m_worldMatrix;		// copie avant de recurser : tr peut pendre si le stockage bouge
+		}
 
 		if (const HierarchyComponent* h = reg.TryGet<HierarchyComponent>(e))
 			for (Entity child : h->m_children)
 				PropagateWorld(reg, child, world);
 	}
 
-
+	//********************************************************************
 	/// Met à jour la transformation mondiale d'une entité en composant sa transformation locale avec la transformation mondiale du parent, puis applique la mise à jour de manière récursive à ses enfants.
 	/// Propage les matrices monde depuis les racines. Une seule passe, O(n).
 	/// Exige que LocalTransformSystem ait déjà mis m_localMatrix à jour.
