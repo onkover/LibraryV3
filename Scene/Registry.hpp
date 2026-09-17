@@ -82,6 +82,15 @@ Exemples d'utilisation
 *********************************************************************/
 namespace LV3
 {
+	class Registry;
+
+	// Déclarée ici, définie dans Hierarchy.cpp. Le Registry ne connaît que
+	// cette signature — il ignore tout de HierarchyComponent, de m_parent,
+	// de m_children. C'est le module Hierarchy qui sait répondre ; le
+	// Registry se contente de refuser de détruire tant que la réponse est oui.
+	[[nodiscard]] bool HasOutgoingLinks(const Registry& registry, Entity e);
+
+
 
 	// Simple gestionnaire d'ID de type
 	// Permettra d'obtenir un ID unique pour chaque type de composant
@@ -161,10 +170,13 @@ namespace LV3
 		C'est le genre d'inversion qui compile parfaitement et détruit tout.
 			
 		*/
-
 			LV3_ASSERT(IsAlive(e) && "DestroyEntity : double destruction ou handle périmé");
 			if (!IsAlive(e))
-				return;										// garde-fou silencieux en Release
+				return;
+
+			LV3_ASSERT(!HasOutgoingLinks(*this, e) && "DestroyEntity : entité encore liée dans la hiérarchie — passer par DestroyHierarchy, ou Detach() d'abord");
+			if (HasOutgoingLinks(*this, e))
+				return;                                   // garde-fou silencieux en Release, même convention que IsAlive au-dessus
 
 			for (auto& storage : m_Storages)				// AVANT d'incrémenter : les storages doivent
 				if (storage)								// encore reconnaître l'entité pour la retirer

@@ -204,6 +204,16 @@ namespace LV3
 	/// </summary>
 	/// <param name="registry">Référence au registre qui gère les entités et leurs stockages.</param>
 	/// <param name="root">Entité racine du sous-arbre à détruire.</param>
+	//void DestroyHierarchy(Registry& registry, Entity root)
+	//{
+	//	std::vector<Entity> subtree;
+	//	CollectSubtree(registry, root, subtree);       // pré-ordre, root inclus
+
+	//	Detach(registry, root);                        // l'ancien parent oublie le mort
+
+	//	for (Entity e : subtree)
+	//		registry.DestroyEntity(e);                 // les storages nettoient chacun leur part
+	//}
 	void DestroyHierarchy(Registry& registry, Entity root)
 	{
 		std::vector<Entity> subtree;
@@ -211,9 +221,31 @@ namespace LV3
 
 		Detach(registry, root);                        // l'ancien parent oublie le mort
 
+		// Dénoue tout le sous-arbre AVANT toute destruction : à cet instant
+		// chaque nœud interne est encore lié à ses enfants (et eux à lui).
+		// Une fois cette passe faite, plus personne dans 'subtree' n'a de
+		// lien sortant — la précondition de DestroyEntity pourra les voir
+		// partir un par un sans jamais se déclencher à tort.
+		for (Entity e : subtree)
+			if (HierarchyComponent* h = registry.TryGet<HierarchyComponent>(e))
+			{
+				h->m_parent = NULL_ENTITY;
+				h->m_children.clear();
+			}
+
 		for (Entity e : subtree)
 			registry.DestroyEntity(e);                 // les storages nettoient chacun leur part
 	}
 
+	// Une entité a des liens sortants si la hiérarchie la considère encore
+	// comme rattachée à quelque chose — parent vivant référencé, ou enfants
+	// référencés. C'est la question que DestroyEntity a le droit de poser
+	// sans avoir à connaître la forme de HierarchyComponent.
+	[[nodiscard]] bool HasOutgoingLinks(const Registry& registry, Entity e)
+	{
+		const HierarchyComponent* h = registry.TryGet<HierarchyComponent>(e);
+		if (!h) return false;
+		return h->m_parent != NULL_ENTITY || !h->m_children.empty();
+	}
 
 }

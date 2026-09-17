@@ -1,13 +1,14 @@
 #include "pch.h"
 #include "ResourceManager.h"
 #include "CommunFunctions.h"
+#include "core/logger.h"
 
 namespace LV3 
 {
 
 ResourceManager::~ResourceManager()     // Cf. commentaire dans ResourceManager.h sur la raison de définir le destructeur dans le .cpp
 {
-    std::cout << "[ResourceManager] Destruction — " << GetMeshCount() << " mesh(es) libéré(s) via UnloadAll()" << std::endl;
+    Logger::info("[ResourceManager] Destruction — " + std::to_string(GetMeshCount()) + " mesh(es) libéré(s) via UnloadAll()\n");
     UnloadAll();
 }
 

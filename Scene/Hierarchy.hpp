@@ -14,6 +14,7 @@ namespace LV3
     bool SetParent(Registry& registry, Entity child, Entity newParent, bool keepWorld);
     void DestroyHierarchy(Registry& registry, Entity root);
 
+    [[nodiscard]] bool HasOutgoingLinks(const Registry& registry, Entity e);
 
     // Convention A1 : pas de HierarchyComponent = racine.
     [[nodiscard]] inline bool IsRoot(const Registry& registry, Entity e)
