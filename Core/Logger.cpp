@@ -32,7 +32,7 @@ namespace LV3
             std::cout << "\n\033[33m=[LibV3] " << msg << "\033[0m";   // Affichage en jaune
             break;
         case LV3::LogLevel::Error:
-            std::cout << "\n\033[31m=[LibV3] " << msg << "\033[0m";   // Affichage en vert
+            std::cout << "\n\033[31m=[LibV3] " << msg << "\033[0m";   // Affichage en rouge
             break;
         default:
             break;

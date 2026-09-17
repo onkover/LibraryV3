@@ -645,37 +645,41 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 	}
 }
 	//********************************************************************
-
 	void DebugDisplaySystemRecursive(Registry& registry, Entity entity, int ident)
 	{
-		// Vérifie que l'entité a les composants de base pour s'afficher
-		if (!registry.hasComponent<TransformComponent>(entity) && !registry.hasComponent<NameComponent>(entity))
-			return;
+		const bool hasTransform = registry.hasComponent<TransformComponent>(entity);
+		const bool hasName = registry.hasComponent<NameComponent>(entity);
 
 		for (int i = 0; i < ident; i++)
 			std::cout << "  ";
 
-		auto& transform = registry.getComponent<TransformComponent>(entity);
-		auto& name = registry.getComponent<NameComponent>(entity);
+		// Vérifie que l'entité a les composants de base pour s'afficher
+		if (hasTransform && hasName)
+		{
+			auto& transform = registry.getComponent<TransformComponent>(entity);
+			auto& name = registry.getComponent<NameComponent>(entity);
 
-		// Lecture de la worldMatrix (qui a déjà été calculée par WorldTransformSystem)
-		Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
-		Vec3f localPosition = Vec3f(transform.m_localMatrix[3][0], transform.m_localMatrix[3][1], transform.m_localMatrix[3][2]);
+			// Lecture de la worldMatrix (qui a déjà été calculée par WorldTransformSystem)
+			Vec3f worldPosition = Vec3f(transform.m_worldMatrix[3][0], transform.m_worldMatrix[3][1], transform.m_worldMatrix[3][2]);
+			Vec3f localPosition = Vec3f(transform.m_localMatrix[3][0], transform.m_localMatrix[3][1], transform.m_localMatrix[3][2]);
 
-		std::cout << " - " << name.m_id
-			<< "	Local(" << localPosition.x << ", " << localPosition.y << ", " << localPosition.z << ")    " 
-			<< "	World(" << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << ")" << std::endl;
+			std::cout << " - " << name.m_id
+				<< "	Local(" << localPosition.x << ", " << localPosition.y << ", " << localPosition.z << ")    "
+				<< "	World(" << worldPosition.x << ", " << worldPosition.y << ", " << worldPosition.z << ")" << std::endl;
+		}
+		else
+		{
+			std::cout << "\033[31m= - [noeud sans Nom ou Transform]\033[0m" << std::endl;
+		}
 
 		if (registry.hasComponent<HierarchyComponent>(entity))
 		{
-			auto& chidren = registry.getComponent<HierarchyComponent>(entity).m_children;
-			for (Entity child : chidren)
+			auto& children = registry.getComponent<HierarchyComponent>(entity).m_children;
+			for (Entity child : children)
 			{
 				DebugDisplaySystemRecursive(registry, child, ident + 1);
 			}
 		}
-
-
 	}
 
 	void DebugDisplaySystem(Registry& registry)//, std::map<Entity, std::string>& name)
@@ -690,6 +694,7 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 		});
 	}
 
+	//********************************************************************
 	
 	void DrawHierarchySystem(Registry& registry, ResourceManager& resourceManager)
 	{
