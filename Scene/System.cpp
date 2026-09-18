@@ -1,6 +1,8 @@
 #include "pch.h"          // ? première ligne, toujours
-#include <map>	// pour le debug
-#include <set>
+//#include <map>	// pour le debug
+//#include <set>
+#include <iostream>
+#include <span>
 
 #include "Registry.hpp"
 #include "../Core/EventBus.hpp"
@@ -138,6 +140,25 @@ namespace LV3
 		for (size_t i = 0; i < transforms.size(); ++i)
 			if (!registry.hasComponent<HierarchyComponent>(entities[i]))
 				transforms[i].m_worldMatrix = transforms[i].m_localMatrix;
+	}
+	//********************************************************************
+	/// Cuisson CIBLÉE : ne repropage que les racines listées (et leurs descendants),
+	/// pas toute la scène. Pensée pour une seconde passe de fin de frame qui ne fait
+	/// que re-cuire les caméras (et leurs gizmos) après les avoir repositionnées —
+	/// évite de retraverser tout WorldTransformSystem(registry), en O(N), pour une
+	/// poignée d'entités réellement changées.
+	/// PRÉCONDITION : chaque entité de 'roots' doit être une racine (sans parent) —
+	/// c'est toujours le cas d'une caméra, qui écrit une position MONDE (aucune scène
+	/// du dépôt ne parente une caméra). Assertée, jamais devinée : passer une entité
+	/// non racine donnerait un monde-parent 'identity' faux, silencieusement.
+	void WorldTransformSystem(Registry& registry, std::span<const Entity> roots)
+	{
+		const Matrix44f identity = Matrix44f::Identity();
+		for (Entity e : roots)
+		{
+			LV3_ASSERT(IsRoot(registry, e));
+			PropagateWorld(registry, e, identity);
+		}
 	}
 	//********************************************************************
 

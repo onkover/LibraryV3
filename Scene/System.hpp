@@ -4,10 +4,7 @@
 #include "Entity.hpp"
 #include "../Core/EventBus.hpp"
 #include "Registry.hpp"
-#include "rendering/viewport.h"
 #include "rendering/viewdata.h"
-#include "rendering/framebuffer.h"
-#include "rendering/depthbuffer.h"
 #include "../Core/InputState.h"
 #include "Core/EventNames.h"
 #include "../Core/Logger.h"
@@ -37,6 +34,8 @@ namespace LV3
 	// --- Transformation ---
 	void WorldTransformSystem(Registry& registry);
 	void LocalTransformSystem(Registry& registry);
+	void WorldTransformSystem(Registry& registry, std::span<const Entity> roots);   // ciblée : ne repropage QUE ces racines (et leurs descendants)
+
 
 	// --- Diagnostics (actifs en Debug uniquement) ---
 	void CheckAnimationBaseline(Registry& registry);            // UNE fois, après chargement
