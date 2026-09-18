@@ -761,18 +761,51 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 
 
 	//********************************************************************
-	void PlayerInputSystem(Registry& registry, float deltaTime) {
+	//void PlayerInputSystem(Registry& registry, float deltaTime) {
 
-		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) 
+	//	for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>()) 
+	//	{
+	//		// 'control' et 'transform' sont des références directes et MODIFIABLES
+	//		// Aucune vérification 'hasComponent' ou 'getComponent' dans la boucle.
+	//		// Itération dense et optimisée.
+	//		transform.m_local.position.x += control.m_speed * deltaTime;
+	//	}
+
+	//}
+		//********************************************************************
+	void PlayerInputSystem(Registry& registry, const InputState& in, float deltaTime) {
+
+		for (auto&& [entity, control, transform] : registry.ViewGroup<PlayerControlComponent, TransformComponent>())
 		{
 			// 'control' et 'transform' sont des références directes et MODIFIABLES
 			// Aucune vérification 'hasComponent' ou 'getComponent' dans la boucle.
 			// Itération dense et optimisée.
-			transform.m_local.position.x += control.m_speed * deltaTime;
+
+			// PlayerControlComponent ne porte AUCUNE orientation (contrairement à
+			// FPSControllerComponent) : Forward/Right/Up ne sont donc PAS tournés par
+			// tr.m_local.rotation, ce sont directement les axes MONDE. Un vaisseau qui
+			// devrait tourner avec sa propre orientation demanderait un champ d'orientation
+			// dédié dans PlayerControlComponent — hors périmètre du bug 45.
+			Vec3f dir;
+			if (in.moveForward)  dir += Vec3f::Forward();
+			if (in.moveBackward) dir -= Vec3f::Forward();
+			if (in.strafeRight)  dir += Vec3f::Right();
+			if (in.strafeLeft)   dir -= Vec3f::Right();
+			if (in.moveUp)       dir += Vec3f::Up();
+			if (in.moveDown)     dir -= Vec3f::Up();
+
+			if (dir.norm() > 0.0f)   // normalise : la diagonale ne doit pas être plus rapide que les axes (même règle que CameraFPSControllerSystem)
+			{
+				transform.m_local.position += dir.Normalized() * (control.m_speed * deltaTime);
+
+				// Bug 58 (R11bis) : c'est l'ÉCRIVAIN de m_local qui lève le drapeau.
+				// Sans ce dirty, LocalTransformSystem ignore l'entité (tr.m_dirty à false)
+				// et m_localMatrix n'est plus jamais recomposée — écriture sans effet.
+				transform.m_dirty = true;
+			}
 		}
 
 	}
-
 	//********************************************************************
 	// Fonction utilitaire pour basculer entre le mode FPS et le mode caméra suivie à la volée. 
 	// Active/désactive les composants FPSControllerComponent et CameraFollowComponent selon le mode choisi.

@@ -71,12 +71,92 @@ namespace LV3
         return ec ? full.parent_path() : canon.parent_path();
     }
 
-    // ────────────────────────────────────────────────────────────
-    //  Trois candidats, dans un ordre qui n'est pas negociable :
-    //    1. surcharge explicite  -> l'operateur a toujours le dernier mot
-    //    2. a cote de l'exe      -> le seul cas qui marche sur une machine
-    //                               qui n'a jamais vu le code source
-    //    3. arborescence projet  -> confort du developpeur, Debug uniquement
+//    // ────────────────────────────────────────────────────────────
+//    //  Trois candidats, dans un ordre qui n'est pas negociable :
+//    //    1. surcharge explicite  -> l'operateur a toujours le dernier mot
+//    //    2. a cote de l'exe      -> le seul cas qui marche sur une machine
+//    //                               qui n'a jamais vu le code source
+//    //    3. arborescence projet  -> confort du developpeur, Debug uniquement
+//    // ────────────────────────────────────────────────────────────
+//    std::filesystem::path ResolveContentRoot(std::span<const std::filesystem::path> extraCandidates)
+//    {
+//        std::vector<std::filesystem::path> tried;   // pour un diagnostic utilisable
+//
+//        // --- 1. Surcharge explicite -------------------------------------
+//        //     Vaut dans TOUTES les configurations : c'est ce qui permettra
+//        //     de lancer la meme binaire Release sur les trois scenes de la
+//        //     campagne de mesure sans recompiler.
+//        if (const std::wstring env = ReadEnvW(L"LV3_CONTENT_ROOT"); !env.empty())
+//        {
+//            const std::filesystem::path p{ env };
+//            if (IsContentRoot(p))
+//            {
+//                Logger::info("[Content] racine = LV3_CONTENT_ROOT : " + p.string());
+//                return p;
+//            }
+//            tried.push_back(p);
+//        }
+//
+//        // --- 2. A cote de l'executable ----------------------------------
+//#ifdef LV3_PROJECT_DIR
+//
+//        if (const std::filesystem::path exeDir = ExecutableDir(); !exeDir.empty())
+//        {
+//            if (IsContentRoot(exeDir))
+//            {
+//                //Logger::info("[Content] racine = dossier de l'executable : " + exeDir.string());
+//                LV3_LOG_DEBUG("[Content] racine = dossier de l'executable : " + exeDir.string());
+//                return exeDir;
+//            }
+//            tried.push_back(exeDir);
+//        }
+//#endif
+//
+//        // --- 3. Candidats fournis par l'application ---------------------
+//        //     Le moteur ne les interprete pas : il les teste dans l'ordre recu.
+//        for (const std::filesystem::path& p : extraCandidates)
+//        {
+//            if (IsContentRoot(p))
+//            {
+//                Logger::info("[Content] racine = candidat applicatif : " + p.string());
+//                return p;
+//            }
+//            tried.push_back(p);
+//        }
+//
+//        // --- Echec : on dit CE QU'ON A ESSAYE ---------------------------
+//        //     Un "fichier introuvable" sans la liste des chemins testes
+//        //     coute une heure. Avec la liste, il coute trente secondes.
+//        Logger::error("[Content] aucune racine valide : '" + std::string(kContentMarker)
+//            + "' introuvable.");
+//        for (const auto& p : tried)
+//            Logger::error("[Content]   essaye : " + p.string());
+//        if (tried.empty())
+//            Logger::error("[Content]   aucun candidat : ni LV3_CONTENT_ROOT, "
+//                "ni dossier d'executable exploitable.");
+//
+//        return {};
+//    }
+        // ────────────────────────────────────────────────────────────
+    //  Trois candidats, dans cet ordre :
+    //    1. surcharge explicite   -> l'operateur a toujours le dernier mot
+    //    2. candidats applicatifs -> argv[1] (priorite sur tous les replis,
+    //                                 cf. main.cpp) puis LV3_PROJECT_DIR
+    //                                 (Debug uniquement) : la SOURCE DE VERITE
+    //                                 qu'on est en train d'editer ou de mesurer,
+    //                                 jamais une copie
+    //    3. a cote de l'exe       -> dernier recours : le seul cas qui marche
+    //                                 sur une machine qui n'a jamais vu le
+    //                                 code source (distribution autonome,
+    //                                 sans argv[1] ni LV3_PROJECT_DIR)
+    //
+    //  Discussion D (18/09/2026) : l'ordre precedent (exe AVANT projet)
+    //  rendait le repli 2 inatteignable des qu'un build avait deja eu lieu
+    //  une fois — la copie post-build a cote de l'exe existe alors toujours
+    //  et gagne systematiquement, meme quand on edite activement le depot.
+    //  Meme risque, plus grave, pour la campagne de mesure (Phase 4/G) : un
+    //  argv[1] fourni pour choisir une scene pouvait etre tacitement ignore
+    //  si le dossier de l'exe contenait deja une racine valide.
     // ────────────────────────────────────────────────────────────
     std::filesystem::path ResolveContentRoot(std::span<const std::filesystem::path> extraCandidates)
     {
@@ -97,23 +177,11 @@ namespace LV3
             tried.push_back(p);
         }
 
-        // --- 2. A cote de l'executable ----------------------------------
-//#ifdef LV3_PROJECT_DIR
-
-        if (const std::filesystem::path exeDir = ExecutableDir(); !exeDir.empty())
-        {
-            if (IsContentRoot(exeDir))
-            {
-                //Logger::info("[Content] racine = dossier de l'executable : " + exeDir.string());
-                LV3_LOG_DEBUG("[Content] racine = dossier de l'executable : " + exeDir.string());
-                return exeDir;
-            }
-            tried.push_back(exeDir);
-        }
-//#endif
-
-        // --- 3. Candidats fournis par l'application ---------------------
+        // --- 2. Candidats fournis par l'application ---------------------
         //     Le moteur ne les interprete pas : il les teste dans l'ordre recu.
+        //     PRIORITAIRES sur le dossier de l'executable : ce sont les
+        //     fichiers qu'on edite ou qu'on mesure reellement, jamais une
+        //     copie susceptible d'etre perimee.
         for (const std::filesystem::path& p : extraCandidates)
         {
             if (IsContentRoot(p))
@@ -122,6 +190,20 @@ namespace LV3
                 return p;
             }
             tried.push_back(p);
+        }
+
+        // --- 3. A cote de l'executable (dernier recours) -----------------
+        //     Le seul cas qui marche sur une machine qui n'a jamais vu le
+        //     code source (distribution Release autonome, sans argv[1] ni
+        //     LV3_PROJECT_DIR).
+        if (const std::filesystem::path exeDir = ExecutableDir(); !exeDir.empty())
+        {
+            if (IsContentRoot(exeDir))
+            {
+                LV3_LOG_DEBUG("[Content] racine = dossier de l'executable : " + exeDir.string());
+                return exeDir;
+            }
+            tried.push_back(exeDir);
         }
 
         // --- Echec : on dit CE QU'ON A ESSAYE ---------------------------
@@ -137,4 +219,5 @@ namespace LV3
 
         return {};
     }
+
 }

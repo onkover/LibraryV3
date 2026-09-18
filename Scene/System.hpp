@@ -48,7 +48,7 @@ namespace LV3
 	// --- Les systèmes---
 	void AnimationSystem(Registry& registry, float deltaTime);
 	void DrawHierarchySystem(Registry& registry, ResourceManager& resourceManager);
-	void PlayerInputSystem(Registry& registry, float deltaTime);
+	void PlayerInputSystem(Registry& registry, const InputState& in, float deltaTime);
 	void TriggerSystem(Registry& registry, EventBus& eventBus);
 	ViewData BuildViewData(const Registry& registry, const CameraBinding& b) noexcept;
 

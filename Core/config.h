@@ -104,7 +104,7 @@ namespace LV3
 //    Independant de LV3_DEBUG : sinon CHAQUE build Debug l'allume,
 //    meme quand ce n'est pas ca qu'on debug. A activer ponctuellement.
 #ifndef LV3_DUMP_HIERARCHY
-	#define LV3_DUMP_HIERARCHY 1
+	#define LV3_DUMP_HIERARCHY 0
 #endif
 
 #if LV3_DEBUG_LOG
