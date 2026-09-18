@@ -408,7 +408,7 @@ namespace LV3
 	}
 
 	//********************************************************************
-	void SceneSerializer::followRotation(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	void SceneSerializer::ParseCameraFollow(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
 		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
