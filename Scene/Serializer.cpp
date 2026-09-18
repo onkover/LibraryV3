@@ -408,7 +408,7 @@ namespace LV3
 	}
 
 	//********************************************************************
-	void SceneSerializer::ParseCameraFollow(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	void SceneSerializer::followRotation(const void* pJsonNode, ParseContext& ctx, Entity entity)
 	{
 		const nlo_json& j = *static_cast<const nlo_json*>(pJsonNode);
 		if (!j.is_object()) return;
@@ -419,7 +419,10 @@ namespace LV3
 		c.m_isEnabled = r.Read("enabled", true);
 		c.m_offset = r.ReadVector("offset", Vec3f(0.0f, 2.0f, -6.0f));
 		c.m_smoothSpeed = r.Read("smoothSpeed", 5.0f);
-		c.m_lookAtHeight = r.Read("lookAtHeight", 0.0f);   // vise un peu au-dessus des pieds
+		c.m_lookAtHeight = r.Read("lookAtHeight", 0.0f);	   // vise un peu au-dessus des pieds
+		c.m_followRotation = r.Read("followRotation", true);   // l'offset pivote-t-il avec la cible ? (clé auparavant jamais lue)
+															// true (la caméra - suiveuse classique, "chase cam") : l'offset est d'abord tourné par la rotation courante de la cible, puis ajouté à sa position.Concrètement, si offset = (0, 2, -6) (« 2 au - dessus, 6 derrière »), la caméra reste toujours 2 unités au - dessus et 6 unités derrière le nez du vaisseau, quelle que soit la direction où il pointe.Le vaisseau tourne à gauche → la caméra pivote avec lui pour rester dans son dos.C'est le comportement attendu pour un jeu de vaisseau/voiture en troisième personne.
+															// false : l'offset est ajouté tel quel, en axes MONDE, sans jamais être tourné par l'orientation de la cible.La caméra garde un déplacement fixe par rapport aux axes du monde — par exemple toujours « 2 units en Y, -6 en Z » depuis la position de la cible, peu importe où elle regarde.Le vaisseau tourne sur lui - même → la caméra ne suit pas ce pivot, elle continue de le regarder depuis le même angle absolu.Utile pour une vue plus « stratégique » / isométrique qui ne doit pas tourner avec l'objet suivi.
 
 
 		c.m_smoothSpeed = std::max(c.m_smoothSpeed, 0.0f); // 0 = suivi rigide, pas de lissage
