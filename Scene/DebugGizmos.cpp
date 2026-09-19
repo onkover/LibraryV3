@@ -177,9 +177,14 @@ namespace LV3
             dbg.m_color = (giz.m_owner == activeCamera)
                 ? Color{ 255, 216,  26 } : Color{ 110, 112, 128 };
 
+            //A5 §4.5 : « une caméra non rendue voit quand
+            // même son mesh et sa couleur mis à jour » — TOUS les gizmos restent visibles,
+            // seule la teinte distingue la caméra active (ambre) des autres (gris froid).
+            // La politique « Unity » proposée en A9 §11.2 (un seul frustum visible à la fois)
+            // reste une dette ouverte, explicitement non tranchée par cette annexe elle-même
+            // — pas un correctif à embarquer ici en silence.
             const bool isActive = (giz.m_owner == activeCamera);
-            dbg.m_color = isActive ? Color{ 255,216,26 } : Color{ 110,112,128 };
-            dbg.m_visible = isActive;
+            dbg.m_color = isActive ? Color{ 255, 216,  26 } : Color{ 110, 112, 128 };
 
         }
     }
