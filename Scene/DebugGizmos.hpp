@@ -24,7 +24,7 @@ namespace LV3
 
         [[nodiscard]] bool IsValid() const noexcept
         {
-            return m_perspective.IsValid() && m_orthographic.IsValid();
+            return m_perspective.IsValid() || m_orthographic.IsValid();
         }
 
 

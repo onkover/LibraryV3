@@ -33,7 +33,7 @@ namespace LV3
             if (resultPerspect.has_value())
             {
                 a.m_perspective = *resultPerspect;
-                Logger::info("La camera en perspective est chargée");
+                Logger::success("La camera en perspective est chargée");
             }
             else
                 Logger::error("[Gizmo] echec chargement '" + gizmoMeshPerspect + "' code=" + std::to_string(static_cast<int>(resultPerspect.error())));
@@ -41,25 +41,35 @@ namespace LV3
             if (resultOrthogr.has_value())
             {
                 a.m_orthographic = *resultOrthogr;
-                Logger::info("La camera Orthographique est chargée");
+                Logger::success("La camera Orthographique est chargée");
             }
             else
                 Logger::error("[Gizmo] echec chargement '" + gizmoMeshOrthogr + "' code=" + std::to_string(static_cast<int>(resultOrthogr.error())));
 
+            // Bug 55 : la garde ci-dessus est un ||  (un seul succès suffit à entrer ici),
+            // mais le corps d'origine déréférençait rm.GetMesh(...) SANS condition — un
+            // && implicite. Si un seul des deux meshes a échoué, son MeshHandle reste
+            // invalide, rm.GetMesh() rend nullptr, et faceCount() plante sur un pointeur
+            // nul. Chaque bloc de log est maintenant gardé par le même booléen que celui
+            // qui a rempli le handle correspondant — jamais l'un sans l'autre.
+            Logger::info("[Gizmo]");
+            if (resultPerspect.has_value())
+            {
+                const MeshClass* mg = rm.GetMesh(a.m_perspective);
+                LV3_ASSERT(mg);
+                Logger::info("[Gizmo] Perspective : faces=" + std::to_string(mg->faceCount()) + "  verts=" + std::to_string(mg->vertexPositions.size()));
+            }
 
-            Logger::info("[Gizmo]\033[0m");
-            const MeshClass* mg = rm.GetMesh(a.m_perspective);
-            Logger::info("[Gizmo]  faces=" + std::to_string(mg->faceCount())
-                + "  verts=" + std::to_string(mg->vertexPositions.size()));
+            if (resultOrthogr.has_value())
+            {
+                const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
+                LV3_ASSERT(mg2);
+                Logger::info("[Gizmo] Orthographique :  faces=" + std::to_string(mg2->faceCount()) + "  verts=" + std::to_string(mg2->vertexPositions.size()));
+            }
 
-            const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
-            Logger::info("[Gizmo]  faces=" + std::to_string(mg2->faceCount())
-                + "  verts=" + std::to_string(mg2->vertexPositions.size()));
-
-            Logger::info("[Gizmo] persp=" + std::to_string(rm.GetMesh(a.m_perspective)->faceCount())
-                + " faces, ortho=" + std::to_string(rm.GetMesh(a.m_orthographic)->faceCount())
-                + " faces");
-
+            // a peut donc être PARTIELLEMENT valide ici (un seul des deux meshes chargé) :
+            // c'est voulu. C'est a.IsValid() (les DEUX handles valides), consulté par
+            // l'appelant, qui décide si SpawnCameraGizmos a le droit de s'exécuter.
             return a;
         }
         else
@@ -79,8 +89,8 @@ namespace LV3
     // Le mot "spawn" vient des jeux vidéo. Il signifie apparaître ou le lieu d'apparition d'un joueur, d'un monstre ou d'un objet dans le monde virtue
     void SpawnCameraGizmos(Registry& registry, const GizmoAssets& assets)
     {
-
-        LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
+        LV3_ASSERT(assets.IsValid());
+//        LV3_ASSERT(assets.m_perspective.IsValid() && assets.m_orthographic.IsValid());
 
         // 1. COLLECTER d'abord : creer des entites pendant l'iteration
         //    d'un ViewGroup invalide les tableaux denses du SparseSet.
@@ -88,11 +98,21 @@ namespace LV3
         for (auto&& [e, cam] : registry.ViewGroup<CameraComponent>())
             if (cam.m_gizmoLength > 0.0f) cameras.push_back(e);
 
-        // 2. Creer ensuite.
+
         for (Entity camEntity : cameras)
         {
             const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
 
+            const MeshHandle want = assets.For(cam.m_projection);
+            if (!want.IsValid())
+            {
+                Logger::warn("[Gizmo] pas d'asset pour la caméra '" + EntityLabel(registry, camEntity)
+                    + "' (projection " + std::to_string(static_cast<int>(cam.m_projection))
+                    + ") — gizmo non créé");
+                continue;
+            }
+
+            // 2. Creer ensuite.
             Entity g = registry.CreateEntity();
             registry.addComponent(g, NameComponent{ "__gizmo(" + EntityLabel(registry, camEntity) + ")" });
             registry.addComponent(g, TransformComponent{});
