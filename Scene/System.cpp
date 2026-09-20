@@ -280,10 +280,10 @@ namespace LV3
 
 		v.nearPlane = cam.m_nearPlane;
 
-		LV3_ASSERT(cam.m_infiniteFar || std::isfinite(v.farPlane));
 		//v.farPlane = cam.m_infiniteFar ? std::numeric_limits<float>::infinity() : cam.m_farPlane;
 		v.hasFarPlane = !cam.m_infiniteFar;
 		v.farPlane = cam.m_farPlane;      // sans objet si hasFarPlane == false
+		LV3_ASSERT(cam.m_infiniteFar || std::isfinite(v.farPlane));
 
 		LV3_ASSERT(!(cam.m_projection == EProjectionType::Orthographic && cam.m_infiniteFar));
 
