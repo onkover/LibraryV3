@@ -24,6 +24,13 @@ namespace LV3
     #define LV3_MAX_ENTITIES        4096    // Entités dans le Registry ECS
     #define LV3_MAX_CAMERA          32      // Nombre de liaisons caméra lues
     #define LV3_MAX_VIEWPORT        4      // Nombre de viewport affichées simultanément
+    // Bug 61 (Discussion E) : nom dédié pour la borne dure qui dimensionne les tampons de
+// pile de BuildCameraBindings (CameraBinding.CPP) — une caméra rendue = un viewport,
+// donc égal à LV3_MAX_VIEWPORT par construction. On ne duplique pas la valeur : on nomme
+// l'intention. C'est LA borne au-delà de laquelle aucun tampon de pile ne peut aller,
+// jamais dépassée même par la configuration (voir EngineConfig::CameraConfig::maxCameras,
+// qui est bornée par std::min(..., kMaxCamerasHard) au chargement).
+    inline constexpr size_t kMaxCamerasHard = LV3_MAX_VIEWPORT;
 
     // -------------------------------------------------------
     //  RENDERER CPU

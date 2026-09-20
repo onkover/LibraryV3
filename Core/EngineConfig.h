@@ -21,6 +21,16 @@ La valeur change pendant l'exécution du jeu ?
 namespace LV3
 {
 
+    // Bug 61 (Discussion E) : maxCameras est le plafond RUNTIME, réglable sans recompiler —
+    // combien de caméras/viewports simultanés CETTE exécution autorise. kMaxCamerasHard
+    // (EngineSettings.h) est le plafond COMPILE-TIME qui dimensionne les tampons de pile de
+    // BuildCameraBindings — il ne bouge jamais. maxCameras ne peut jamais le dépasser :
+    // LoadFromJson le borne avec std::min au chargement, jamais après.
+    struct CameraConfig
+    {
+        int maxCameras = static_cast<int>(kMaxCamerasHard);
+    };
+
     struct RendererConfig
     {
         bool  rasterizer = true;
@@ -59,6 +69,7 @@ namespace LV3
         FeaturesConfig  features;
         ResourcesConfig resources;
         DebugConfig     debug;
+        CameraConfig    camera;
 		SimulationClockSettings simulation;
         
         static EngineConfig& Get()

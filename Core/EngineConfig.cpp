@@ -1,4 +1,5 @@
 #include "pch.h"
+#include <algorithm>
 #include "EngineConfig.h"
 #include "Logger.h"
 #include "JsonReader.h"
@@ -106,6 +107,35 @@ namespace LV3
                 simulation.m_max = rs.Read("max", LV3_DEFAULT_MAX_SCALE);
 
                 rs.WarnUnread();
+            }
+
+            // ── camera (optionnel) — bug 61 ─────────────────────────
+            // maxCameras est une DEMANDE ; kMaxCamerasHard (compile-time) est la seule
+            // autorité sur la taille réelle des tampons. std::min ici, une seule fois,
+            // au chargement : jamais un clamp répété (et donc oublié) à chaque site d'usage.
+            if (r.Has("camera"))
+            {
+                JsonReader rc = r.Child("camera");
+                const int requested = rc.Read("maxCameras", static_cast<int>(kMaxCamerasHard));
+
+                if (requested < 1)
+                {
+                    Logger::warn("[EngineConfig] camera.maxCameras < 1, force a 1");
+                    camera.maxCameras = 1;
+                }
+                else if (requested > static_cast<int>(kMaxCamerasHard))
+                {
+                    Logger::warn("[EngineConfig] camera.maxCameras (" + std::to_string(requested)
+                        + ") > kMaxCamerasHard (" + std::to_string(kMaxCamerasHard)
+                        + ") — plafonne au maximum compile-time");
+                    camera.maxCameras = static_cast<int>(kMaxCamerasHard);
+                }
+                else
+                {
+                    camera.maxCameras = requested;
+                }
+
+                rc.WarnUnread();
             }
 
             r.WarnUnread();
