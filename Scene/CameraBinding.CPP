@@ -46,40 +46,6 @@ namespace LV3
         return 0;   // enum hors domaine
     }
 
-   // size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount, int w, int h, CameraBinding* out)
-   // {
-   //     Viewport vps[LV3_MAX_VIEWPORT];
-   //     const size_t n = BuildLayout(layout, w, h, vps);
-
-   //     if (n >= LV3_MAX_VIEWPORT)
-   //     {
-   //         LV3::Logger::warn("[CameraBinding] nombre de viewport > (" + std::to_string(LV3_MAX_VIEWPORT) + ")");
-   //         return 0;
-   //     }
-
-   //     if(n != slotCount)
-   //     {
-			//LV3::Logger::warn("[CameraBinding] nombre de slots (" + std::to_string(slotCount) + ") != nombre de vues (" + std::to_string(n) + ") pour le layout " + std::to_string(static_cast<int>(layout)));
-			//return 0;
-   //     }
-   //     //LV3_ASSERT(n == slotCount && n <= LV3_MAX_VIEWPORT);
-
-   //     for (size_t i = 0; i < n; ++i)
-   //     {
-   //         LV3_ASSERT(slots[i].m_camera != NULL_ENTITY);
-   //         out[i] = { slots[i].m_camera, vps[i], slots[i].m_mode };
-   //     }
-
-   //     // Aucune camera deux fois : son gizmo porte m_hideForCamera et serait
-   //     // masque dans TOUTES les vues ou elle apparait, donc invisible partout.
-   //     #ifdef _DEBUG
-   //         for (size_t i = 0; i < n; ++i)
-   //             for (size_t j = i + 1; j < n; ++j)
-   //                 LV3_ASSERT(out[i].m_camera != out[j].m_camera);
-   //     #endif
-
-   //     return n;
-   // }
 
     size_t BuildCameraBindings(ELayout layout, const ViewSlot* slots, size_t slotCount, int w, int h, CameraBinding* out)
     {
@@ -102,11 +68,11 @@ namespace LV3
         // Plafond RUNTIME (engine.json, borné par kMaxCamerasHard au chargement) : distinct
         // du plafond compile-time ci-dessus. Rejeter ici, jamais dans un std::vector local
         // redimensionné à la volée dans un système appelé par frame.
-        const size_t maxCamerasSoft = static_cast<size_t>(LV3::EngineConfig::Get().camera.maxCameras);
-        if (n > maxCamerasSoft)
+        const size_t maxViewportSoft = static_cast<size_t>(LV3::EngineConfig::Get().viewport.maxViewport);
+        if (n > maxViewportSoft)
         {
             LV3::Logger::warn("[CameraBinding] nombre de viewport (" + std::to_string(n)
-                + ") > camera.maxCameras configure (" + std::to_string(maxCamerasSoft) + ")");
+                + ") > viewport.maxViewport configure (" + std::to_string(maxViewportSoft) + ")");
             return 0;
         }
 

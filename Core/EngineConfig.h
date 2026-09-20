@@ -26,9 +26,9 @@ namespace LV3
     // (EngineSettings.h) est le plafond COMPILE-TIME qui dimensionne les tampons de pile de
     // BuildCameraBindings — il ne bouge jamais. maxCameras ne peut jamais le dépasser :
     // LoadFromJson le borne avec std::min au chargement, jamais après.
-    struct CameraConfig
+    struct ViewportConfig
     {
-        int maxCameras = static_cast<int>(kMaxCamerasHard);
+        int maxViewport = static_cast<int>(kMaxCamerasHard);
     };
 
     struct RendererConfig
@@ -69,14 +69,10 @@ namespace LV3
         FeaturesConfig  features;
         ResourcesConfig resources;
         DebugConfig     debug;
-        CameraConfig    camera;
+        ViewportConfig  viewport;
 		SimulationClockSettings simulation;
         
-        static EngineConfig& Get()
-        {
-            static EngineConfig instance;
-            return instance;
-        }
+        static EngineConfig& Get() { static EngineConfig instance; return instance; }
 
         // Charge engine.json et ecrase les valeurs par defaut ci-dessus.
         // Retourne false si le fichier est introuvable ou malforme :
