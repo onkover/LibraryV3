@@ -34,6 +34,9 @@ namespace LV3
 
         // --- Mode de rendu
         ERenderMode mode = ERenderMode::Solid;
+        
+        // --- Debug : affichage ---
+        float depthDisplayRange = 80.0f;   // plage de lisibilité pour ERenderMode::Depth — PAS une donnée géométrique (R20)
 
         // --- Destination ---
         Viewport  viewport;

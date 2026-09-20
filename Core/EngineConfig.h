@@ -60,7 +60,7 @@ namespace LV3
 
     struct DebugConfig
     {
-        float depthDisplayRange = 80.0f;
+        float depthDisplayRange = LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE;
     };
 
     struct EngineConfig

@@ -61,6 +61,10 @@ namespace LV3
 		float m_farPlane = 1000.0f;					// plan lointain, en unités monde
 		bool  m_infiniteFar = false;				// ignore m_farPlane : plus aucune limite lointaine
 
+		// --- Debug : affichage (PAS une donnée géométrique, cf. R20) ---
+		float m_depthDisplayRange = -1.0f;   // -1 = non défini -> utilise EngineConfig::debug.depthDisplayRange
+
+
 		// --- Perspective : paramétrage ---
 		ELensModel m_lensModel = ELensModel::FieldOfView;
 

@@ -300,6 +300,7 @@ namespace LV3
 		// ── 2. PLANS ──────────────────────────────────────────────────
 		c.m_nearPlane = r.Read("near", 0.1f);
 		c.m_infiniteFar = r.Read("infiniteFar", false);
+		c.m_depthDisplayRange = r.Read("depthDisplayRange", -1.0f);
 		c.m_farPlane = r.Read("far", 1000.0f);
 
 		if (c.m_infiniteFar && r.Has("far"))

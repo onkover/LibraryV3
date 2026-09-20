@@ -11,6 +11,7 @@
 #include "../Core/Logger.h"
 #include "Hierarchy.hpp"
 #include "Core/EngineSettings.h"
+#include "Core/EngineConfig.h"
 
 //#pragma message("=== Transform.h lu depuis : " __FILE__ " ===")
 
@@ -268,6 +269,9 @@ namespace LV3
 		v.m_sourceCamera = b.m_camera;		// ETAPE 0, avec le reste du contexte
 		v.viewport = b.m_viewport;			// la destination en pixels (et l'aspect ratio)
 		v.mode = b.m_mode;				// Mode de rendu pour la viewport
+		v.depthDisplayRange = (cam.m_depthDisplayRange > 0.0f)
+								? cam.m_depthDisplayRange
+								: LV3::EngineConfig::Get().debug.depthDisplayRange;
 		v.reverseZ = true;					// convention du moteur, mémorisée pour le Z-buffer
 
 		LV3_ASSERT(b.m_viewport.width > 0 && b.m_viewport.height > 0);

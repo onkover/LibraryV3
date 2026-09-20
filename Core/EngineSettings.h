@@ -74,6 +74,7 @@ namespace LV3
     #define LV3_DEFAULT_SPRINT_SCALE 		4.0f      // Échelle de temps pour l'affichage des pas de simulation
     #define LV3_DEFAULT_MIN_SCALE   		0.0001f   // Échelle de temps pour le pas minimum de simulation
     #define LV3_DEFAULT_MAX_SCALE 	    	1000.0f   // Échelle de temps pour le pas maximum de simulation
+    #define LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE 100.0f   // Plage de lisibilité pour ERenderMode::Depth
 
 
 } // namespace LV3

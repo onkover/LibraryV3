@@ -100,6 +100,7 @@ namespace LV3
     {
         renderer.SetViewport(view.viewport);        // l'état de la VUE
         renderer.SetMode(view.mode);
+        renderer.SetDepthDisplayRange(view.depthDisplayRange);  // profondeur de rendu si on le rendu est en mode DEPPH
         #ifdef _DEBUG
             const int vi = g_viewIndex;          // index de CETTE vue
             ++g_viewIndex;

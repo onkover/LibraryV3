@@ -86,7 +86,7 @@ namespace LV3
             if (r.Has("debug"))
             {
                 JsonReader rd = r.Child("debug");
-                debug.depthDisplayRange = rd.Read("depthDisplayRange", 80.0f);
+                debug.depthDisplayRange = rd.Read("depthDisplayRange", LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE);
                 rd.WarnUnread();
             }
 
