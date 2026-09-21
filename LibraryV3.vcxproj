@@ -215,6 +215,7 @@
     <ClInclude Include="Core\JsonReader.h" />
     <ClInclude Include="Core\Logger.h" />
     <ClInclude Include="Core\Platform.h" />
+    <ClInclude Include="Core\Profiler.h" />
     <ClInclude Include="Core\SimulationClock.h" />
     <ClInclude Include="Geometry\FaceView.h" />
     <ClInclude Include="Geometry\Material.h" />
@@ -269,6 +270,7 @@
     <ClCompile Include="Core\ContentRoot.cpp" />
     <ClCompile Include="Core\EngineConfig.cpp" />
     <ClCompile Include="Core\Logger.cpp" />
+    <ClCompile Include="Core\Profiler.cpp" />
     <ClCompile Include="Geometry\MeshClass.cpp" />
     <ClCompile Include="Maths\Geometry\Frustum.cpp" />
     <ClCompile Include="Maths\Projection.cpp" />

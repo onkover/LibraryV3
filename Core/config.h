@@ -107,6 +107,19 @@ namespace LV3
 	#define LV3_DUMP_HIERARCHY 0
 #endif
 
+// 6. Harnais de mesure par frame (Core/Profiler.h), phase G.
+//    NE DERIVE PAS de _DEBUG, volontairement : on mesure en Release,
+//    jamais en Debug (l'iterator debugging de la STL fausse d'un facteur
+//    10 a 50 le cout des ViewGroup, et ne preserve meme pas les RAPPORTS
+//    entre systemes). Defaut 0 : une binaire livree ne porte aucune borne.
+//    Mis a 1 pour la campagne par LV3.Common.props, pour la LIB *et* l'EXE
+//    a la fois -- une definition cote EXE seul reproduirait la quasi-
+//    violation d'ODR du bug 0.3 (LV3_ASSERTS_ENABLED).
+#ifndef LV3_PROFILE
+	#define LV3_PROFILE 1
+#endif
+
+
 #if LV3_DEBUG_LOG
 	#define LV3_LOG_DEBUG(msg)   LV3::Logger::info(msg)
 #else

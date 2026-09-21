@@ -216,6 +216,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\DepthBuffer.h" />
+    <ClInclude Include="Core\Profiler.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -282,6 +285,9 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="Core\ContentRoot.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\Profiler.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
