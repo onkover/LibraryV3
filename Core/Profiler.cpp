@@ -133,6 +133,9 @@ namespace LV3
 	}
 
 	uint64_t Profiler::OverheadNs() noexcept { return s_overheadNs; }
+
+	// Fige la valeur vue par CETTE unite de compilation, dans la LIB.
+	int Profiler::CompiledProfileFlag() noexcept { return LV3_PROFILE; }
 	size_t   Profiler::FrameCount() noexcept { return s_frames.size(); }
 	bool     Profiler::IsFull()     noexcept { return s_full; }
 

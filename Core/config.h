@@ -116,7 +116,10 @@ namespace LV3
 //    a la fois -- une definition cote EXE seul reproduirait la quasi-
 //    violation d'ODR du bug 0.3 (LV3_ASSERTS_ENABLED).
 #ifndef LV3_PROFILE
-	#define LV3_PROFILE 1
+	#define LV3_PROFILE 0
+	#pragma message("[config.h] LV3_PROFILE absent de la ligne de commande -> defaut 0")
+#else
+	#pragma message("[config.h] LV3_PROFILE impose par le systeme de build (props, /p: ou environnement)")
 #endif
 
 

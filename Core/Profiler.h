@@ -125,6 +125,13 @@ namespace LV3
 		static uint64_t OverheadNs() noexcept;   // cout mesure d'une paire de bornes
 		static size_t   FrameCount() noexcept;
 		static bool     IsFull() noexcept;       // budget de frames epuise
+
+		// Valeur de LV3_PROFILE telle que vue par la LIB a SA compilation.
+		// L'EXE compare avec la sienne : si les deux different, le commutateur
+		// n'est pas pose dans le foyer unique (LV3.Common.props) et une partie
+		// du programme mesure pendant que l'autre croit ne pas mesurer.
+		// Meme nature que le bug 0.3 (LV3_ASSERTS_ENABLED).
+		[[nodiscard]] static int CompiledProfileFlag() noexcept;
 	};
 
 	// RAII. Non copiable, non deplacable : une borne se ferme exactement
