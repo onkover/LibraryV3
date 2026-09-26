@@ -239,7 +239,30 @@ namespace LV3
 				g << kProfZoneNames[z] << ';' << med << ';' << p95 << ';' << mx << ';' << share << '\n';
 			}
 
-			g << "\ncompteur;median;p95;max;-\n";
+			// RESTE : frame moins la somme des zones, calcule FRAME PAR FRAME puis
+			// resume -- la mediane d'une somme n'est PAS la somme des medianes.
+			// C'est la part non instrumentee. Tant qu'elle est faible, la
+			// ventilation est credible ; grosse, elle designe ce qu'on a oublie.
+			{
+				auto collectResidual = [&]()
+					{
+						tmp.clear();
+						for (const ProfFrame& fr : s_frames)
+						{
+							if (fr.warmup) continue;
+							uint64_t sum = 0;
+							for (size_t z = 0; z < kProfZoneCount; ++z) sum += fr.ns[z];
+							tmp.push_back(fr.frameNs > sum ? fr.frameNs - sum : 0);
+						}
+					};
+				collectResidual(); const uint64_t med = Quantile(tmp, 0.50);
+				collectResidual(); const uint64_t p95 = Quantile(tmp, 0.95);
+				collectResidual(); const uint64_t mx = Quantile(tmp, 1.00);
+				const uint64_t share = (medianFrame > 0) ? (med * 1000u) / medianFrame : 0u;
+				g << "RESTE;" << med << ';' << p95 << ';' << mx << ';' << share << '\n';
+			}
+
+
 			for (size_t c = 0; c < kProfCounterCount; ++c)
 			{
 				auto collectCnt = [&]()
