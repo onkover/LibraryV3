@@ -9,7 +9,7 @@
 #include "Rendering/Rasterizer.h"      // MulRow, EdgeFunction, FaceColor
 #include "Rendering/ViewData.h"
 #include "Rendering/clipper.h"
-
+#include "Core/Profiler.h"            // hors pch.h : inclusion explicite (phase G)
 
 
 namespace LV3
@@ -88,6 +88,10 @@ namespace LV3
         // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
         if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
 
+        // Compte APRES le backface : ce qui nous interesse est ce qui atteint
+        // vraiment le rasterizer, pas ce qui a ete soumis puis jete.
+        LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
+
         renderer.DrawTriangle(
             RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
                               r[0].z,  r[1].z,  r[2].z,
@@ -101,7 +105,10 @@ namespace LV3
         renderer.SetViewport(view.viewport);        // l'état de la VUE
         renderer.SetMode(view.mode);
         renderer.SetDepthDisplayRange(view.depthDisplayRange);  // profondeur de rendu si on le rendu est en mode DEPPH
-        #ifdef _DEBUG
+        #if LV3_DEBUG
+            // Bug 69 : c'est LV3_DEBUG, pas _DEBUG. 'vi' est consomme plus bas sous
+            // #if LV3_DEBUG ; avec _DEBUG ici, un build NDEBUG + LV3_DEBUG=1 ne
+            // compilerait pas. Les deux commutateurs sont independants PAR DESSEIN.
             const int vi = g_viewIndex;          // index de CETTE vue
             ++g_viewIndex;
             ++g_viewsThisFrame;
@@ -130,9 +137,11 @@ namespace LV3
 
             const Matrix44f& modelMatrix = transform.m_worldMatrix;
 
-            //if (view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix))
-            //    == EIntersect::Outside) continue;
             const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
+
+            // Un mesh CLASSIFIE, pour toutes les vues cumulees. Le rapport
+            // MeshesCulled / MeshesTested donne l'efficacite du frustum culling.
+            LV3_PROF_COUNT(EProfCounter::MeshesTested, 1);
 
         #if LV3_DEBUG
             if (vi < kMaxViews)
@@ -146,8 +155,17 @@ namespace LV3
             }
         #endif
 
+            if (vis == EIntersect::Outside)
+            {
+                LV3_PROF_COUNT(EProfCounter::MeshesCulled, 1);
+                continue;
+            }
 
-            if (vis == EIntersect::Outside) continue;
+            // Faces qui ENTRENT dans le pipeline. faceCount() est un simple
+            // accesseur : rappel de la regle, jamais d'expression a effet de bord
+            // dans LV3_PROF_COUNT, elle disparaitrait quand LV3_PROFILE vaut 0.
+            LV3_PROF_COUNT(EProfCounter::FacesSubmitted, mesh->faceCount());
+
 
             // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near.
             // Aucun triangle ne peut le traverser : le clipping est structurellement inutile.

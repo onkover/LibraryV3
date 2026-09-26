@@ -169,10 +169,8 @@ namespace LV3
 
 	#define LV3_PROF_SCOPE(z)        ::LV3::ScopeTimer LV3_PROF_CAT(lv3Prof_, __LINE__){ (z) }
 	#define LV3_PROF_COUNT(c, n)     ::LV3::Profiler::Add((c), (n))
-	#define LV3_PROF_BEGIN_FRAME(t)  ((void)sizeof(t))
-	#define LV3_PROF_END_FRAME()     ((void)0)
-	#define LV3_PROF_BEGIN(tag)      ((void)0)
-	#define LV3_PROF_END(tag, z)     ((void)sizeof(z))
+	#define LV3_PROF_BEGIN_FRAME(t)  ::LV3::Profiler::BeginFrame(t)
+	#define LV3_PROF_END_FRAME()     ::LV3::Profiler::EndFrame()
 
 	// Bornes MANUELLES, pour une section qui DECLARE des variables utilisees
 	// plus bas : un bloc RAII les enfermerait dans sa portee. Forme d'exception,
@@ -181,8 +179,8 @@ namespace LV3
 	// reference et /W4 le signale (C4189). L'oubli ne passe pas inapercu.
 	#define LV3_PROF_BEGIN(tag)      const auto lv3ProfT_##tag = std::chrono::steady_clock::now()
 	#define LV3_PROF_END(tag, z)     ::LV3::Profiler::AddNs((z), static_cast<uint64_t>( \
-		std::chrono::duration_cast<std::chrono::nanoseconds>(                            \
-			std::chrono::steady_clock::now() - lv3ProfT_##tag).count()))
+			std::chrono::duration_cast<std::chrono::nanoseconds>(                            \
+				std::chrono::steady_clock::now() - lv3ProfT_##tag).count()))
 #else
 	// Meme idiome que LV3_ASSERT desactive : l'expression est COMPILEE
 	// (donc verifiee, et les variables comptent comme utilisees -- pas de
@@ -191,4 +189,6 @@ namespace LV3
 	#define LV3_PROF_COUNT(c, n)     ((void)sizeof(c), (void)sizeof(n))
 	#define LV3_PROF_BEGIN_FRAME(t)  ((void)sizeof(t))
 	#define LV3_PROF_END_FRAME()     ((void)0)
+	#define LV3_PROF_BEGIN(tag)      ((void)0)
+	#define LV3_PROF_END(tag, z)     ((void)sizeof(z))
 #endif
