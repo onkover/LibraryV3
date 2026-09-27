@@ -2,6 +2,7 @@
 #include "ResourceManager.h"
 #include "CommunFunctions.h"
 #include "core/logger.h"
+#include "Core/EngineSettings.h"
 
 namespace LV3 
 {
@@ -43,40 +44,6 @@ std::expected<MeshHandle, EMeshLoadError> ResourceManager::LoadMeshChecked(const
     // 3. Retourne le handle du mesh chargé (ou Invalid() en cas d'échec)
     return h;
 }
-
-//// LoadMesh existant devient un adaptateur mince pour compatibilité ascendante
-//MeshHandle ResourceManager::LoadMesh(const std::string& filepath, const OBJLoadOptions& opt)
-//{
-//    auto result = LoadMeshChecked(filepath, opt);
-//    return result.has_value() ? *result : MeshHandle::Invalid();
-//}
-
-//
-//
-//
-//
-//
-///// <summary>
-///// La fonction retourne un MeshHandle pour filepath en réutilisant un cache ou en chargeant le mesh depuis un fichier OBJ.
-///// </summary>
-///// <param name="filepath">Chemin du fichier OBJ à charger (const std::string&).</param>
-///// <param name="opt">Options de chargement (OBJLoadOptions) à appliquer.</param>
-///// <returns>MeshHandle du mesh chargé ou récupéré depuis le cache. Peut être invalide en cas d'échec.</returns>
-//MeshHandle ResourceManager::LoadMesh(const std::string& filepath, const OBJLoadOptions& opt)
-//{
-//	// 1. Vérifie si le mesh est déjà chargé dans le cache
-//    auto it = m_pathToMesh.find(filepath);
-//    if (it != m_pathToMesh.end()) 
-//        return it->second;  // Si trouvé dans le cache, retourne le handle existant
-//
-//	// 2. Sinon charge le mesh via OBJLoader et l'enregistre dans le cache
-//    MeshHandle h = OBJLoader::Load(filepath, *this, opt);
-//    if (h.IsValid()) 
-//        m_pathToMesh.emplace(filepath, h);  // Insertion via emplace évite une copie inutile si l'entrée n'existe pas
-//
-//	// 3. Retourne le handle du mesh chargé (ou Invalid() en cas d'échec)
-//	return h;
-//}
 
 //***********************************************************************************************
 /// <summary>
@@ -124,19 +91,6 @@ bool ResourceManager::IsMeshLoaded(const std::string& filepath) const
 }
 
 //***********************************************************************************************
-//void ResourceManager::UnloadMesh(MeshHandle h)
-//{
-//    if (!h.IsValid()) return;
-//
-//    for (auto it = m_pathToMesh.begin(); it != m_pathToMesh.end(); ++it)
-//        if (it->second == h) 
-//            { 
-//                m_pathToMesh.erase(it); 
-//                break;
-//            }
-//    m_meshes.erase(h.id);
-//}
-
 /// <summary>
 /// Décharge un maillage en particulier du gestionnaire de ressources pendant que le programme tourne, sans toucher au reste.
 /// Les scénarios qui justifieraient un tel appel sont typiquement : 
@@ -182,6 +136,20 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
 
 MeshHandle ResourceManager::RegisterMesh(std::unique_ptr<MeshClass> mesh) {
     LV3_ASSERT(mesh != nullptr);
+
+    // Chantier 2 : plafond de sommets verifie UNE fois, a la porte d'entree
+    // unique de tout mesh (OBJLoader aujourd'hui, meshes proceduraux demain).
+    // RenderView s'appuie ensuite sur ClipSpaceBuffer::Capacity() sans payer
+    // de verification a chaque frame.
+    if (mesh->vertexCount() > kMaxMeshVerticesHard)
+    {
+        Logger::error("RegisterMesh — '" + mesh->name + "' : "
+            + std::to_string(mesh->vertexCount()) + " sommets > plafond "
+            + std::to_string(kMaxMeshVerticesHard) + " (LV3_MAX_MESH_VERTICES) — mesh refuse");
+
+        return MeshHandle::Invalid();
+    }
+
     const MeshHandle h = AllocateMeshHandle();
     m_meshes.emplace(h.id, std::move(mesh));
     return h;

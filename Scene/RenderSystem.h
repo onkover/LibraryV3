@@ -1,6 +1,7 @@
 #pragma once
 #include "../Core/logger.h"
 
+
 // ============================================================
 //  Scene/RenderSystem.h — Le systeme de rendu ECS
 //
@@ -20,9 +21,12 @@ namespace LV3
     class  ResourceManager;
     class  Renderer;
     struct ViewData;
+    class  ClipSpaceBuffer;     // Rendering/VertexStage.h — toujours aucun #include ici
 
+    // clipBuf : tampon de l'etage sommets, possede par l'appelant, reutilise
+    // pour chaque (instance, vue). Jamais partage entre deux threads.
     void RenderView(Registry& registry, ResourceManager& rm,
-        Renderer& renderer, const ViewData& view);
+        Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf);
 
     // Rapport de statistiques de culling. No-op en Release.
     // Appeler UNE fois par frame, après la derniere vue.

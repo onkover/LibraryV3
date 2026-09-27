@@ -57,6 +57,8 @@ namespace LV3
 		MeshesCulled,      // ... rejetes Outside
 		FacesSubmitted,    // faces entrant dans le pipeline
 		TrisRasterized,    // triangles reellement envoyes au rasterizer
+		VertsTransformed,  // appels MulRow (chantier 2). Ajoute EN FIN : les colonnes
+							// des CSV de reference versionnes gardent leur position.
 		Count
 	};
 
@@ -74,12 +76,12 @@ namespace LV3
 	};
 	inline constexpr const char* kProfCounterNames[] = {
 		"Entities", "XformNodes", "TriggerPairs", "TriggerHits",
-		"MeshesTested", "MeshesCulled", "FacesSubmitted", "TrisRasterized"
+		"MeshesTested", "MeshesCulled", "FacesSubmitted", "TrisRasterized",
+		"VertsTransformed"
 	};
-	static_assert(std::size(kProfZoneNames) == kProfZoneCount,
-		"kProfZoneNames doit suivre EProfZone, une entree par zone");
-	static_assert(std::size(kProfCounterNames) == kProfCounterCount,
-		"kProfCounterNames doit suivre EProfCounter, une entree par compteur");
+
+	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
+	static_assert(std::size(kProfCounterNames) == kProfCounterCount, "kProfCounterNames doit suivre EProfCounter, une entree par compteur");
 
 	// ── Une frame = un enregistrement plat, trivialement copiable.
 	//    Pas de std::string, pas de pointeur : un memset le remet a zero.

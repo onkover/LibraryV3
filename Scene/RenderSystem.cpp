@@ -10,7 +10,7 @@
 #include "Rendering/ViewData.h"
 #include "Rendering/clipper.h"
 #include "Core/Profiler.h"            // hors pch.h : inclusion explicite (phase G)
-
+#include "Rendering/VertexStage.h"
 
 namespace LV3
 {
@@ -92,15 +92,18 @@ namespace LV3
         // vraiment le rasterizer, pas ce qui a ete soumis puis jete.
         LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
 
-        renderer.DrawTriangle(
-            RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
-                              r[0].z,  r[1].z,  r[2].z,
-                              invW[0], invW[1], invW[2] },
-            col);
+        // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
+        (void)renderer;
+
+        //renderer.DrawTriangle(
+        //    RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
+        //                      r[0].z,  r[1].z,  r[2].z,
+        //                      invW[0], invW[1], invW[2] },
+        //    col);
     }
 
     void RenderView(Registry& registry, ResourceManager& rm,
-        Renderer& renderer, const ViewData& view)
+        Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf)
     {
         renderer.SetViewport(view.viewport);        // l'état de la VUE
         renderer.SetMode(view.mode);
@@ -135,6 +138,12 @@ namespace LV3
             const MeshClass* mesh = rm.GetMesh(meshComp.m_meshHandle);
             if (!mesh || mesh->faceCount() == 0) continue;
 
+            // Garanti par RegisterMesh. Le if est un filet memoire actif en Release
+            // (meme patron que DestroyEntity, bug 53) : un seul test par mesh, gratuit.
+            const size_t nVerts = mesh->vertexCount();
+            LV3_ASSERT(nVerts <= ClipSpaceBuffer::Capacity());
+            if (nVerts > ClipSpaceBuffer::Capacity()) continue;
+
             const Matrix44f& modelMatrix = transform.m_worldMatrix;
 
             const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
@@ -165,6 +174,10 @@ namespace LV3
             // accesseur : rappel de la regle, jamais d'expression a effet de bord
             // dans LV3_PROF_COUNT, elle disparaitrait quand LV3_PROFILE vaut 0.
             LV3_PROF_COUNT(EProfCounter::FacesSubmitted, mesh->faceCount());
+            
+            // Etape 1 (provisoire) : l'ancien pipeline appelle MulRow sur CHAQUE coin,
+            // y compris ceux des faces rejetees ensuite par allOut.
+//            LV3_PROF_COUNT(EProfCounter::VertsTransformed, mesh->faceCount() * mesh->vertsPerFace);
 
 
             // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near.
@@ -174,6 +187,12 @@ namespace LV3
 
             const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
             const uint8_t   vpf = mesh->vertsPerFace;
+
+            // ── ETAGE SOMMETS (chantier 2) : chaque sommet transforme UNE fois
+            //    pour cette (instance, vue), puis les faces ne font que LIRE.
+            TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
+            const Vec4f* const clip = clipBuf.Data();
+            LV3_PROF_COUNT(EProfCounter::VertsTransformed, nVerts);
 
             // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
             const bool  hasTint = (dbg != nullptr);
@@ -185,7 +204,11 @@ namespace LV3
 
                 ClipVertex cv[4];
                 for (uint8_t k = 0; k < vpf; ++k)
-                    cv[k].clip = MulRow(mvp, mesh->vertexPositions[mesh->indices[base + k]]);
+                {
+                    const uint32_t vi_loc = mesh->indices[base + k];
+                    LV3_ASSERT(vi_loc < nVerts);      // un indice hors bornes lirait un sommet d'une AUTRE instance
+                    cv[k].clip = clip[vi_loc];        // lecture seule : plus aucune multiplication ici
+                }
 
                 // Chemin rapide garanti par la classification du MESH,
                 // pas redecouvert face par face.

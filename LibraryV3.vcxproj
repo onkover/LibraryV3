@@ -243,6 +243,7 @@
     <ClInclude Include="Rendering\Rasterizer.h" />
     <ClInclude Include="Rendering\Renderer.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
+    <ClInclude Include="Rendering\VertexStage.h" />
     <ClInclude Include="Rendering\ViewData.h" />
     <ClInclude Include="Rendering\Viewport.h" />
     <ClInclude Include="resource.h" />
@@ -285,6 +286,7 @@
     <ClCompile Include="Rendering\Fragment.cpp" />
     <ClCompile Include="Rendering\Rasterizer.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
+    <ClCompile Include="Rendering\VertexStage.cpp" />
     <ClCompile Include="Ressources\CommunFunctions.cpp" />
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />

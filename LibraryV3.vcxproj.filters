@@ -219,6 +219,9 @@
     <ClInclude Include="Core\Profiler.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\VertexStage.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -289,6 +292,9 @@
     </ClCompile>
     <ClCompile Include="Core\Profiler.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\VertexStage.cpp">
+      <Filter>Rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
