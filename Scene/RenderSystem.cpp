@@ -93,13 +93,19 @@ namespace LV3
         LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
 
         // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
-        (void)renderer;
+        #if LV3_ABLATION_RASTER     // M7 : ablation de la rasterisation, declaree dans l'en-tete CSV
+            (void)renderer; (void)col;
+        #else
 
-        //renderer.DrawTriangle(
-        //    RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
-        //                      r[0].z,  r[1].z,  r[2].z,
-        //                      invW[0], invW[1], invW[2] },
-        //    col);
+            renderer.DrawTriangle(
+                RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
+                                  r[0].z,  r[1].z,  r[2].z,
+                                  invW[0], invW[1], invW[2] },
+                col);
+
+        #endif
+
+
     }
 
     void RenderView(Registry& registry, ResourceManager& rm,

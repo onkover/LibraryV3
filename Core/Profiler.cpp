@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "Core/Profiler.h"
 #include "Core/Logger.h"
-
+#include <intrin.h>
 #include <algorithm>
 #include <fstream>
 #include <vector>
+#include "platform.h"
 
 namespace LV3
 {
@@ -139,6 +140,35 @@ namespace LV3
 	size_t   Profiler::FrameCount() noexcept { return s_frames.size(); }
 	bool     Profiler::IsFull()     noexcept { return s_full; }
 
+
+	// Nom commercial du CPU (CPUID 0x80000002..4). M2 : la machine est ecrite
+	// DANS le fichier. Deux campagnes sur deux machines ne se comparent pas.
+	static std::string CpuBrand()
+	{
+		int regs[4]{};
+		char brand[49]{};
+		__cpuid(regs, 0x80000000);
+		if (static_cast<unsigned>(regs[0]) < 0x80000004u) return "inconnu";
+		for (int i = 0; i < 3; ++i)
+		{
+			__cpuid(regs, 0x80000002 + i);
+			std::memcpy(brand + i * 16, regs, 16);
+		}
+		std::string s(brand);
+		for (char& c : s) if (c == ';') c = ',';   // le separateur du CSV est reserve
+		return s;
+	}
+	// M9 : sur CPU hybride (P/E), le type de coeur est une variable de la mesure.
+	// On ecrit le masque d'affinite effectif : "fff" = libre, sinon epingle.
+	static std::string AffinityMask()
+	{
+		DWORD_PTR proc = 0, sys = 0;
+		if (!GetProcessAffinityMask(GetCurrentProcess(), &proc, &sys)) return "inconnu";
+		char buf[32];
+		std::snprintf(buf, sizeof(buf), "%llx", static_cast<unsigned long long>(proc));
+		return buf;
+	}
+
 	bool Profiler::DumpCsv(const std::string& path, const ProfRunInfo& info)
 	{
 		if (s_frames.empty())
@@ -161,6 +191,9 @@ namespace LV3
 
 			f << "# scene=" << info.scene
 				<< ";config=" << info.config
+				<< ";cpu=" << CpuBrand()
+				<< ";affinity=" << AffinityMask()
+				<< ";ablation=" << info.ablation
 				<< ";res=" << info.width << 'x' << info.height
 				<< ";views=" << info.views
 				<< ";frames=" << s_frames.size()
@@ -212,6 +245,9 @@ namespace LV3
 			const uint64_t medianFrame = Quantile(tmp, 0.50);
 
 			g << "# scene=" << info.scene << ";config=" << info.config
+				<< ";cpu=" << CpuBrand()
+				<< ";affinity=" << AffinityMask()
+				<< ";ablation=" << info.ablation
 				<< ";res=" << info.width << 'x' << info.height
 				<< ";views=" << info.views
 				<< ";mesurees=" << measured << ";chauffe=" << s_warmup

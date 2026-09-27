@@ -104,6 +104,7 @@ namespace LV3
 		std::string config;              // "Release", "RelWithAsserts"
 		int width = 0, height = 0;
 		int views = 0;
+		std::string ablation = "none";   // M2 : un run d'ablation se declare LUI-MEME
 	};
 
 	class Profiler

@@ -147,3 +147,7 @@ namespace LV3
 	// et comptee comme un usage des variables) mais jamais EVALUEE.
 	#define LV3_ASSERT(...) ((void)sizeof(!(__VA_ARGS__)))
 #endif
+
+#ifndef LV3_ABLATION_RASTER
+	#define LV3_ABLATION_RASTER 0  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
+#endif
