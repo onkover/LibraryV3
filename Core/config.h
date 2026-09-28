@@ -165,3 +165,14 @@ namespace LV3
 #if LV3_RASTER_STATS && LV3_ABLATION_RASTER
 	#error "LV3_RASTER_STATS et LV3_ABLATION_RASTER sont exclusifs : l'ablation ne rasterise rien"
 #endif
+
+// 8. Statistiques de taille apparente (phase G, decision 2b / chantier 1).
+//    Par paire (instance, vue) : rayon apparent en pixels, faces par tranche.
+//    Un run qui l'active est un run de COMPTAGE : temps non recevables (M10).
+#ifndef LV3_LOD_STATS
+	#define LV3_LOD_STATS 1
+#endif
+
+#if LV3_LOD_STATS && !LV3_PROFILE
+	#error "LV3_LOD_STATS=1 exige LV3_PROFILE=1 : sans harnais, les compteurs ne vont nulle part"
+#endif

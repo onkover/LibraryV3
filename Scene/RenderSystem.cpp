@@ -125,10 +125,11 @@ namespace LV3
         renderer.SetViewport(view.viewport);        // l'état de la VUE
         renderer.SetMode(view.mode);
         renderer.SetDepthDisplayRange(view.depthDisplayRange);  // profondeur de rendu si on le rendu est en mode DEPPH
-        #if LV3_DEBUG
-            // Bug 69 : c'est LV3_DEBUG, pas _DEBUG. 'vi' est consomme plus bas sous
-            // #if LV3_DEBUG ; avec _DEBUG ici, un build NDEBUG + LV3_DEBUG=1 ne
-            // compilerait pas. Les deux commutateurs sont independants PAR DESSEIN.
+        #if LV3_LOD_STATS
+                const ScreenSizeParams ssp = MakeScreenSizeParams(view);   // une fois PAR VUE
+        #endif
+
+        #if LV3_DEBUG          
             const int vi = g_viewIndex;          // index de CETTE vue
             ++g_viewIndex;
             ++g_viewsThisFrame;
@@ -204,6 +205,31 @@ namespace LV3
 
             const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
             const uint8_t   vpf = mesh->vertsPerFace;
+
+            #if LV3_LOD_STATS
+                {
+                    // Taille apparente de CETTE instance dans CETTE vue. mvp est deja la :
+                    // w du centre = une MulRow, rien d'autre.
+                    const AABB3d& box = mesh->GetMeshAABB();
+                    const float   rW = BoundingRadiusWorld(box, modelMatrix);
+                    const float   wC = MulRow(mvp, box.Center()).w;
+                    const float   rPx = ProjectedRadiusPx(ssp, wC, rW);
+                    LV3_ASSERT(rPx >= 0.0f);   // echoue aussi sur NaN ; +inf admis
+
+                    // Tranche sans branche : 0 (<1), 1 (<4), 2 (<16), 3 (>=16 ou inf).
+                    const uint8_t b = uint8_t(rPx >= 1.0f) + uint8_t(rPx >= 4.0f) + uint8_t(rPx >= 16.0f);
+                    LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::InstPx0to1) + b), 1);
+                    LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::FacesPx0to1) + b), mesh->faceCount());
+
+                    // Champ du 2b : meshes Inside seulement (pas de w <= 0 possible).
+                    // Deductible HORS de la boucle des faces : on ne le compte pas dedans.
+                    if (!needsNearClip)
+                    {
+                        LV3_PROF_COUNT(EProfCounter::VertsInside, nVerts);
+                        LV3_PROF_COUNT(EProfCounter::TrisEmittedInside, mesh->faceCount() * size_t(vpf - 2));
+                    }
+                }
+            #endif
 
             // ── ETAGE SOMMETS (chantier 2) : chaque sommet transforme UNE fois
             //    pour cette (instance, vue), puis les faces ne font que LIRE.

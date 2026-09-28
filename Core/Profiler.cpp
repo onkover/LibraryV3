@@ -82,7 +82,8 @@ namespace LV3
 			+ " de chauffe, cout d'une paire de bornes ~"
 			+ std::to_string(s_overheadNs) + " ns, resolution "
 			+ std::to_string(s_resolutionNs) + " ns"
-			+ (LV3_RASTER_STATS ? " | RASTER_STATS ACTIF : run de COMPTAGE, temps non recevables" : ""));
+			+ (LV3_RASTER_STATS ? " | RASTER_STATS ACTIF : run de COMPTAGE, temps non recevables" : "")
+			+ (LV3_LOD_STATS ? " | LOD_STATS ACTIF : run de COMPTAGE, temps non recevables" : ""));
 	}
 
 	void Profiler::BeginFrame(uint64_t simTimeMilliDays)
@@ -194,8 +195,9 @@ namespace LV3
 				<< ";config=" << info.config
 				<< ";cpu=" << CpuBrand()
 				<< ";affinity=" << AffinityMask()
-				<< ";ablation=" << info.ablation
+				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
+				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE
 				<< ";res=" << info.width << 'x' << info.height
@@ -251,8 +253,9 @@ namespace LV3
 			g << "# scene=" << info.scene << ";config=" << info.config
 				<< ";cpu=" << CpuBrand()
 				<< ";affinity=" << AffinityMask()
-				<< ";ablation=" << info.ablation
+				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
+				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE
 				<< ";res=" << info.width << 'x' << info.height

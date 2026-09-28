@@ -103,4 +103,51 @@ namespace LV3
         mutable Matrix44f invVP;
         mutable bool      invValid = false;
     };
+
+    // ════════════════════════════════════════════════════════════
+//  TAILLE APPARENTE : SOURCE UNIQUE. Statistiques de la phase G
+//  aujourd'hui, selection du LOD demain : meme fonction (cf. TightPixelBox).
+//
+//  w_clip est AFFINE en position monde : w(p) = p.c + M[3][3],
+//  c = colonne 3 de VP.  Perspective : |c| = 1 (w = profondeur de vue).
+//  Ortho : c = 0 (w = 1). UNE formule, aucun drapeau de mode.
+// ════════════════════════════════════════════════════════════
+    struct ScreenSizeParams
+    {
+        float kPx;    // P[1][1] * H/2 : pixels par unite monde a w = 1
+        float wGrad;  // |colonne 3 de VP| : 1 en perspective, 0 en ortho
+        float wNear;  // en perspective, une sphere qui atteint le near => taille infinie
+    };
+
+    // Une fois PAR VUE, jamais par instance.
+    [[nodiscard]] inline ScreenSizeParams MakeScreenSizeParams(const ViewData& v) noexcept
+    {
+        const Matrix44f& M = v.viewProjectionMatrix;
+        return { v.projectionMatrix[1][1] * 0.5f * float(v.viewport.height),
+                 std::sqrt(M[0][3] * M[0][3] + M[1][3] * M[1][3] + M[2][3] * M[2][3]),
+                 v.nearPlane };
+    }
+
+    // Rayon apparent (pixels) d'une sphere : rayon monde rWorld, w_clip de son centre.
+    // Profondeur prise au point le PLUS PROCHE : jamais sous-estimee en profondeur.
+    // Limite connue : l'etirement hors axe (ellipse de perspective) n'est pas modelise.
+    [[nodiscard]] LV3_FORCEINLINE float ProjectedRadiusPx(const ScreenSizeParams& p,
+        float wCenter, float rWorld) noexcept
+    {
+        const float wMin = wCenter - rWorld * p.wGrad;
+        if (p.wGrad > 0.0f && wMin <= p.wNear)
+            return std::numeric_limits<float>::infinity();   // touche le near : detail maximal
+        return rWorld * p.kPx / wMin;
+    }
+
+    // Sphere circonscrite a l'AABB LOCALE, en unites monde : |demi-diagonale| x plus
+    // grande echelle d'axe (lignes 0..2 : convention vecteur-ligne). Surestime au plus
+    // d'un facteur sqrt(3) : c'est le sens SUR pour un LOD.
+    [[nodiscard]] inline float BoundingRadiusWorld(const AABB3d& local, const Matrix44f& world) noexcept
+    {
+        float s2 = 0.0f;
+        for (int i = 0; i < 3; ++i)
+            s2 = std::max(s2, world[i][0] * world[i][0] + world[i][1] * world[i][1] + world[i][2] * world[i][2]);
+        return local.Extent().length() * std::sqrt(s2);
+    }
 }

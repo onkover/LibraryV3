@@ -72,8 +72,23 @@ namespace LV3
 		PixelsCovered,     // pixels passant les 3 fonctions d'arete (AVANT le Z)
 		TrisEarlyRejected, // chantier 3b : boite serree vide, jamais envoyes au rasterizer.
 							// Invariant : Σ TrisCov* + TrisEarlyRejected == TrisRasterized
+
+							// ── Taille apparente (LV3_LOD_STATS). Nuls si le commutateur vaut 0.
+							//    Par paire (instance, vue) NON rejetee par le frustum.
+							//    Invariants : Σ InstPx*  == MeshesTested - MeshesCulled
+							//                 Σ FacesPx* == FacesSubmitted
+							//    ORDRE CONTIGU OBLIGATOIRE : RenderSystem indexe par (base + tranche).
+		InstPx0to1, InstPx1to4, InstPx4to16, InstPx16plus,
+		FacesPx0to1, FacesPx1to4, FacesPx4to16, FacesPx16plus,
+		VertsInside,       // sommets transformes pour les meshes Inside : champ du 2b
+		TrisEmittedInside, // triangles emis par les meshes Inside : 3 divisions chacun
+
 		Count
 	};
+
+	static_assert(uint8_t(EProfCounter::InstPx16plus) == uint8_t(EProfCounter::InstPx0to1) + 3
+		&& uint8_t(EProfCounter::FacesPx16plus) == uint8_t(EProfCounter::FacesPx0to1) + 3,
+		"RenderSystem indexe les tranches par base + b : ordre contigu obligatoire");
 
 	inline constexpr size_t kProfZoneCount = static_cast<size_t>(EProfZone::Count);
 	inline constexpr size_t kProfCounterCount = static_cast<size_t>(EProfCounter::Count);
@@ -93,7 +108,10 @@ namespace LV3
 		"VertsTransformed",
 		"TrisCov0", "TrisCov1", "TrisCov2to4", "TrisCov5plus", "TrisTightEmpty",
 		"PixelsTested", "PixelsTight", "PixelsCovered",
-		"TrisEarlyRejected"
+		"TrisEarlyRejected",
+		"InstPx0to1", "InstPx1to4", "InstPx4to16", "InstPx16plus",
+		"FacesPx0to1", "FacesPx1to4", "FacesPx4to16", "FacesPx16plus",
+		"VertsInside", "TrisEmittedInside"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
@@ -120,7 +138,7 @@ namespace LV3
 		std::string config;              // "Release", "RelWithAsserts"
 		int width = 0, height = 0;
 		int views = 0;
-		std::string ablation = "none";   // M2 : un run d'ablation se declare LUI-MEME
+		//std::string ablation = "none";   // M2 : un run d'ablation se declare LUI-MEME
 	};
 
 	class Profiler
