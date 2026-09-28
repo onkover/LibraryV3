@@ -22,11 +22,13 @@ namespace LV3
     class  Renderer;
     struct ViewData;
     class  ClipSpaceBuffer;     // Rendering/VertexStage.h — toujours aucun #include ici
+    class  RasterSpaceBuffer;   // idem (chantier 2b)
 
     // clipBuf : tampon de l'etage sommets, possede par l'appelant, reutilise
-    // pour chaque (instance, vue). Jamais partage entre deux threads.
-    void RenderView(Registry& registry, ResourceManager& rm,
-        Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf);
+    // rasterBuf : sortie PROJETEE des meshes Inside (chantier 2b).
+    // Tous deux possedes par l'appelant, reutilises pour chaque (instance, vue).
+    // Jamais partage entre deux threads.
+    void RenderView(Registry& registry, ResourceManager& rm, Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf, RasterSpaceBuffer& rasterBuf);
 
     // Rapport de statistiques de culling. No-op en Release.
     // Appeler UNE fois par frame, après la derniere vue.

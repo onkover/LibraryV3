@@ -66,65 +66,108 @@ namespace LV3
 
 
 
-    // ── Le seul endroit du moteur où la division par w a lieu ──
-    static void EmitClipTriangle(Renderer& renderer, const ViewData& view,
-        const ClipVertex& a, const ClipVertex& b,
-        const ClipVertex& c, Color col)
+    //// ── Le seul endroit du moteur où la division par w a lieu ──
+    //static void EmitClipTriangle(Renderer& renderer, const ViewData& view,
+    //    const ClipVertex& a, const ClipVertex& b,
+    //    const ClipVertex& c, Color col)
+    //{
+    //    const ClipVertex* v[3] = { &a, &b, &c };
+
+    //    Vec3f r[3];
+    //    float invW[3];
+
+    //    for (int k = 0; k < 3; ++k)
+    //    {
+    //        // Après clipping, w > 0 est GARANTI. Pas de garde nécessaire.
+    //        invW[k] = 1.0f / v[k]->clip.w;
+    //        r[k] = view.viewport.ToRaster({ v[k]->clip.x * invW[k],
+    //                                        v[k]->clip.y * invW[k],
+    //                                        v[k]->clip.z * invW[k] });
+    //    }
+
+    //    // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
+    //    if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
+
+    //    // Compte APRES le backface, AVANT le rejet 3b : le compteur garde le sens
+    //    // de la Reference F, les runs restent comparables.
+    //    LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
+
+    //    // ── CHANTIER 3b : rejet precoce EXACT ─────────────────────────────
+    //   // Aucun centre de pixel dans la boite serree => aucun pixel couvert.
+    //   // Mesure : 99,7 % des triangles de la ceinture. Exact en mode plein
+    //   // uniquement : le Wireframe trace le contour meme d'un triangle vide.
+    //    if (view.mode != ERenderMode::Wireframe &&
+    //        TightPixelBox(r[0], r[1], r[2], view.viewport).Empty())
+    //    {
+    //        LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, 1);
+    //        return;
+    //    }
+
+    //    // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
+    //    #if LV3_ABLATION_RASTER     // M7 : ablation de la rasterisation, declaree dans l'en-tete CSV
+    //        (void)renderer; (void)col;
+    //    #else
+
+    //        renderer.DrawTriangle(
+    //            RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
+    //                              r[0].z,  r[1].z,  r[2].z,
+    //                              invW[0], invW[1], invW[2] },
+    //            col);
+
+    //    #endif
+
+
+    //}
+
+
+     // ── AVAL COMMUN aux deux chemins : backface, compteur, rejet 3b, soumission.
+    //    SOURCE UNIQUE : le chemin Inside (2b) et le chemin clippe y passent tous deux.
+    static LV3_FORCEINLINE void EmitRasterTriangle(Renderer& renderer, const ViewData& view, const RasterVertex& a, const RasterVertex& b, const RasterVertex& c, Color col)
     {
-        const ClipVertex* v[3] = { &a, &b, &c };
+        // Backface : signe calibre et verrouille par la TNR (front-face = aire < 0 en raster)
+        if (IsBackFacing(EdgeFunction(a, b, c))) return;
 
-        Vec3f r[3];
-        float invW[3];
-
-        for (int k = 0; k < 3; ++k)
-        {
-            // Après clipping, w > 0 est GARANTI. Pas de garde nécessaire.
-            invW[k] = 1.0f / v[k]->clip.w;
-            r[k] = view.viewport.ToRaster({ v[k]->clip.x * invW[k],
-                                            v[k]->clip.y * invW[k],
-                                            v[k]->clip.z * invW[k] });
-        }
-
-        // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
-        if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
-
-        // Compte APRES le backface, AVANT le rejet 3b : le compteur garde le sens
-        // de la Reference F, les runs restent comparables.
+        // APRES le backface, AVANT le rejet 3b : sens de la Reference F conserve.
         LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
 
-        // ── CHANTIER 3b : rejet precoce EXACT ─────────────────────────────
-       // Aucun centre de pixel dans la boite serree => aucun pixel couvert.
-       // Mesure : 99,7 % des triangles de la ceinture. Exact en mode plein
-       // uniquement : le Wireframe trace le contour meme d'un triangle vide.
+        // CHANTIER 3b : rejet precoce EXACT (sauf Wireframe : Bresenham trace le contour)
         if (view.mode != ERenderMode::Wireframe &&
-            TightPixelBox(r[0], r[1], r[2], view.viewport).Empty())
+            TightPixelBox(a, b, c, view.viewport).Empty())
         {
             LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, 1);
             return;
         }
 
         // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
-        #if LV3_ABLATION_RASTER     // M7 : ablation de la rasterisation, declaree dans l'en-tete CSV
-            (void)renderer; (void)col;
+        #if LV3_ABLATION_RASTER
+                (void)renderer; (void)col;
         #else
-
-            renderer.DrawTriangle(
-                RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
-                                  r[0].z,  r[1].z,  r[2].z,
-                                  invW[0], invW[1], invW[2] },
-                col);
-
+                renderer.DrawTriangle(
+                    RasterTriangle{ { a.x, a.y }, { b.x, b.y }, { c.x, c.y },
+                                      a.z,    b.z,    c.z,
+                                      a.invW, b.invW, c.invW },
+                                    col);
         #endif
-
-
     }
 
-    void RenderView(Registry& registry, ResourceManager& rm,
-        Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf)
+    // ── Chemin CLIPPE (meshes Intersect) : projection par COIN, parce que les
+    //    sommets crees par le clipping n'existent dans aucun buffer.
+    static void EmitClipTriangle(Renderer& renderer, const ViewData& view,
+        const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, Color col)
+    {
+        // Apres clipping, w > 0 est GARANTI. Meme formule que ProjectPositions.
+        EmitRasterTriangle(renderer, view,
+                            ProjectClip(a.clip, view.viewport),
+                            ProjectClip(b.clip, view.viewport),
+                            ProjectClip(c.clip, view.viewport), col);
+    }
+
+    void RenderView(Registry& registry, ResourceManager& rm, Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf, RasterSpaceBuffer& rasterBuf) 
     {
         renderer.SetViewport(view.viewport);        // l'état de la VUE
         renderer.SetMode(view.mode);
         renderer.SetDepthDisplayRange(view.depthDisplayRange);  // profondeur de rendu si on le rendu est en mode DEPPH
+ 
         #if LV3_LOD_STATS
                 const ScreenSizeParams ssp = MakeScreenSizeParams(view);   // une fois PAR VUE
         #endif
@@ -198,50 +241,151 @@ namespace LV3
 //            LV3_PROF_COUNT(EProfCounter::VertsTransformed, mesh->faceCount() * mesh->vertsPerFace);
 
 
-            // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near.
-            // Aucun triangle ne peut le traverser : le clipping est structurellement inutile.
-            const bool needsNearClip = (vis == EIntersect::Intersect);
+   //         // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near.
+   //         // Aucun triangle ne peut le traverser : le clipping est structurellement inutile.
+   //         const bool needsNearClip = (vis == EIntersect::Intersect);
 
+
+   //         const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
+   //         const uint8_t   vpf = mesh->vertsPerFace;
+
+   //         #if LV3_LOD_STATS
+   //             {
+   //                 // Taille apparente de CETTE instance dans CETTE vue. mvp est deja la :
+   //                 // w du centre = une MulRow, rien d'autre.
+   //                 const AABB3d& box = mesh->GetMeshAABB();
+   //                 const float   rW = BoundingRadiusWorld(box, modelMatrix);
+   //                 const float   wC = MulRow(mvp, box.Center()).w;
+   //                 const float   rPx = ProjectedRadiusPx(ssp, wC, rW);
+   //                 LV3_ASSERT(rPx >= 0.0f);   // echoue aussi sur NaN ; +inf admis
+
+   //                 // Tranche sans branche : 0 (<1), 1 (<4), 2 (<16), 3 (>=16 ou inf).
+   //                 const uint8_t b = uint8_t(rPx >= 1.0f) + uint8_t(rPx >= 4.0f) + uint8_t(rPx >= 16.0f);
+   //                 LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::InstPx0to1) + b), 1);
+   //                 LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::FacesPx0to1) + b), mesh->faceCount());
+
+   //                 // Champ du 2b : meshes Inside seulement (pas de w <= 0 possible).
+   //                 // Deductible HORS de la boucle des faces : on ne le compte pas dedans.
+   //                 if (!needsNearClip)
+   //                 {
+   //                     LV3_PROF_COUNT(EProfCounter::VertsInside, nVerts);
+   //                     LV3_PROF_COUNT(EProfCounter::TrisEmittedInside, mesh->faceCount() * size_t(vpf - 2));
+   //                 }
+   //             }
+   //         #endif
+
+   //         // ── ETAGE SOMMETS (chantier 2) : chaque sommet transforme UNE fois
+   //         //    pour cette (instance, vue), puis les faces ne font que LIRE.
+   //         TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
+   //         const Vec4f* const clip = clipBuf.Data();
+   //         LV3_PROF_COUNT(EProfCounter::VertsTransformed, nVerts);
+
+   //         // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
+   //         const bool  hasTint = (dbg != nullptr);
+   //         const Color tint = hasTint ? dbg->m_color : Color{};
+
+   //         for (size_t f = 0; f < mesh->faceCount(); ++f)
+   //         {
+   //             const uint32_t base = uint32_t(f) * vpf;
+
+   //             ClipVertex cv[4];
+   //             for (uint8_t k = 0; k < vpf; ++k)
+   //             {
+   //                 const uint32_t vi_loc = mesh->indices[base + k];
+   //                 LV3_ASSERT(vi_loc < nVerts);      // un indice hors bornes lirait un sommet d'une AUTRE instance
+   //                 cv[k].clip = clip[vi_loc];        // lecture seule : plus aucune multiplication ici
+   //             }
+
+   //             // Chemin rapide garanti par la classification du MESH,
+   //             // pas redecouvert face par face.
+   //             bool allIn = true;
+
+   //             if (needsNearClip)
+   //             {
+   //                 float d[4];
+   //                 bool allOut = true;
+   //                 for (uint8_t k = 0; k < vpf; ++k)
+   //                 {
+   ///*                     const float d = NearDistance(cv[k]);
+   //                     if (d >= 0.0f) allOut = false; else allIn = false;
+   //                     d[k] = d;*/
+   //                     d[k] = NearDistance(cv[k]);
+   //                     if (d[k] >= 0.0f) allOut = false;
+   //                     else              allIn = false;
+   //                 }
+   //                 if (allOut) continue;
+   //             }
+   //             // sinon : allIn reste true, aucune distance calculée
+
+
+   //             //const Color col = FaceColor(int(f));
+   //             const Color col = hasTint ? tint : FaceColor(int(f));   // <-- remplace la ligne existante
+   //             // ── Éventail en CLIP space ──
+   //             for (uint8_t t = 0; t + 2 < vpf; ++t)
+   //             {
+   //                 const ClipVertex tri[3] = { cv[0], cv[t + 1], cv[t + 2] };
+
+   //                 if (allIn)
+   //                 {
+   //                     EmitClipTriangle(renderer, view, tri[0], tri[1], tri[2], col);
+   //                 }
+   //                 else
+   //                 {
+   //                     ClipVertex poly[kMaxClipVertices];
+   //                     const int32_t n = ClipTriangleNear(tri, poly);
+
+   //                     // éventail du polygone clippé — winding PRÉSERVÉ par l'ordre d'émission
+   //                     for (int32_t q = 1; q + 1 < n; ++q)
+   //                         EmitClipTriangle(renderer, view, poly[0], poly[q], poly[q + 1], col);
+   //                 }
+   //             }
+   //         }
+
+            // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near :
+            // w > 0 pour CHAQUE sommet. C'est cette garantie qui autorise le chantier 2b.
+            const bool needsNearClip = (vis == EIntersect::Intersect);
 
             const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
             const uint8_t   vpf = mesh->vertsPerFace;
-
-            #if LV3_LOD_STATS
-                {
-                    // Taille apparente de CETTE instance dans CETTE vue. mvp est deja la :
-                    // w du centre = une MulRow, rien d'autre.
-                    const AABB3d& box = mesh->GetMeshAABB();
-                    const float   rW = BoundingRadiusWorld(box, modelMatrix);
-                    const float   wC = MulRow(mvp, box.Center()).w;
-                    const float   rPx = ProjectedRadiusPx(ssp, wC, rW);
-                    LV3_ASSERT(rPx >= 0.0f);   // echoue aussi sur NaN ; +inf admis
-
-                    // Tranche sans branche : 0 (<1), 1 (<4), 2 (<16), 3 (>=16 ou inf).
-                    const uint8_t b = uint8_t(rPx >= 1.0f) + uint8_t(rPx >= 4.0f) + uint8_t(rPx >= 16.0f);
-                    LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::InstPx0to1) + b), 1);
-                    LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::FacesPx0to1) + b), mesh->faceCount());
-
-                    // Champ du 2b : meshes Inside seulement (pas de w <= 0 possible).
-                    // Deductible HORS de la boucle des faces : on ne le compte pas dedans.
-                    if (!needsNearClip)
-                    {
-                        LV3_PROF_COUNT(EProfCounter::VertsInside, nVerts);
-                        LV3_PROF_COUNT(EProfCounter::TrisEmittedInside, mesh->faceCount() * size_t(vpf - 2));
-                    }
-                }
-            #endif
-
-            // ── ETAGE SOMMETS (chantier 2) : chaque sommet transforme UNE fois
-            //    pour cette (instance, vue), puis les faces ne font que LIRE.
-            TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
-            const Vec4f* const clip = clipBuf.Data();
-            LV3_PROF_COUNT(EProfCounter::VertsTransformed, nVerts);
+            const size_t    nFaces = mesh->faceCount();
 
             // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
             const bool  hasTint = (dbg != nullptr);
             const Color tint = hasTint ? dbg->m_color : Color{};
 
-            for (size_t f = 0; f < mesh->faceCount(); ++f)
+            // Meme sens pour les deux chemins : un MulRow par sommet.
+            LV3_PROF_COUNT(EProfCounter::VertsTransformed, nVerts);
+
+            // ── CHEMIN INSIDE (chantier 2b) : MulRow + /w + ToRaster, UNE fois par sommet.
+            //    Plus aucune division dans la boucle des faces : elles ne font que LIRE.
+            if (!needsNearClip)
+            {
+                LV3_PROF_COUNT(EProfCounter::FacesInside, nFaces);
+
+                ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
+                const RasterVertex* const rv = rasterBuf.Data();
+
+                for (size_t f = 0; f < nFaces; ++f)
+                {
+                    const uint32_t* const idx = &mesh->indices[f * vpf];
+                    LV3_ASSERT(idx[0] < nVerts);   // un indice hors bornes lirait un sommet d'une AUTRE instance
+                    const Color col = hasTint ? tint : FaceColor(int(f));
+
+                    // Eventail : meme ordre d'emission que le chemin clippe, winding PRESERVE.
+                    for (uint8_t t = 0; t + 2 < vpf; ++t)
+                    {
+                        LV3_ASSERT(idx[t + 1] < nVerts && idx[t + 2] < nVerts);
+                        EmitRasterTriangle(renderer, view, rv[idx[0]], rv[idx[t + 1]], rv[idx[t + 2]], col);
+                    }
+                }
+                continue;   // entite suivante : le chemin Intersect ne la concerne pas
+            }
+
+            // ── CHEMIN INTERSECT : inchange. Espace clip, clipping near, projection par coin.
+            TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
+            const Vec4f* const clip = clipBuf.Data();
+
+            for (size_t f = 0; f < nFaces; ++f)
             {
                 const uint32_t base = uint32_t(f) * vpf;
 
@@ -249,35 +393,21 @@ namespace LV3
                 for (uint8_t k = 0; k < vpf; ++k)
                 {
                     const uint32_t vi_loc = mesh->indices[base + k];
-                    LV3_ASSERT(vi_loc < nVerts);      // un indice hors bornes lirait un sommet d'une AUTRE instance
-                    cv[k].clip = clip[vi_loc];        // lecture seule : plus aucune multiplication ici
+                    LV3_ASSERT(vi_loc < nVerts);
+                    cv[k].clip = clip[vi_loc];
                 }
 
-                // Chemin rapide garanti par la classification du MESH,
-                // pas redecouvert face par face.
-                bool allIn = true;
-
-                if (needsNearClip)
+                // Distances au near : ce chemin est TOUJOURS un mesh Intersect.
+                bool allIn = true, allOut = true;
+                for (uint8_t k = 0; k < vpf; ++k)
                 {
-                    float d[4];
-                    bool allOut = true;
-                    for (uint8_t k = 0; k < vpf; ++k)
-                    {
-   /*                     const float d = NearDistance(cv[k]);
-                        if (d >= 0.0f) allOut = false; else allIn = false;
-                        d[k] = d;*/
-                        d[k] = NearDistance(cv[k]);
-                        if (d[k] >= 0.0f) allOut = false;
-                        else              allIn = false;
-                    }
-                    if (allOut) continue;
+                    if (NearDistance(cv[k]) >= 0.0f) allOut = false;
+                    else                              allIn = false;
                 }
-                // sinon : allIn reste true, aucune distance calculée
+                if (allOut) continue;
 
+                const Color col = hasTint ? tint : FaceColor(int(f));
 
-                //const Color col = FaceColor(int(f));
-                const Color col = hasTint ? tint : FaceColor(int(f));   // <-- remplace la ligne existante
-                // ── Éventail en CLIP space ──
                 for (uint8_t t = 0; t + 2 < vpf; ++t)
                 {
                     const ClipVertex tri[3] = { cv[0], cv[t + 1], cv[t + 2] };
@@ -291,7 +421,7 @@ namespace LV3
                         ClipVertex poly[kMaxClipVertices];
                         const int32_t n = ClipTriangleNear(tri, poly);
 
-                        // éventail du polygone clippé — winding PRÉSERVÉ par l'ordre d'émission
+                        // eventail du polygone clippe — winding PRESERVE par l'ordre d'emission
                         for (int32_t q = 1; q + 1 < n; ++q)
                             EmitClipTriangle(renderer, view, poly[0], poly[q], poly[q + 1], col);
                     }

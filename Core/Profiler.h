@@ -78,6 +78,9 @@ namespace LV3
 							//    Invariants : Σ InstPx*  == MeshesTested - MeshesCulled
 							//                 Σ FacesPx* == FacesSubmitted
 							//    ORDRE CONTIGU OBLIGATOIRE : RenderSystem indexe par (base + tranche).
+		FacesInside,       // chantier 2b : faces des meshes Inside (chemin par sommet).
+							// eta = FacesInside / FacesSubmitted : le champ d'action du 2b.
+
 		InstPx0to1, InstPx1to4, InstPx4to16, InstPx16plus,
 		FacesPx0to1, FacesPx1to4, FacesPx4to16, FacesPx16plus,
 		VertsInside,       // sommets transformes pour les meshes Inside : champ du 2b
@@ -109,6 +112,7 @@ namespace LV3
 		"TrisCov0", "TrisCov1", "TrisCov2to4", "TrisCov5plus", "TrisTightEmpty",
 		"PixelsTested", "PixelsTight", "PixelsCovered",
 		"TrisEarlyRejected",
+		"FacesInside",
 		"InstPx0to1", "InstPx1to4", "InstPx4to16", "InstPx16plus",
 		"FacesPx0to1", "FacesPx1to4", "FacesPx4to16", "FacesPx16plus",
 		"VertsInside", "TrisEmittedInside"
