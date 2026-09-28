@@ -88,9 +88,20 @@ namespace LV3
         // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
         if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
 
-        // Compte APRES le backface : ce qui nous interesse est ce qui atteint
-        // vraiment le rasterizer, pas ce qui a ete soumis puis jete.
+        // Compte APRES le backface, AVANT le rejet 3b : le compteur garde le sens
+        // de la Reference F, les runs restent comparables.
         LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
+
+        // ── CHANTIER 3b : rejet precoce EXACT ─────────────────────────────
+       // Aucun centre de pixel dans la boite serree => aucun pixel couvert.
+       // Mesure : 99,7 % des triangles de la ceinture. Exact en mode plein
+       // uniquement : le Wireframe trace le contour meme d'un triangle vide.
+        if (view.mode != ERenderMode::Wireframe &&
+            TightPixelBox(r[0], r[1], r[2], view.viewport).Empty())
+        {
+            LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, 1);
+            return;
+        }
 
         // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
         #if LV3_ABLATION_RASTER     // M7 : ablation de la rasterisation, declaree dans l'en-tete CSV

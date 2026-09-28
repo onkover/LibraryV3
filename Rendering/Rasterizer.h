@@ -81,6 +81,38 @@ namespace LV3
         return signedArea >= 0.0f;
     }
 
+    // Boite des pixels dont le CENTRE (x+1/2, y+1/2) peut etre dans le triangle.
+    // x1 / y1 EXCLUSIFS.
+    struct PixelBox
+    {
+        int32_t x0, y0, x1, y1;
+        [[nodiscard]] bool     Empty() const noexcept { return x0 >= x1 || y0 >= y1; }
+        [[nodiscard]] uint32_t Area()  const noexcept
+        {
+            return Empty() ? 0u : uint32_t(x1 - x0) * uint32_t(y1 - y0);
+        }
+    };
+
+    // SOURCE UNIQUE de la boite serree : le rejet precoce (chantier 3b) ET les
+    // statistiques de couverture l'utilisent. Deux copies de la formule
+    // finiraient par diverger, et la mesure ne parlerait plus du meme objet
+    // que le rejet.
+    // Boite vide  =>  aucun centre de pixel  =>  aucun pixel couvert : rejet EXACT.
+    template<typename V>
+    [[nodiscard]] LV3_FORCEINLINE PixelBox TightPixelBox(const V& a, const V& b, const V& c,
+        const Viewport& vp) noexcept
+    {
+        PixelBox bx{
+            int32_t(std::ceil(std::min({ a.x, b.x, c.x }) - 0.5f)),
+            int32_t(std::ceil(std::min({ a.y, b.y, c.y }) - 0.5f)),
+            int32_t(std::floor(std::max({ a.x, b.x, c.x }) - 0.5f)) + 1,
+            int32_t(std::floor(std::max({ a.y, b.y, c.y }) - 0.5f)) + 1 };
+        vp.ClampBox(bx.x0, bx.y0, bx.x1, bx.y1);
+        return bx;
+    }
+
+
+
     // ════════════════════════════════════════════════════════════
     //  DÉCLARÉES ICI, définies dans Rasterizer.cpp : elles bouclent.
     // ════════════════════════════════════════════════════════════

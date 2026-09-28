@@ -1,9 +1,39 @@
 #include "pch.h"
 #include "Rasterizer.h"
 #include "core/logger.h"
+#if LV3_RASTER_STATS
+    #include "Core/Profiler.h"     // hors pch.h : inclusion explicite
+#endif
 
 namespace LV3
 {
+    #if LV3_RASTER_STATS
+        namespace
+        {
+            // UN enregistrement par triangle, jamais par pixel (voir contre-exemple).
+            void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept
+            {
+                const EProfCounter bucket =
+                    covered == 0 ? EProfCounter::TrisCov0
+                    : covered == 1 ? EProfCounter::TrisCov1
+                    : covered <= 4 ? EProfCounter::TrisCov2to4
+                    : EProfCounter::TrisCov5plus;
+                LV3_PROF_COUNT(bucket, 1);
+                if (tight == 0) LV3_PROF_COUNT(EProfCounter::TrisTightEmpty, 1);
+                LV3_PROF_COUNT(EProfCounter::PixelsTested, tested);
+                LV3_PROF_COUNT(EProfCounter::PixelsTight, tight);
+                LV3_PROF_COUNT(EProfCounter::PixelsCovered, covered);
+            }
+        }
+    
+        #define LV3_RASTER_RECORD(tested, tight, covered) RecordRasterStats((tested), (tight), (covered))
+    
+    #else
+        // Les arguments DISPARAISSENT : tight/covered n'existent pas quand le commutateur vaut 0.
+        #define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+    #endif
+
+
     bool IsTopLeft(const Vec2f& a, const Vec2f& b) noexcept
     {
         const Vec2f edge{ b.x - a.x, b.y - a.y };
@@ -48,9 +78,25 @@ namespace LV3
 
         // ── Normalise le sens de parcours : on travaille toujours en aire POSITIVE.
         //    Les poids barycentriques seront reremis dans l'ordre d'origine plus bas.
+        //Vec2f p0 = v0, p1 = v1, p2 = v2;
+        //float area = EdgeFunction(p0, p1, p2);
+        //if (area == 0.0f) return;                       // triangle dégénéré
+
+        //const bool flipped = (area < 0.0f);
+        //if (flipped) { std::swap(p1, p2); area = -area; }
+
+        //// ── Bounding box, rognée au VIEWPORT (= le scissor)
+        //int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
+        //int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
+        //int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
+        //int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
+        //vp.ClampBox(minX, minY, maxX, maxY);
+        //if (minX >= maxX || minY >= maxY) return;
+
+
         Vec2f p0 = v0, p1 = v1, p2 = v2;
         float area = EdgeFunction(p0, p1, p2);
-        if (area == 0.0f) return;                       // triangle dégénéré
+        if (area == 0.0f) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }   // triangle dégénéré
 
         const bool flipped = (area < 0.0f);
         if (flipped) { std::swap(p1, p2); area = -area; }
@@ -61,7 +107,27 @@ namespace LV3
         int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
         int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
         vp.ClampBox(minX, minY, maxX, maxY);
-        if (minX >= maxX || minY >= maxY) return;
+
+    //#if LV3_RASTER_STATS
+    //    // Boite SERREE : les seuls pixels dont le CENTRE (x+1/2) peut etre dans le
+    //    // triangle. MESUREE ici, jamais utilisee : la boucle ci-dessous est inchangee.
+    //    int tx0 = int(std::ceil(std::min({ p0.x, p1.x, p2.x }) - 0.5f));
+    //    int ty0 = int(std::ceil(std::min({ p0.y, p1.y, p2.y }) - 0.5f));
+    //    int tx1 = int(std::floor(std::max({ p0.x, p1.x, p2.x }) - 0.5f)) + 1;   // exclusif
+    //    int ty1 = int(std::floor(std::max({ p0.y, p1.y, p2.y }) - 0.5f)) + 1;
+    //    vp.ClampBox(tx0, ty0, tx1, ty1);
+    //    const uint32_t tight = (tx1 > tx0 && ty1 > ty0)
+    //        ? uint32_t(tx1 - tx0) * uint32_t(ty1 - ty0) : 0u;
+    //    uint32_t covered = 0;
+    //#endif
+    #if LV3_RASTER_STATS
+        const PixelBox tb = TightPixelBox(p0, p1, p2, vp);   // la MEME formule que le rejet 3b
+        const uint32_t tight = tb.Area();
+        uint32_t       covered = 0;
+    #endif
+
+        if (minX >= maxX || minY >= maxY) { LV3_RASTER_RECORD(0u, tight, 0u); return; }
+
 
         // ── Règle top-left : évaluée UNE fois par triangle, pas par pixel
         const bool tl0 = IsTopLeft(p1, p2);
@@ -99,6 +165,15 @@ namespace LV3
                 if (!(w1 > 0.0f || (w1 == 0.0f && tl1))) continue;
                 if (!(w2 > 0.0f || (w2 == 0.0f && tl2))) continue;
 
+                #if LV3_RASTER_STATS
+                    // Preuve sur donnees reelles, prealable au chantier 3a :
+                    // la boite serree contient TOUT pixel couvert.
+                    //LV3_ASSERT(x >= tx0 && x < tx1 && y >= ty0 && y < ty1);
+                    LV3_ASSERT(x >= tb.x0 && x < tb.x1 && y >= tb.y0 && y < tb.y1);
+                    ++covered;                                  // registre, pas d'appel
+                #endif
+
+
                 // Si les sommets ont été échangés, w1 et w2 le sont aussi :
                 // on les remet dans l'ordre du triangle d'origine.
                 const BarycentricWeights bary = flipped
@@ -109,7 +184,7 @@ namespace LV3
             }
         }
 
-
+        LV3_RASTER_RECORD(uint32_t(maxX - minX) * uint32_t(maxY - minY), tight, covered);
     }
 
 

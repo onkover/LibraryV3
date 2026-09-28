@@ -151,3 +151,17 @@ namespace LV3
 #ifndef LV3_ABLATION_RASTER
 	#define LV3_ABLATION_RASTER 0  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
 #endif
+
+// 7. Statistiques de couverture du rasterizer (phase G, comptage 2b / 3).
+//    Instrumente la boucle PIXEL : un run qui l'active est un run de COMPTAGE,
+//    ses temps ne sont pas recevables (M10). Defaut 0.
+#ifndef LV3_RASTER_STATS
+	#define LV3_RASTER_STATS 0
+#endif
+
+#if LV3_RASTER_STATS && !LV3_PROFILE
+	#error "LV3_RASTER_STATS=1 exige LV3_PROFILE=1 : sans harnais, les compteurs ne vont nulle part"
+#endif
+#if LV3_RASTER_STATS && LV3_ABLATION_RASTER
+	#error "LV3_RASTER_STATS et LV3_ABLATION_RASTER sont exclusifs : l'ablation ne rasterise rien"
+#endif

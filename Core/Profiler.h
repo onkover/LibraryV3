@@ -56,9 +56,22 @@ namespace LV3
 		MeshesTested,      // meshes classifies par le frustum
 		MeshesCulled,      // ... rejetes Outside
 		FacesSubmitted,    // faces entrant dans le pipeline
-		TrisRasterized,    // triangles reellement envoyes au rasterizer
+		TrisRasterized,    // triangles front-facing (apres backface), AVANT le rejet 3b.
+							// Sens garde depuis la Reference F : memes triangles consideres.
 		VertsTransformed,  // appels MulRow (chantier 2). Ajoute EN FIN : les colonnes
 							// des CSV de reference versionnes gardent leur position.
+		// ── Couverture (LV3_RASTER_STATS). Nuls si le commutateur vaut 0.
+		//    Invariant : TrisCov0 + TrisCov1 + TrisCov2to4 + TrisCov5plus == TrisRasterized
+		TrisCov0,          // triangles ne couvrant AUCUN pixel
+		TrisCov1,
+		TrisCov2to4,
+		TrisCov5plus,
+		TrisTightEmpty,    // boite serree vide : rejetable en O(1) (sous-ensemble de TrisCov0)
+		PixelsTested,      // tours de la boucle pixel ACTUELLE (boite lache)
+		PixelsTight,       // aire de la boite serree ceil(min-1/2)..floor(max-1/2)
+		PixelsCovered,     // pixels passant les 3 fonctions d'arete (AVANT le Z)
+		TrisEarlyRejected, // chantier 3b : boite serree vide, jamais envoyes au rasterizer.
+							// Invariant : Σ TrisCov* + TrisEarlyRejected == TrisRasterized
 		Count
 	};
 
@@ -77,7 +90,10 @@ namespace LV3
 	inline constexpr const char* kProfCounterNames[] = {
 		"Entities", "XformNodes", "TriggerPairs", "TriggerHits",
 		"MeshesTested", "MeshesCulled", "FacesSubmitted", "TrisRasterized",
-		"VertsTransformed"
+		"VertsTransformed",
+		"TrisCov0", "TrisCov1", "TrisCov2to4", "TrisCov5plus", "TrisTightEmpty",
+		"PixelsTested", "PixelsTight", "PixelsCovered",
+		"TrisEarlyRejected"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
