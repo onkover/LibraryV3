@@ -77,22 +77,6 @@ namespace LV3
        */
 
         // ── Normalise le sens de parcours : on travaille toujours en aire POSITIVE.
-        //    Les poids barycentriques seront reremis dans l'ordre d'origine plus bas.
-        //Vec2f p0 = v0, p1 = v1, p2 = v2;
-        //float area = EdgeFunction(p0, p1, p2);
-        //if (area == 0.0f) return;                       // triangle dégénéré
-
-        //const bool flipped = (area < 0.0f);
-        //if (flipped) { std::swap(p1, p2); area = -area; }
-
-        //// ── Bounding box, rognée au VIEWPORT (= le scissor)
-        //int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
-        //int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
-        //int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
-        //int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
-        //vp.ClampBox(minX, minY, maxX, maxY);
-        //if (minX >= maxX || minY >= maxY) return;
-
 
         Vec2f p0 = v0, p1 = v1, p2 = v2;
         float area = EdgeFunction(p0, p1, p2);
@@ -101,33 +85,34 @@ namespace LV3
         const bool flipped = (area < 0.0f);
         if (flipped) { std::swap(p1, p2); area = -area; }
 
-        // ── Bounding box, rognée au VIEWPORT (= le scissor)
-        int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
-        int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
-        int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
-        int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
-        vp.ClampBox(minX, minY, maxX, maxY);
+    //    // ── Bounding box, rognée au VIEWPORT (= le scissor)
+    //    int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
+    //    int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
+    //    int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
+    //    int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
+    //    vp.ClampBox(minX, minY, maxX, maxY);
+
 
     //#if LV3_RASTER_STATS
-    //    // Boite SERREE : les seuls pixels dont le CENTRE (x+1/2) peut etre dans le
-    //    // triangle. MESUREE ici, jamais utilisee : la boucle ci-dessous est inchangee.
-    //    int tx0 = int(std::ceil(std::min({ p0.x, p1.x, p2.x }) - 0.5f));
-    //    int ty0 = int(std::ceil(std::min({ p0.y, p1.y, p2.y }) - 0.5f));
-    //    int tx1 = int(std::floor(std::max({ p0.x, p1.x, p2.x }) - 0.5f)) + 1;   // exclusif
-    //    int ty1 = int(std::floor(std::max({ p0.y, p1.y, p2.y }) - 0.5f)) + 1;
-    //    vp.ClampBox(tx0, ty0, tx1, ty1);
-    //    const uint32_t tight = (tx1 > tx0 && ty1 > ty0)
-    //        ? uint32_t(tx1 - tx0) * uint32_t(ty1 - ty0) : 0u;
-    //    uint32_t covered = 0;
+    //    const PixelBox tb = TightPixelBox(p0, p1, p2, vp);   // la MEME formule que le rejet 3b
+    //    const uint32_t tight = tb.Area();
+    //    uint32_t       covered = 0;
     //#endif
+
+    //    if (minX >= maxX || minY >= maxY) { LV3_RASTER_RECORD(0u, tight, 0u); return; }
+
+    // ── CHANTIER 3a : boite SERREE, rognee au VIEWPORT (= le scissor).
+    //    Seuls les pixels dont le CENTRE (x+1/2, y+1/2) peut etre dans le triangle.
+    //    Source UNIQUE, partagee avec le rejet 3b : TightPixelBox.
+    //    Exactitude prouvee AVANT la bascule (C3 § 6, C4 § 7.1) : aucun pixel
+    //    couvert hors de cette boite sur ~1,4 million testes.
+    const PixelBox bb = TightPixelBox(p0, p1, p2, vp);
+
     #if LV3_RASTER_STATS
-        const PixelBox tb = TightPixelBox(p0, p1, p2, vp);   // la MEME formule que le rejet 3b
-        const uint32_t tight = tb.Area();
-        uint32_t       covered = 0;
+            uint32_t covered = 0;
     #endif
 
-        if (minX >= maxX || minY >= maxY) { LV3_RASTER_RECORD(0u, tight, 0u); return; }
-
+        if (bb.Empty()) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
 
         // ── Règle top-left : évaluée UNE fois par triangle, pas par pixel
         const bool tl0 = IsTopLeft(p1, p2);
@@ -148,10 +133,10 @@ namespace LV3
 
 
 
-        for (int y = minY; y < maxY; ++y)
+        for (int32_t y = bb.y0; y < bb.y1; ++y)
         {
             const float py = float(y) + 0.5f;
-            for (int x = minX; x < maxX; ++x)
+            for (int32_t x = bb.x0; x < bb.x1; ++x)
             {
                 const float px = float(x) + 0.5f;
 
@@ -166,10 +151,6 @@ namespace LV3
                 if (!(w2 > 0.0f || (w2 == 0.0f && tl2))) continue;
 
                 #if LV3_RASTER_STATS
-                    // Preuve sur donnees reelles, prealable au chantier 3a :
-                    // la boite serree contient TOUT pixel couvert.
-                    //LV3_ASSERT(x >= tx0 && x < tx1 && y >= ty0 && y < ty1);
-                    LV3_ASSERT(x >= tb.x0 && x < tb.x1 && y >= tb.y0 && y < tb.y1);
                     ++covered;                                  // registre, pas d'appel
                 #endif
 
@@ -184,7 +165,8 @@ namespace LV3
             }
         }
 
-        LV3_RASTER_RECORD(uint32_t(maxX - minX) * uint32_t(maxY - minY), tight, covered);
+        // Depuis le 3a, pixels testes == aire de la boite serree, par construction.
+        LV3_RASTER_RECORD(bb.Area(), bb.Area(), covered);
     }
 
 

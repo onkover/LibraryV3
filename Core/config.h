@@ -156,7 +156,7 @@ namespace LV3
 //    Instrumente la boucle PIXEL : un run qui l'active est un run de COMPTAGE,
 //    ses temps ne sont pas recevables (M10). Defaut 0.
 #ifndef LV3_RASTER_STATS
-	#define LV3_RASTER_STATS 0
+	#define LV3_RASTER_STATS 1
 #endif
 
 #if LV3_RASTER_STATS && !LV3_PROFILE
