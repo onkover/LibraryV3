@@ -152,7 +152,7 @@ namespace LV3
 				Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
 			}
 		}
-		Logger::info("Tous les composants ont été parsés.");
+		Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
 		return true;
 
 	}
@@ -365,16 +365,6 @@ namespace LV3
 		ctx.registry.addComponent(entity, std::move(c));
 		r.WarnUnread();
 		
-		// PAS d'élection ici : "qui rend" est une requête PAR FRAME
-		// (CollectActiveCameras) — m_isActive change à l'exécution.
-		
-		//if (c.m_isActive)
-		//{
-		//	const CameraComponent* cur = (out_activeCamera != NULL_ENTITY)
-		//		? ctx.registry.TryGet<CameraComponent>(out_activeCamera) : nullptr;
-		//	if (!cur || c.m_priority >= cur->m_priority)
-		//		out_activeCamera = entity;
-		//}
 	}
 
 	//********************************************************************

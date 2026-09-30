@@ -349,9 +349,29 @@ namespace LV3
             const uint8_t   vpf = mesh->vertsPerFace;
             const size_t    nFaces = mesh->faceCount();
 
+            #if LV3_LOD_STATS
+            {
+                // Taille apparente de CETTE instance dans CETTE vue.
+                // Point ① LOD (A12a) : la selection du niveau viendra ICI,
+                // avec la meme formule. mvp est deja la : w du centre = une MulRow.
+                const AABB3d& box = mesh->GetMeshAABB();
+                const float   rW = BoundingRadiusWorld(box, modelMatrix);
+                const float   wC = MulRow(mvp, box.Center()).w;
+                const float   rPx = ProjectedRadiusPx(ssp, wC, rW);
+                LV3_ASSERT(rPx >= 0.0f);   // echoue aussi sur NaN ; +inf admis (touche le near)
+
+                // Tranche sans branche : 0 (<1), 1 (<4), 2 (<16), 3 (>=16 ou inf).
+                const uint8_t b = uint8_t(rPx >= 1.0f) + uint8_t(rPx >= 4.0f) + uint8_t(rPx >= 16.0f);
+                LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::InstPx0to1) + b), 1);
+                LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::FacesPx0to1) + b), nFaces);
+            }
+            #endif
+
+
             // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
             const bool  hasTint = (dbg != nullptr);
             const Color tint = hasTint ? dbg->m_color : Color{};
+
 
             // Meme sens pour les deux chemins : un MulRow par sommet.
             LV3_PROF_COUNT(EProfCounter::VertsTransformed, nVerts);

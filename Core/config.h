@@ -116,7 +116,7 @@ namespace LV3
 //    a la fois -- une definition cote EXE seul reproduirait la quasi-
 //    violation d'ODR du bug 0.3 (LV3_ASSERTS_ENABLED).
 #ifndef LV3_PROFILE
-	#define LV3_PROFILE 0
+	#define LV3_PROFILE 1
 	#pragma message("[config.h] LV3_PROFILE absent de la ligne de commande -> defaut 0")
 #else
 	#pragma message("[config.h] LV3_PROFILE impose par le systeme de build (props, /p: ou environnement)")
@@ -156,7 +156,7 @@ namespace LV3
 //    Instrumente la boucle PIXEL : un run qui l'active est un run de COMPTAGE,
 //    ses temps ne sont pas recevables (M10). Defaut 0.
 #ifndef LV3_RASTER_STATS
-	#define LV3_RASTER_STATS 1
+	#define LV3_RASTER_STATS 0
 #endif
 
 #if LV3_RASTER_STATS && !LV3_PROFILE
@@ -170,7 +170,7 @@ namespace LV3
 //    Par paire (instance, vue) : rayon apparent en pixels, faces par tranche.
 //    Un run qui l'active est un run de COMPTAGE : temps non recevables (M10).
 #ifndef LV3_LOD_STATS
-	#define LV3_LOD_STATS 0
+	#define LV3_LOD_STATS 1
 #endif
 
 #if LV3_LOD_STATS && !LV3_PROFILE
