@@ -249,6 +249,8 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="Ressources\CommunFunctions.h" />
     <ClInclude Include="Ressources\json.hpp" />
+    <ClInclude Include="Ressources\LodChain.h" />
+    <ClInclude Include="Ressources\LodChainLoader.h" />
     <ClInclude Include="Ressources\MTLLoader.h" />
     <ClInclude Include="Ressources\OBJLoader.h" />
     <ClInclude Include="Ressources\OBJLoadOptions.h" />
@@ -288,6 +290,7 @@
     <ClCompile Include="Rendering\Renderer.cpp" />
     <ClCompile Include="Rendering\VertexStage.cpp" />
     <ClCompile Include="Ressources\CommunFunctions.cpp" />
+    <ClCompile Include="Ressources\LodChainLoader.cpp" />
     <ClCompile Include="Ressources\MTLLoader.cpp" />
     <ClCompile Include="Ressources\OBJLoader.cpp" />
     <ClCompile Include="Ressources\ResourceManager.cpp" />

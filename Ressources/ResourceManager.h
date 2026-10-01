@@ -5,10 +5,13 @@
 #include <unordered_map>
 #include <expected>	
 #include "ResourceHandle.h"
+
+#include "LodChain.h"
+#include "LodChainLoader.h"     // ELodChainLoadError (type complet requis par std::expected)
 #include "OBJLoader.h"
-#include "OBJLoadOptions.h" 
 
 #include "geometry/Material.h"
+#include "OBJLoadOptions.h" 
 #include "geometry/SubMesh.h"
 #include "geometry/MeshClass.h"
 
@@ -63,16 +66,39 @@ namespace LV3 {
         // ── Matériaux ─────────────────────────────────────────
         [[nodiscard]] MaterialHandle   FindMaterialByName(const std::string& name) const;
         [[nodiscard]] const Material*  GetMaterial(MaterialHandle h) const;
-        [[nodiscard]]       Material*  GetMaterial(MaterialHandle h);
+  //      [[nodiscard]]       Material*  GetMaterial(MaterialHandle h);
+
+  //      // ── API interne (Loaders) ─────────────────────────────
+  //      MeshHandle     RegisterMesh    (std::unique_ptr<MeshClass> mesh);
+  //      MaterialHandle RegisterMaterial(std::unique_ptr<Material> mat);
+
+		//// ── Utilitaires ─────────────────────────────────────────
+  //      [[nodiscard]] size_t GetMeshCount()     const noexcept;
+  //      [[nodiscard]] size_t GetMaterialCount() const noexcept;
+
+        [[nodiscard]] Material* GetMaterial(MaterialHandle h);
+
+        // ── Chaines de LOD (A13 bis) ──────────────────────────
+        // Charge un descripteur .lod.json, ou rend la chaine deja chargee
+        // (cache par chemin canonique, comme LoadMeshChecked).
+        [[nodiscard]] std::expected<LodChainHandle, ELodChainLoadError>
+            LoadLodChainChecked(const std::string& filepath);
+
+        // Pointeur TEMPORAIRE : valable jusqu'au prochain RegisterLodChain
+        // (stockage contigu, le vecteur peut realouer). Le handle est la
+        // reference durable. Pas de version non-const : immuable apres chargement.
+        [[nodiscard]] const LodChain* GetLodChain(LodChainHandle h) const noexcept;
+
 
         // ── API interne (Loaders) ─────────────────────────────
-        MeshHandle     RegisterMesh    (std::unique_ptr<MeshClass> mesh);
+        MeshHandle     RegisterMesh(std::unique_ptr<MeshClass> mesh);
         MaterialHandle RegisterMaterial(std::unique_ptr<Material> mat);
+        LodChainHandle RegisterLodChain(const LodChain& chain);   // verifie les invariants de SelectLodLevel
 
-		// ── Utilitaires ─────────────────────────────────────────
+        // ── Utilitaires ─────────────────────────────────────────
         [[nodiscard]] size_t GetMeshCount()     const noexcept;
         [[nodiscard]] size_t GetMaterialCount() const noexcept;
-
+        [[nodiscard]] size_t GetLodChainCount() const noexcept;
 
         // todo créer la map inverse des matériaux
 
@@ -91,6 +117,15 @@ namespace LV3 {
         std::unordered_map<uint32_t,    std::unique_ptr<Material>>  m_materials;
         std::unordered_map<std::string, MaterialHandle>             m_nameToMaterial;        
         MaterialHandle AllocateMaterialHandle() noexcept;
+
+        // Index = id du handle. Case 0 = sentinelle de l'id invalide, jamais lue.
+        // Jamais retreci : un id n'est JAMAIS recycle (meme regle que m_nextMeshId).
+        // Case vide = levelCount == 0.
+        std::vector<LodChain> m_lodChains;
+
+        // Cache chemin canonique -> chaine. Pas de miroir id -> chemin :
+        // aucun UnloadLodChain, donc aucun lecteur pour ce miroir.
+        std::unordered_map<std::string, LodChainHandle> m_pathToLodChain;
 
 
 

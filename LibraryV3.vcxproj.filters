@@ -222,6 +222,12 @@
     <ClInclude Include="Rendering\VertexStage.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Ressources\LodChain.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="Ressources\LodChainLoader.h">
+      <Filter>Ressources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">
@@ -295,6 +301,9 @@
     </ClCompile>
     <ClCompile Include="Rendering\VertexStage.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Ressources\LodChainLoader.cpp">
+      <Filter>Ressources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

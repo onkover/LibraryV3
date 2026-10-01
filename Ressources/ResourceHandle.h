@@ -1,6 +1,5 @@
 #pragma once
-//#include "pch.h"
-//#include <cstdint>
+#include <cstdint> // pour uint32_t
 
 namespace LV3 {
   
@@ -23,8 +22,11 @@ namespace LV3 {
     struct MeshTag{};
     struct MaterialTag{};
     struct TextureTag{};
+    struct LodChainTag {};
+
     using MeshHandle     = ResourceHandle<MeshTag>;
     using MaterialHandle = ResourceHandle<MaterialTag>;
     using TextureHandle  = ResourceHandle<TextureTag>;
+    using LodChainHandle = ResourceHandle<LodChainTag>;   // chaine de LOD (A13 bis)
 
 } // namespace LV3

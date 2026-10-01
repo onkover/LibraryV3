@@ -132,6 +132,31 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
     return const_cast<Material*>(static_cast<const ResourceManager*>(this)->GetMaterial(h));
 }
 
+// ── Chaines de LOD ────────────────────────────────────
+// Meme patron que LoadMeshChecked : cle canonique, cache, puis delegation au chargeur.
+std::expected<LodChainHandle, ELodChainLoadError>
+ResourceManager::LoadLodChainChecked(const std::string& filepath)
+{
+    const std::string key = CanonicalKey(filepath);
+    if (auto it = m_pathToLodChain.find(key); it != m_pathToLodChain.end())
+        return it->second;
+
+    auto result = LodChainLoader::Load(filepath, *this);
+    if (result)                                   // on ne met en cache QUE les succes :
+        m_pathToLodChain.emplace(key, *result);   // un echec corrige sur disque pourra etre recharge
+    return result;
+}
+
+const LodChain* ResourceManager::GetLodChain(LodChainHandle h) const noexcept
+{
+    // Un seul acces memoire : l'id EST l'index. Case vide (dechargee) => nullptr.
+    if (h.id >= m_lodChains.size()) return nullptr;       // couvre aussi un vecteur vide
+    const LodChain& c = m_lodChains[h.id];
+    return (c.levelCount != 0) ? &c : nullptr;            // couvre la sentinelle (id 0)
+}
+
+
+
 // ── API interne (Loaders) ─────────────────────────────
 
 MeshHandle ResourceManager::RegisterMesh(std::unique_ptr<MeshClass> mesh) {
@@ -166,20 +191,78 @@ MaterialHandle ResourceManager::RegisterMaterial(std::unique_ptr<Material> mat){
     return h;
 }
 
+// Porte d'entree UNIQUE de toute chaine (lecteur JSON aujourd'hui, code procedural demain).
+// Tout invariant dont depend SelectLodLevel est verifie ICI, une fois :
+// RenderView lui fait ensuite confiance sans aucun test.
+LodChainHandle ResourceManager::RegisterLodChain(const LodChain& chain)
+{
+    constexpr float kInf = std::numeric_limits<float>::infinity();
+    const uint32_t  n = chain.levelCount;
+
+    auto reject = [](const std::string& why) {
+        Logger::error("RegisterLodChain — " + why + " — chaine refusee");
+        return LodChainHandle::Invalid();
+        };
+
+    if (n < 1 || n > LodChain::kMaxLevels)
+        return reject("levelCount = " + std::to_string(n) + " hors de [1, " + std::to_string(LodChain::kMaxLevels) + "]");
+
+    if (chain.invEps[0] != kInf)
+        return reject("invEps[0] doit valoir +inf (L0 exact)");
+
+    for (uint32_t k = 0; k < n; ++k)
+        if (GetMesh(chain.levels[k]) == nullptr)
+            return reject("niveau " + std::to_string(k) + " : mesh absent");
+
+    // Strictement decroissant, fini et positif : condition du PREFIXE de SelectLodLevel.
+    for (uint32_t k = 1; k < n; ++k)
+        if (!(chain.invEps[k] > 0.0f && chain.invEps[k] < chain.invEps[k - 1]))
+            return reject("invEps[" + std::to_string(k) + "] doit etre > 0 et < invEps[" + std::to_string(k - 1) + "]");
+
+    // Cases inutilisees : jamais admises, jamais dessinees.
+    for (uint32_t k = n; k < LodChain::kMaxLevels; ++k)
+        if (chain.invEps[k] != -kInf || chain.levels[k].IsValid())
+            return reject("case " + std::to_string(k) + " inutilisee mais non neutre");
+
+    if (m_lodChains.empty())
+        m_lodChains.emplace_back();                        // case 0 : sentinelle, levelCount = 0
+
+    const LodChainHandle h{ uint32_t(m_lodChains.size()) };
+    m_lodChains.push_back(chain);
+    return h;
+}
+
+
 // ── API interne (Loaders) ─────────────────────────────
 
 void ResourceManager::UnloadAll(){
-    m_meshes.clear(); 
+    //m_meshes.clear(); 
+    //m_pathToMesh.clear();
+    //m_meshIdToPath.clear();
+
+    //m_materials.clear(); 
+    //m_nameToMaterial.clear();
+    
+    m_meshes.clear();
     m_pathToMesh.clear();
     m_meshIdToPath.clear();
 
-    m_materials.clear(); 
+    m_materials.clear();
     m_nameToMaterial.clear();
-    
+
+    // PAS de clear() : la taille EST le prochain id. Retrecir recyclerait les ids (ABA).
+    for (LodChain& c : m_lodChains) c = LodChain{};       // cases vides, ids preserves
+    m_pathToLodChain.clear();     // sinon le cache rendrait des handles vers des cases vides
+
     // todo unload la map inverse des matériaux
 }
 size_t ResourceManager::GetMeshCount()     const noexcept { return m_meshes.size(); }
 size_t ResourceManager::GetMaterialCount() const noexcept { return m_materials.size(); }
+size_t ResourceManager::GetLodChainCount() const noexcept
+{
+    return size_t(std::count_if(m_lodChains.begin(), m_lodChains.end(),
+        [](const LodChain& c) { return c.levelCount != 0; }));
+}
 MeshHandle     ResourceManager::AllocateMeshHandle()     noexcept { return MeshHandle{m_nextMeshId++}; }
 MaterialHandle ResourceManager::AllocateMaterialHandle() noexcept { return MaterialHandle{m_nextMaterialId++}; }
 

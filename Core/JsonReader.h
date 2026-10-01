@@ -95,11 +95,11 @@ namespace LV3
         template<typename Fn>
         void ForEachElement(Fn&& fn)
         {
-            if (!m_j.is_object())
-            {
-                Logger::warn("[" + m_comp + "] attendu comme objet sur " + m_owner);
-                return;
-            }
+            //if (!m_j.is_object())
+            //{
+            //    Logger::warn("[" + m_comp + "] attendu comme objet sur " + m_owner);
+            //    return;
+            //}
 
             if (!m_j.is_array())
             {
