@@ -84,6 +84,11 @@ namespace LV3 {
         [[nodiscard]] std::expected<LodChainHandle, ELodChainLoadError>
             LoadLodChainChecked(const std::string& filepath);
 
+        // Chaine de longueur 1 pour un mesh SANS descripteur (planetes, gizmos...).
+        // UNE chaine par mesh, partagee : mille entites -> une seule ligne de cache.
+        // SelectLodLevel y rend toujours 0 (cases inutilisees a -inf).
+        [[nodiscard]] LodChainHandle GetOrCreateSingleLevelChain(MeshHandle h);
+
         // Pointeur TEMPORAIRE : valable jusqu'au prochain RegisterLodChain
         // (stockage contigu, le vecteur peut realouer). Le handle est la
         // reference durable. Pas de version non-const : immuable apres chargement.
@@ -126,6 +131,8 @@ namespace LV3 {
         // Cache chemin canonique -> chaine. Pas de miroir id -> chemin :
         // aucun UnloadLodChain, donc aucun lecteur pour ce miroir.
         std::unordered_map<std::string, LodChainHandle> m_pathToLodChain;
+        // Cache des chaines IMPLICITES : id du mesh -> sa chaine de longueur 1.
+        std::unordered_map<uint32_t, LodChainHandle>    m_meshToSingleChain;
 
 
 

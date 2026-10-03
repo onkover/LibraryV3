@@ -147,6 +147,31 @@ ResourceManager::LoadLodChainChecked(const std::string& filepath)
     return result;
 }
 
+// Chaine de longueur 1 : la porte d'entree (RegisterLodChain) verifie tout,
+// comme pour une chaine decrite. Aucun chemin de code parallele.
+LodChainHandle ResourceManager::GetOrCreateSingleLevelChain(MeshHandle h)
+{
+    if (auto it = m_meshToSingleChain.find(h.id); it != m_meshToSingleChain.end())
+        return it->second;
+
+    const MeshClass* mesh = GetMesh(h);
+    if (!mesh)
+    {
+        Logger::error("GetOrCreateSingleLevelChain — mesh introuvable (id " + std::to_string(h.id) + ")");
+        return LodChainHandle::Invalid();
+    }
+
+    LodChain c;                          // invEps : +inf puis -inf (valeurs par defaut)
+    c.bounds = mesh->GetMeshAABB();  // un seul niveau : l'union est sa propre boite
+    c.levels[0] = h;
+    c.levelCount = 1;
+
+    const LodChainHandle ch = RegisterLodChain(c);
+    if (ch.IsValid())
+        m_meshToSingleChain.emplace(h.id, ch);   // on ne met en cache que les succes
+    return ch;
+}
+
 const LodChain* ResourceManager::GetLodChain(LodChainHandle h) const noexcept
 {
     // Un seul acces memoire : l'id EST l'index. Case vide (dechargee) => nullptr.
@@ -253,6 +278,7 @@ void ResourceManager::UnloadAll(){
     // PAS de clear() : la taille EST le prochain id. Retrecir recyclerait les ids (ABA).
     for (LodChain& c : m_lodChains) c = LodChain{};       // cases vides, ids preserves
     m_pathToLodChain.clear();     // sinon le cache rendrait des handles vers des cases vides
+    m_meshToSingleChain.clear();  // idem pour les chaines implicites
 
     // todo unload la map inverse des matériaux
 }

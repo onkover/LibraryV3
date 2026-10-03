@@ -196,8 +196,18 @@ namespace LV3
             if (dbg && dbg->m_hideForCamera == view.m_sourceCamera) continue;       // par exemple, le gizmo de FPS_Camera est inconditionnellement rejeté de la vue de FPS_Camera
                                                                                     // Une caméra ne voit jamais son propre gizmo, sinon elle rendrait l'intérieur de son propre frustum, tranché par le near plane, plein écran.
 
-            const MeshClass* mesh = rm.GetMesh(meshComp.m_meshHandle);
+            //const MeshClass* mesh = rm.GetMesh(meshComp.m_meshHandle);
+            //if (!mesh || mesh->faceCount() == 0) continue;
+            
+            // La chaine : bornes de culling (union des niveaux) et handles des niveaux.
+            // Une ligne de cache, indexee directement par l'id (pas de hachage).
+            const LodChain* chain = rm.GetLodChain(meshComp.m_MeshlodChain);
+            if (!chain) continue;
+
+            // 4d-2 : toujours L0. L'etape 4d-3 remplacera ce 0 par SelectLodLevel.
+            const MeshClass* mesh = rm.GetMesh(chain->levels[0]);
             if (!mesh || mesh->faceCount() == 0) continue;
+
 
             // Garanti par RegisterMesh. Le if est un filet memoire actif en Release
             // (meme patron que DestroyEntity, bug 53) : un seul test par mesh, gratuit.
@@ -207,7 +217,11 @@ namespace LV3
 
             const Matrix44f& modelMatrix = transform.m_worldMatrix;
 
-            const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
+            //const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
+            //            
+            // Boite de la CHAINE, pas du mesh : un niveau grossier peut deborder de L0.
+            // (Chaine implicite : bounds == boite du mesh, resultat identique a avant.)
+            const EIntersect vis = view.frustum.Classify(chain->bounds.Transformed(modelMatrix));
 
             // Un mesh CLASSIFIE, pour toutes les vues cumulees. Le rapport
             // MeshesCulled / MeshesTested donne l'efficacite du frustum culling.

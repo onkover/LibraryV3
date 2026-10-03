@@ -14,10 +14,16 @@ namespace LV3
 
     struct GizmoAssets
     {
-        MeshHandle m_perspective;    // camera_gizmo.obj      (pyramide, 6 faces)
-        MeshHandle m_orthographic;   // camera_gizmo_box.obj  (boite,   12 faces)
+        //MeshHandle m_perspective;    // camera_gizmo.obj      (pyramide, 6 faces)
+        //MeshHandle m_orthographic;   // camera_gizmo_box.obj  (boite,   12 faces)
 
-        [[nodiscard]] MeshHandle For(EProjectionType p) const noexcept
+        // Des CHAINES (implicites, longueur 1), parce que c'est ce que porte
+        // MeshComponent. Converties UNE fois dans LoadGizmoAssets.
+        LodChainHandle m_perspective;    // camera_gizmo.obj      (pyramide, 6 faces)
+        LodChainHandle m_orthographic;   // camera_gizmo_box.obj  (boite,   12 faces)
+
+        //[[nodiscard]] MeshHandle For(EProjectionType p) const noexcept
+        [[nodiscard]] LodChainHandle For(EProjectionType p) const noexcept
         {
             return (p == EProjectionType::Orthographic) ? m_orthographic : m_perspective;
         }

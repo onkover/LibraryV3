@@ -161,18 +161,20 @@ namespace LV3
 	static_assert(std::is_trivially_copyable_v<CameraGizmoComponent>);
 
 	//********************************************************************
-	/* 
+	/*
 	RÉFÉRENCE, pas de propriété : le ResourceManager reste l'unique propriétaire.
-	Résolution : resourceManager.GetMesh(m_mesh) au moment de l'usage (rendu, culling, etc.)
+	Le composant référence une CHAINE de LOD, jamais un niveau (A13 bis, § 5) :
+	un mesh sans descripteur est une chaine implicite de longueur 1.
+	Le niveau dessiné est choisi par RenderView, par (instance, vue), et jamais stocké ici.
+	Résolution : rm.GetLodChain(m_lodChain), puis rm.GetMesh(chain->levels[k]).
 	Les matériaux ne sont PAS dupliqués ici : chaque MeshClass::SubMesh porte déjà son
 	propre MaterialHandle (voir SubMesh.h) — un mesh multi-matériaux fonctionne nativement.
 	*/
 	struct MeshComponent
 	{
 		// optimisation au profit du ressourcemanager : on ne stocke pas le MeshClass ici, juste un handle vers le ResourceManager
-//		std::shared_ptr<MeshClass> m_mesh;
-//		std::string m_texture;
-		MeshHandle m_meshHandle;
+//		MeshHandle m_meshHandle;
+		LodChainHandle m_MeshlodChain;   // TOUJOURS une chaine (implicite si le mesh n'a pas de .lod.json)
 
 		// Données pour l'animation
 		float m_orbitalSpeed = 0.0f;

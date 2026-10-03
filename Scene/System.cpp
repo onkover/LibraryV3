@@ -742,7 +742,12 @@ void TriggerSystem(Registry& registry, EventBus& eventBus)
 				// Résolution du handle EN CE POINT PRÉCIS, jamais stockée ailleurs.
 				// Le ResourceManager reste l'unique propriétaire : on obtient un pointeur d'observation, valable pour la durée de cette frame seulement.
 				//  Recherche l'intérieur de la boucle, à chaque frame — ce n'est pas un gaspillage : c'est une recherche dans une unordered_map (O(1) amorti), et surtout c'est la garantie que si le mesh a été déchargé entre deux frames(UnloadMesh appelé ailleurs), le système le détecte immédiatement au lieu de déréférencer un pointeur mort.
-				const MeshClass* mesh = resourceManager.GetMesh(meshComp.m_meshHandle);
+				//const MeshClass* mesh = resourceManager.GetMesh(meshComp.m_meshHandle);
+
+
+				// Affichage de debug : L0, le niveau de reference (aucune vue ici, donc aucune selection).
+				const LodChain* chain = resourceManager.GetLodChain(meshComp.m_MeshlodChain);
+				const MeshClass* mesh = chain ? resourceManager.GetMesh(chain->levels[0]) : nullptr;
 
 				if (!mesh)	// GetMesh peut retourner nullptr 
 				{

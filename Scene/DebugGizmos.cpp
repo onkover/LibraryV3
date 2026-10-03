@@ -32,7 +32,8 @@ namespace LV3
         {
             if (resultPerspect.has_value())
             {
-                a.m_perspective = *resultPerspect;
+//                a.m_perspective = *resultPerspect;
+                a.m_perspective = rm.GetOrCreateSingleLevelChain(*resultPerspect);
                 Logger::success("La camera en perspective est chargée");
             }
             else
@@ -40,7 +41,8 @@ namespace LV3
 
             if (resultOrthogr.has_value())
             {
-                a.m_orthographic = *resultOrthogr;
+                //a.m_orthographic = *resultOrthogr;
+                a.m_orthographic = rm.GetOrCreateSingleLevelChain(*resultOrthogr);
                 Logger::success("La camera Orthographique est chargée");
             }
             else
@@ -55,14 +57,16 @@ namespace LV3
             Logger::info("[Gizmo]");
             if (resultPerspect.has_value())
             {
-                const MeshClass* mg = rm.GetMesh(a.m_perspective);
+                //const MeshClass* mg = rm.GetMesh(a.m_perspective);
+                const MeshClass* mg = rm.GetMesh(*resultPerspect);    // le MESH, pas la chaine
                 LV3_ASSERT(mg);
                 Logger::info("[Gizmo] Perspective : faces=" + std::to_string(mg->faceCount()) + "  verts=" + std::to_string(mg->vertexPositions.size()));
             }
 
             if (resultOrthogr.has_value())
             {
-                const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
+                //const MeshClass* mg2 = rm.GetMesh(a.m_orthographic);
+                const MeshClass* mg2 = rm.GetMesh(*resultOrthogr);    // le MESH, pas la chaine
                 LV3_ASSERT(mg2);
                 Logger::info("[Gizmo] Orthographique :  faces=" + std::to_string(mg2->faceCount()) + "  verts=" + std::to_string(mg2->vertexPositions.size()));
             }
@@ -103,7 +107,8 @@ namespace LV3
         {
             const CameraComponent& cam = registry.getComponent<CameraComponent>(camEntity);
 
-            const MeshHandle want = assets.For(cam.m_projection);
+            //const MeshHandle want = assets.For(cam.m_projection);
+            const LodChainHandle want = assets.For(cam.m_projection);
             if (!want.IsValid())
             {
                 Logger::warn("[Gizmo] pas d'asset pour la caméra '" + EntityLabel(registry, camEntity)
@@ -171,8 +176,10 @@ namespace LV3
                 Logger::info("[gizmo]" + name + "->scale(" + std::to_string(wanted.x) + ", " + std::to_string(wanted.y) + ", " + std::to_string(wanted.z) + ")");*/
             }
 
-            const MeshHandle want = assets.For(cam->m_projection);
-            if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
+            //const MeshHandle want = assets.For(cam->m_projection);
+            //if (mc.m_meshHandle.id != want.id) mc.m_meshHandle = want;
+            const LodChainHandle want = assets.For(cam->m_projection);
+            if (mc.m_MeshlodChain != want) mc.m_MeshlodChain = want;
 
             dbg.m_color = (giz.m_owner == activeCamera)
                 ? Color{ 255, 216,  26 } : Color{ 110, 112, 128 };

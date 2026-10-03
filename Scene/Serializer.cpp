@@ -216,6 +216,15 @@ namespace LV3
 		}
 		const MeshHandle hMesh = *meshResult;
 
+		// 4d-2 : le composant porte une CHAINE. Sans descripteur, chaine implicite
+		// de longueur 1, partagee par toutes les entites de ce mesh.
+		const LodChainHandle hMeshChain = ctx.pRM.GetOrCreateSingleLevelChain(hMesh);
+		if (!hMeshChain.IsValid())
+		{
+			Logger::error("ParseMesh — chaine refusee pour : " + modelPath);
+			return;
+		}
+
 		// --- 3. Rayon d'orbite, FIGÉ ici et jamais recalculé ensuite ---
 		//     Plan XZ uniquement : inclure Y fausserait le rayon.
 		//     /!\ Exige que ParseTransform ait été appelé AVANT (voir ParseNode).
@@ -235,7 +244,8 @@ namespace LV3
 		//         Inserer un membre au milieu du struct casse cet appel EN SILENCE.
 		ctx.registry.emplaceComponent<MeshComponent>(
 			entity,
-			hMesh,                                  // m_meshHandle
+			//hMesh,                                  // m_meshHandle
+			hMeshChain,                                 // m_lodChain
 			r.Read("orbitalSpeed", 0.0f),         // m_orbitalSpeed
 			r.Read("rotationSpeed", 0.0f),         // m_rotationSpeed
 			orbitRadius,                            // m_orbitRadius          ← était perdu
