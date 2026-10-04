@@ -79,6 +79,8 @@ namespace LV3
                 resources.path = rs.Read("assets", std::string(LV3_DEFAULT_RESOURCE_PATH));
                 resources.pathMesh = rs.Read("mesh", std::string(LV3_DEFAULT_RESOURCE_PATH_MESH));
                 resources.pathGraphScene = rs.Read("scene", std::string(LV3_DEFAULT_RESOURCE_PATH_SCENE));
+                resources.PathGraph = rs.Read("graph", std::string(LV3_DEFAULT_RESOURCE_PATH_GRAPH));
+
                 rs.WarnUnread();
             }
 
@@ -90,8 +92,26 @@ namespace LV3
                 rd.WarnUnread();
             }
 
-            // ── simulation ──────────────────────────────────
+            // ── lod (optionnel) ────────────────────────────────────
+            if (r.Has("lod"))
+            {
+                JsonReader rl = r.Child("lod");
+                const float tau = rl.Read("tolerancePx", LV3_DEFAULT_LOD_TOLERANCE_PX);
 
+                // Forme positive niee : rejette aussi NaN (une NaN ici rendrait
+                // kPx/tau = NaN, et SelectLodLevel dessinerait tout en L0 sans un mot).
+                if (!(tau > 0.0f) || !std::isfinite(tau))
+                {
+                    Logger::warn("[EngineConfig] lod.tolerancePx invalide, force a " + std::to_string(LV3_DEFAULT_LOD_TOLERANCE_PX));
+                    lod.tolerancePx = LV3_DEFAULT_LOD_TOLERANCE_PX;
+                }
+                else
+                    lod.tolerancePx = tau;
+
+                rl.WarnUnread();
+            }
+
+            // ── simulation ──────────────────────────────────
             if (r.Has("simulationclock"))
             {
                 JsonReader rs = r.Child("simulationclock");

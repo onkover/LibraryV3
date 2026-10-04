@@ -14,6 +14,11 @@ namespace LV3
     }
 
     // Logue un message si le niveau est supérieur ou égal au niveau courant.
+    void Logger::write()
+    {
+        std::cout << "\n";
+    }
+
     void Logger::write(std::string_view msg, LogLevel lvl)
     {
         if (lvl >= s_level)
@@ -35,6 +40,7 @@ namespace LV3
             std::cout << "\n\033[31m=[LibV3] " << msg << "\033[0m";   // Affichage en rouge
             break;
         default:
+            std::cout << "\n";
             break;
         }
 
@@ -68,5 +74,9 @@ namespace LV3
     {
         write(msg, LogLevel::Error);
     }
-
+    // Logue un retour à la ligne
+    void Logger::newline()
+    {
+        write();
+    }
 } // namespace LV3

@@ -358,7 +358,24 @@ namespace LV3
 
 
 		// ════════════════════════════════════════════════════════════════
-		//  PAS D'ÉTAPE 5 ICI.
+		//  ÉTAPE 5 — LOD : tolérance et paramètres de taille apparente
+		//
+		//  Même chemin que depthDisplayRange (R12) : caméra, sinon EngineConfig.
+		//  APRÈS les étapes 2 et 3 : MakeScreenSizeParams lit P, V·P et le viewport.
+		//  La division par tau est faite ICI, une fois par vue (amendement A13 § 6.4),
+		//  jamais par instance dans RenderView.
+		// ════════════════════════════════════════════════════════════════
+		v.lodTolerancePx = (cam.m_lodTolerancePx > 0.0f)
+			? cam.m_lodTolerancePx
+			: LV3::EngineConfig::Get().lod.tolerancePx;
+		LV3_ASSERT(v.lodTolerancePx > 0.0f && std::isfinite(v.lodTolerancePx));
+
+		v.lodParams = MakeScreenSizeParams(v);
+		v.lodParams.kPx /= v.lodTolerancePx;
+
+
+		// ════════════════════════════════════════════════════════════════
+		//  PAS D'ÉTAPE 6 ICI.
 		//
 		//  invViewProjection n'est PAS calculée : c'est le seul calcul
 		//  coûteux (Gauss-Jordan 4x4) et il ne sert qu'au picking.

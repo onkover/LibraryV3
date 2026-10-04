@@ -24,6 +24,7 @@ namespace LV3
     #define LV3_MAX_ENTITIES        4096    // Entités dans le Registry ECS
     #define LV3_MAX_CAMERA          32      // Nombre de liaisons caméra lues
     #define LV3_MAX_VIEWPORT        4      // Nombre de viewport affichées simultanément
+    
     // Bug 61 (Discussion E) : nom dédié pour la borne dure qui dimensionne les tampons de
     // pile de BuildCameraBindings (CameraBinding.CPP) — une caméra rendue = un viewport,
     // donc égal à LV3_MAX_VIEWPORT par construction. On ne duplique pas la valeur : on nomme
@@ -72,6 +73,7 @@ namespace LV3
     #define LV3_DEFAULT_RESOURCE_PATH       "assets/"  // Chemin racine (défaut, surchargeable)
     #define LV3_DEFAULT_RESOURCE_PATH_MESH  "assets/MESHES/"  // Chemin racine (défaut, surchargeable)
     #define LV3_DEFAULT_RESOURCE_PATH_SCENE "assets/GRAPHSCENE/"  // Chemin racine (défaut, surchargeable)
+    #define LV3_DEFAULT_RESOURCE_PATH_GRAPH "assets/GRAPH/"  // Chemin racine (défaut, surchargeable)
 
     #define LV3_DEFAULT_TIME_SCALE          0.20f     // Jours simulés par seconde réelle
     #define LV3_DEFAULT_SIMTIME_SCALE       0.0f       // Échelle de temps de simulation
@@ -82,6 +84,10 @@ namespace LV3
     #define LV3_DEFAULT_MAX_SCALE 	    	1000.0f   // Échelle de temps pour le pas maximum de simulation
     #define LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE 100.0f   // Plage de lisibilité pour ERenderMode::Depth
 
+    // Tolerance d'erreur geometrique du LOD, en PIXELS (annexe A13 bis).
+    // Un niveau k est admis si epsilon_k * q <= tau. 0,5 px : l'erreur reste
+    // sous la moitie de l'espacement entre deux centres de pixels.
+    #define LV3_DEFAULT_LOD_TOLERANCE_PX    0.5f
 
 } // namespace LV3
 

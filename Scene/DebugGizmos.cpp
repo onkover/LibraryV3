@@ -54,7 +54,7 @@ namespace LV3
             // invalide, rm.GetMesh() rend nullptr, et faceCount() plante sur un pointeur
             // nul. Chaque bloc de log est maintenant gardé par le même booléen que celui
             // qui a rempli le handle correspondant — jamais l'un sans l'autre.
-            Logger::info("[Gizmo]");
+            
             if (resultPerspect.has_value())
             {
                 //const MeshClass* mg = rm.GetMesh(a.m_perspective);

@@ -56,11 +56,17 @@ namespace LV3
         std::string path = LV3_DEFAULT_RESOURCE_PATH;
         std::string pathMesh = LV3_DEFAULT_RESOURCE_PATH_MESH;
         std::string pathGraphScene = LV3_DEFAULT_RESOURCE_PATH_SCENE;
+        std::string PathGraph = LV3_DEFAULT_RESOURCE_PATH_GRAPH;
     };
 
     struct DebugConfig
     {
         float depthDisplayRange = LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE;
+    };
+
+    struct LodConfig
+    {
+        float tolerancePx = LV3_DEFAULT_LOD_TOLERANCE_PX;   // tau par defaut, surchargeable par camera
     };
 
     struct EngineConfig
@@ -69,6 +75,7 @@ namespace LV3
         FeaturesConfig  features;
         ResourcesConfig resources;
         DebugConfig     debug;
+        LodConfig       lod;
         ViewportConfig  viewport;
 		SimulationClockSettings simulation;
         

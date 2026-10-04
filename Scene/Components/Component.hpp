@@ -64,6 +64,8 @@ namespace LV3
 		// --- Debug : affichage (PAS une donnée géométrique, cf. R20) ---
 		float m_depthDisplayRange = -1.0f;   // -1 = non défini -> utilise EngineConfig::debug.depthDisplayRange
 
+		// --- Qualité : tolérance du LOD, en pixels (A13 bis) ---
+		float m_lodTolerancePx = -1.0f;      // -1 = non défini -> utilise EngineConfig::lod.tolerancePx
 
 		// --- Perspective : paramétrage ---
 		ELensModel m_lensModel = ELensModel::FieldOfView;

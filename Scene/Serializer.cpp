@@ -12,19 +12,16 @@ namespace LV3
 	using LV3::JsonReader;
 	using nlo_json = nlohmann::json;
 
-
-
-
 	bool SceneSerializer::LoadSceneGraph(const std::string& sceneFilePath,
 		const std::string& jsonSceneFile,
 		Registry& registry,
-//		Entity& out_activeCamera,
 		ResourceManager& pRM)
 	{
 
 		// --- 1. CHARGEMENT ET VALIDATION DU FICHIER JSON ---
-		Logger::info("Première passe : initialisation des données");
-		Logger::info("- Lecteur et parsing du fichier json");
+		Logger::info("***************************************************");
+		Logger::info("=== Première passe : initialisation des données ===");
+		Logger::info("[Diag] - Lecteur et parsing du fichier json");
 
 		std::ifstream file(sceneFilePath + jsonSceneFile);
 		if (!file.is_open()) {
@@ -44,8 +41,7 @@ namespace LV3
 			return false;
 		}
 
-		Logger::info("******************************************************");
-		Logger::info("Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>());            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
+		Logger::info("=== Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>() +" ===");            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
 
 
 		if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
@@ -74,10 +70,12 @@ namespace LV3
 					return false;
 				}
 
-				Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
+				#if LV3_VERBOSE_LOG
+					Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
+				#endif		
 
 			}
-			Logger::info("Première passe terminée.\n");
+			Logger::success("Première passe terminée.\n");
 			Logger::info("*****************************");
 			Logger::info("Phase 2 : Link des hiérarchie");
 
@@ -90,21 +88,19 @@ namespace LV3
 				}
 			}
 
-			Logger::info("Deuxième passe terminée. Hiérarchie assemblée.");
-			Logger::info("BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
-			Logger::info("Construction de la scène terminée avec succès.");
 
 			ResolveDeferredReferences(ctx);
 			ValidateHierarchy(registry);
+
+			Logger::info("[Diag] Deuxième passe terminée. Hiérarchie assemblée.");
+			Logger::info("[Diag] BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
+			Logger::info("[Diag] SceneSerializer::Load — scène chargée : " + sceneFilePath + jsonSceneFile);
+			Logger::success("[Diag] Construction de la scène terminée avec succès.\n");
 		}
 		else
 		{
 			Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
 		}
-
-		Logger::info("SceneSerializer::Load — scène chargée : " + sceneFilePath);
-
-
 
 		return true;
 	}
@@ -152,7 +148,9 @@ namespace LV3
 				Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
 			}
 		}
-		Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
+		#if LV3_VERBOSE_LOG
+			Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
+		#endif
 		return true;
 
 	}
@@ -311,6 +309,7 @@ namespace LV3
 		c.m_nearPlane = r.Read("near", 0.1f);
 		c.m_infiniteFar = r.Read("infiniteFar", false);
 		c.m_depthDisplayRange = r.Read("depthDisplayRange", -1.0f);
+		c.m_lodTolerancePx = r.Read("lodTolerancePx", -1.0f);   // -1 : defaut moteur
 		c.m_farPlane = r.Read("far", 1000.0f);
 
 		if (c.m_infiniteFar && r.Has("far"))
@@ -493,8 +492,9 @@ namespace LV3
 
 		// todo : ajouter emplaceComponent là où cela est nécessaire pour les autres parsing de composants
 
-		Logger::info("[Trigger] " + owner + " : rayon " + std::to_string(radius) + ", role  = ETriggerRole::" + std::to_string(static_cast<int>(role)));
-
+		#if LV3_VERBOSE_LOG
+			Logger::info("[Trigger] " + owner + " : rayon " + std::to_string(radius) + ", role  = ETriggerRole::" + std::to_string(static_cast<int>(role)));
+		#endif
 		r.WarnUnread();
 
 	}

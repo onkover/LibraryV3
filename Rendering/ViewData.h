@@ -7,6 +7,13 @@
 
 namespace LV3
 {
+    struct ScreenSizeParams
+    {
+        float kPx;    // P[1][1] * H/2 : pixels par unite monde a w = 1
+        float wGrad;  // |colonne 3 de VP| : 1 en perspective, 0 en ortho
+        float wNear;  // en perspective, une sphere qui atteint le near => taille infinie
+    };
+
     struct ViewData
     {
         // --- Matrices ---
@@ -37,6 +44,11 @@ namespace LV3
         
         // --- Debug : affichage ---
         float depthDisplayRange = 80.0f;   // plage de lisibilité pour ERenderMode::Depth — PAS une donnée géométrique (R20)
+
+        // --- LOD (A13 bis) : resolus UNE fois par vue dans BuildViewData ---
+        float            lodTolerancePx = 0.5f;   // tau effectif (camera, sinon EngineConfig)
+        ScreenSizeParams lodParams{};             // comme MakeScreenSizeParams, mais kPx DEJA divise par tau :
+                                                  // ProjectedRadiusPx(lodParams, ...) rend directement une grandeur / tau
 
         // --- Destination ---
         Viewport  viewport;
@@ -112,12 +124,12 @@ namespace LV3
 //  c = colonne 3 de VP.  Perspective : |c| = 1 (w = profondeur de vue).
 //  Ortho : c = 0 (w = 1). UNE formule, aucun drapeau de mode.
 // ════════════════════════════════════════════════════════════
-    struct ScreenSizeParams
-    {
-        float kPx;    // P[1][1] * H/2 : pixels par unite monde a w = 1
-        float wGrad;  // |colonne 3 de VP| : 1 en perspective, 0 en ortho
-        float wNear;  // en perspective, une sphere qui atteint le near => taille infinie
-    };
+    //struct ScreenSizeParams
+    //{
+    //    float kPx;    // P[1][1] * H/2 : pixels par unite monde a w = 1
+    //    float wGrad;  // |colonne 3 de VP| : 1 en perspective, 0 en ortho
+    //    float wNear;  // en perspective, une sphere qui atteint le near => taille infinie
+    //};
 
     // Une fois PAR VUE, jamais par instance.
     [[nodiscard]] inline ScreenSizeParams MakeScreenSizeParams(const ViewData& v) noexcept

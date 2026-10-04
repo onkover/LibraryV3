@@ -9,12 +9,14 @@ namespace LV3
     {
     public:
         static void write(std::string_view msg, LogLevel lvl = LogLevel::Info);
+        static void write();
         static void info(std::string_view msg);
         static void debug(std::string_view msg);
         static void success(std::string_view msg);
         static void warn (std::string_view msg);
         static void error(std::string_view msg);
         static void setLevel(LogLevel lvl);
+        static void newline();
     private:
         static LogLevel s_level;
     };
