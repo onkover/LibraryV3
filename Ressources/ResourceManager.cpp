@@ -135,13 +135,13 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
 // ── Chaines de LOD ────────────────────────────────────
 // Meme patron que LoadMeshChecked : cle canonique, cache, puis delegation au chargeur.
 std::expected<LodChainHandle, ELodChainLoadError>
-ResourceManager::LoadLodChainChecked(const std::string& filepath)
+ResourceManager::LoadLodChainChecked(const std::string& filepath, const OBJLoadOptions& opts)
 {
     const std::string key = CanonicalKey(filepath);
     if (auto it = m_pathToLodChain.find(key); it != m_pathToLodChain.end())
         return it->second;
 
-    auto result = LodChainLoader::Load(filepath, *this);
+    auto result = LodChainLoader::Load(filepath, *this, opts);
     if (result)                                   // on ne met en cache QUE les succes :
         m_pathToLodChain.emplace(key, *result);   // un echec corrige sur disque pourra etre recharge
     return result;

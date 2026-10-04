@@ -25,6 +25,7 @@
 
 namespace LV3
 {
+
 	// ── Les zones : un enum DENSE. L'ordre suit S13, donc le CSV se lit
 	//    de gauche a droite comme la frame se deroule.
 	enum class EProfZone : uint8_t
@@ -86,6 +87,12 @@ namespace LV3
 		VertsInside,       // sommets transformes pour les meshes Inside : champ du 2b
 		TrisEmittedInside, // triangles emis par les meshes Inside : 3 divisions chacun
 
+		// ── LOD (A13 bis) : niveau CHOISI par paire (instance, vue) non cullee.
+		//    Actif des que LV3_PROFILE vaut 1 : c'est le resultat de la fonction, pas un diagnostic.
+		//    Invariant : Σ LodLevel* == MeshesTested - MeshesCulled
+		//    ORDRE CONTIGU OBLIGATOIRE : RenderSystem indexe par (LodLevel0 + niveau).
+		LodLevel0, LodLevel1, LodLevel2, LodLevel3,
+
 		Count
 	};
 
@@ -105,6 +112,7 @@ namespace LV3
 		"LocalXform2", "WorldXform2", "Trigger", "BuildViews",
 		"Clear", "Render", "Present"
 	};
+
 	inline constexpr const char* kProfCounterNames[] = {
 		"Entities", "XformNodes", "TriggerPairs", "TriggerHits",
 		"MeshesTested", "MeshesCulled", "FacesSubmitted", "TrisRasterized",
@@ -115,7 +123,8 @@ namespace LV3
 		"FacesInside",
 		"InstPx0to1", "InstPx1to4", "InstPx4to16", "InstPx16plus",
 		"FacesPx0to1", "FacesPx1to4", "FacesPx4to16", "FacesPx16plus",
-		"VertsInside", "TrisEmittedInside"
+		"VertsInside", "TrisEmittedInside",
+		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

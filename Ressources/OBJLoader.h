@@ -15,17 +15,6 @@ namespace LV3
     class MeshClass;
 //    class Material;
 
-    ///// <summary>
-    ///// Options pour le chargement de fichiers OBJ.
-    ///// </summary>
-    //struct OBJLoadOptions
-    //{
-    //    bool  generateNormalsIfMissing = true;
-    //    bool  generateSmoothNormals    = false;
-    //    bool  flipWindingOrder         = false;
-    //    bool  flipUVsVertically        = true;
-    //    float scale                    = 1.0f;
-    //};
 
     /// <summary>
     /// Charge un fichier OBJ, construit le maillage et enregistre les ressources via le ResourceManager.

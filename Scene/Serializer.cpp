@@ -195,32 +195,81 @@ namespace LV3
 			return;
 		}
 
+		//// --- 2. Chargement. UNE seule variable de chemin, celle qu'on charge vraiment ---
+		//const std::string fullPath = ResolvePath(ctx.baseDir, modelPath);
+
+		//OBJLoadOptions opts;
+		//opts.flipUVsVertically = false;
+		//opts.generateNormalsIfMissing = true;
+
+		//auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
+		//if (!meshResult.has_value())
+		//{
+		//	const char* reason =
+		//		meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
+		//		: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
+		//		: "mesh vide";
+		//	Logger::error("ParseMesh — " + std::string(reason) + " : " + modelPath);
+		//	return;
+		//}
+		//const MeshHandle hMesh = *meshResult;
+
+		//// 4d-2 : le composant porte une CHAINE. Sans descripteur, chaine implicite
+		//// de longueur 1, partagee par toutes les entites de ce mesh.
+		//const LodChainHandle hMeshChain = ctx.pRM.GetOrCreateSingleLevelChain(hMesh);
+		//if (!hMeshChain.IsValid())
+		//{
+		//	Logger::error("ParseMesh — chaine refusee pour : " + modelPath);
+		//	return;
+		//}
+
 		// --- 2. Chargement. UNE seule variable de chemin, celle qu'on charge vraiment ---
 		const std::string fullPath = ResolvePath(ctx.baseDir, modelPath);
 
+		// La scene dit EXPLICITEMENT si l'objet a une chaine de LOD : un .lod.json
+		// la decrit, un .obj donne une chaine implicite de longueur 1.
+		// UNE definition des options pour la scene : un mesh direct et les niveaux
+		// d'une chaine doivent etre charges a l'identique.
 		OBJLoadOptions opts;
 		opts.flipUVsVertically = false;
 		opts.generateNormalsIfMissing = true;
 
-		auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
-		if (!meshResult.has_value())
+		LodChainHandle hChain;
+		if (fullPath.ends_with(".lod.json"))
 		{
-			const char* reason =
-				meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
-				: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
-				: "mesh vide";
-			Logger::error("ParseMesh — " + std::string(reason) + " : " + modelPath);
-			return;
+			const auto chainResult = ctx.pRM.LoadLodChainChecked(fullPath, opts);
+			if (!chainResult.has_value())
+			{
+				Logger::error("ParseMesh — chaine refusee (" + std::string(ToString(chainResult.error())) + ") : " + modelPath);
+				return;
+			}
+			hChain = *chainResult;
 		}
-		const MeshHandle hMesh = *meshResult;
-
-		// 4d-2 : le composant porte une CHAINE. Sans descripteur, chaine implicite
-		// de longueur 1, partagee par toutes les entites de ce mesh.
-		const LodChainHandle hMeshChain = ctx.pRM.GetOrCreateSingleLevelChain(hMesh);
-		if (!hMeshChain.IsValid())
+		else
 		{
-			Logger::error("ParseMesh — chaine refusee pour : " + modelPath);
-			return;
+			//OBJLoadOptions opts;
+			//opts.flipUVsVertically = false;
+			//opts.generateNormalsIfMissing = true;
+
+			auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
+			if (!meshResult.has_value())
+			{
+				const char* reason =
+					meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
+					: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
+					: "mesh vide";
+				Logger::error("ParseMesh — " + std::string(reason) + " : " + modelPath);
+				return;
+			}
+
+			// Sans descripteur : chaine implicite de longueur 1, partagee par
+			// toutes les entites de ce mesh.
+			hChain = ctx.pRM.GetOrCreateSingleLevelChain(*meshResult);
+			if (!hChain.IsValid())
+			{
+				Logger::error("ParseMesh — chaine refusee pour : " + modelPath);
+				return;
+			}
 		}
 
 		// --- 3. Rayon d'orbite, FIGÉ ici et jamais recalculé ensuite ---
@@ -243,7 +292,7 @@ namespace LV3
 		ctx.registry.emplaceComponent<MeshComponent>(
 			entity,
 			//hMesh,                                  // m_meshHandle
-			hMeshChain,                                 // m_lodChain
+			hChain,                                 // m_lodChain
 			r.Read("orbitalSpeed", 0.0f),         // m_orbitalSpeed
 			r.Read("rotationSpeed", 0.0f),         // m_rotationSpeed
 			orbitRadius,                            // m_orbitRadius          ← était perdu

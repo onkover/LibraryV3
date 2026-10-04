@@ -82,7 +82,7 @@ namespace LV3 {
         // Charge un descripteur .lod.json, ou rend la chaine deja chargee
         // (cache par chemin canonique, comme LoadMeshChecked).
         [[nodiscard]] std::expected<LodChainHandle, ELodChainLoadError>
-            LoadLodChainChecked(const std::string& filepath);
+            LoadLodChainChecked(const std::string& filepath, const OBJLoadOptions& opts);
 
         // Chaine de longueur 1 pour un mesh SANS descripteur (planetes, gizmos...).
         // UNE chaine par mesh, partagee : mille entites -> une seule ligne de cache.

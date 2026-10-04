@@ -170,7 +170,7 @@ namespace LV3
 //    Par paire (instance, vue) : rayon apparent en pixels, faces par tranche.
 //    Un run qui l'active est un run de COMPTAGE : temps non recevables (M10).
 #ifndef LV3_LOD_STATS
-	#define LV3_LOD_STATS 1
+	#define LV3_LOD_STATS 0
 #endif
 
 #if LV3_LOD_STATS && !LV3_PROFILE

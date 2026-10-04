@@ -9,6 +9,7 @@
 #include <expected>
 #include <string>
 #include "ResourceHandle.h"
+#include "OBJLoadOptions.h"
 
 namespace LV3
 {
@@ -30,7 +31,8 @@ namespace LV3
     class LodChainLoader
     {
     public:
-        // Les chemins des meshes sont RELATIFS au dossier du descripteur.
-        [[nodiscard]] static std::expected<LodChainHandle, ELodChainLoadError> Load(const std::string& path, ResourceManager& rm);
+        // opts : les MEMES options que les meshes de la scene. Pas de defaut :
+        // le defaut d'OBJLoadOptions (flipUVsVertically = true) n'est pas celui de la scene.
+        [[nodiscard]] static std::expected<LodChainHandle, ELodChainLoadError> Load(const std::string& path, ResourceManager& rm, const OBJLoadOptions& opts);
     };
 }

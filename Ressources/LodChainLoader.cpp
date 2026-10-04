@@ -42,7 +42,7 @@ namespace LV3
         return "?";
     }
 
-    std::expected<LodChainHandle, ELodChainLoadError> LodChainLoader::Load(const std::string& path, ResourceManager& rm)
+    std::expected<LodChainHandle, ELodChainLoadError>     LodChainLoader::Load(const std::string& path, ResourceManager& rm, const OBJLoadOptions& opts)
     {
         namespace fs = std::filesystem;
 
@@ -115,7 +115,7 @@ namespace LV3
                 return fail(ELodChainLoadError::BadLevels, tag + " : chemin de mesh vide");
 
             const std::string meshPath = (dir / d.mesh).string();
-            const auto m = rm.LoadMeshChecked(meshPath);
+            const auto m = rm.LoadMeshChecked(meshPath, opts);
             if (!m)
                 return fail(ELodChainLoadError::LevelMeshFailed, tag + " : echec du chargement de " + meshPath);
 
