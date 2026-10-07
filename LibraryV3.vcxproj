@@ -235,6 +235,7 @@
     <ClInclude Include="Maths\Transform.h" />
     <ClInclude Include="Maths\Vectorlib.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Rendering\ClearKernels.h" />
     <ClInclude Include="Rendering\Clipper.h" />
     <ClInclude Include="Rendering\ClipVertex.h" />
     <ClInclude Include="Rendering\DepthBuffer.h" />

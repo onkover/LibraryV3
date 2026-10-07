@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <algorithm>
+#include "ClearKernels.h"
 
 namespace LV3
 {
@@ -17,9 +18,19 @@ namespace LV3
         }
 
 
-        void Clear() noexcept 
-        { 
-            std::fill(m_Data.begin(), m_Data.end(), 0.0f); 
+        // SONDE 2a : noinline + debugbreak, lecture du desassemblage. A RETIRER.
+        //__declspec(noinline) void Clear() noexcept
+        //{
+        // //   __debugbreak();
+        // ....
+        //}
+
+        // Variante 0 : std::fill(float*, 0.0f) -> memset -> rep stosb, comme avant.
+        // REVERSE-Z : 0 = far. Stores non temporels : voir ClearKernels.h.
+        void Clear() noexcept
+        {
+            ClearKernel::StreamFill(m_Data.data(), m_Data.size(), 0.0f);
+            ClearKernel::Fence();
         }
 
         // Test ET ecriture en une operation : un seul calcul d'index,

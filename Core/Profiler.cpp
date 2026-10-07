@@ -202,6 +202,7 @@ namespace LV3
 														// config= ne decrit que l'EXE
 				<< ";res=" << info.width << 'x' << info.height
 				<< ";views=" << info.views
+				<< ";sdl=" << info.renderDriver
 				<< ";frames=" << s_frames.size()
 				<< ";warmup=" << s_warmup
 				<< ";overhead_ns=" << s_overheadNs
@@ -260,6 +261,7 @@ namespace LV3
 														// config= ne decrit que l'EXE
 				<< ";res=" << info.width << 'x' << info.height
 				<< ";views=" << info.views
+				<< ";sdl=" << info.renderDriver
 				<< ";mesurees=" << measured << ";chauffe=" << s_warmup
 				<< ";overhead_ns=" << s_overheadNs
 				<< ";resolution_ns=" << s_resolutionNs << '\n';
@@ -297,7 +299,10 @@ namespace LV3
 						{
 							if (fr.warmup) continue;
 							uint64_t sum = 0;
-							for (size_t z = 0; z < kProfZoneCount; ++z) sum += fr.ns[z];
+							//for (size_t z = 0; z < kProfZoneCount; ++z) sum += fr.ns[z];
+							// Zones PRINCIPALES seulement : une sous-zone est deja dans sa mere.
+							for (size_t z = 0; z < kProfMainZoneCount; ++z) sum += fr.ns[z];
+
 							tmp.push_back(fr.frameNs > sum ? fr.frameNs - sum : 0);
 						}
 					};

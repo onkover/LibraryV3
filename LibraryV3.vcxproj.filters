@@ -228,6 +228,9 @@
     <ClInclude Include="Ressources\LodChainLoader.h">
       <Filter>Ressources</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\ClearKernels.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\Logger.cpp">

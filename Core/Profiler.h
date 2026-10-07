@@ -42,6 +42,14 @@ namespace LV3
 		Clear,          // Clean_Render + BeginFrame
 		Render,         // RenderView x N  <- la rasterisation
 		Present,        // SDL : HORS budget moteur, mesure pour etre exclu
+
+						// ── SOUS-ZONES (chantier Clear). Chacune est INCLUSE dans une zone
+						//    principale : elles sont EXCLUES de la somme qui calcule RESTE,
+						//    sinon le temps serait compte deux fois. Toujours APRES Present :
+						//    les colonnes des CSV de reference gardent leur position.
+		ClearColor,     // Clean_Render  (inclus dans Clear)
+		ClearDepth,     // BeginFrame -> DepthBuffer::Clear (inclus dans Clear)
+
 		Count
 	};
 
@@ -92,7 +100,6 @@ namespace LV3
 		//    Invariant : Σ LodLevel* == MeshesTested - MeshesCulled
 		//    ORDRE CONTIGU OBLIGATOIRE : RenderSystem indexe par (LodLevel0 + niveau).
 		LodLevel0, LodLevel1, LodLevel2, LodLevel3,
-
 		Count
 	};
 
@@ -101,7 +108,9 @@ namespace LV3
 		"RenderSystem indexe les tranches par base + b : ordre contigu obligatoire");
 
 	inline constexpr size_t kProfZoneCount = static_cast<size_t>(EProfZone::Count);
-	inline constexpr size_t kProfCounterCount = static_cast<size_t>(EProfCounter::Count);
+	// Zones PRINCIPALES : [0, kProfMainZoneCount). Seules elles entrent dans RESTE.
+	inline constexpr size_t kProfMainZoneCount = static_cast<size_t>(EProfZone::ClearColor);
+	static_assert(kProfMainZoneCount == static_cast<size_t>(EProfZone::Present) + 1, "Les sous-zones doivent suivre Present : une zone principale ajoutee apres elles sortirait de RESTE");	inline constexpr size_t kProfCounterCount = static_cast<size_t>(EProfCounter::Count);
 
 	// Tableaux PARALLELES aux enums. Un ajout dans l'enum sans ajout ici
 	// est une erreur de compilation, pas un decalage silencieux des colonnes
@@ -110,7 +119,8 @@ namespace LV3
 	inline constexpr const char* kProfZoneNames[] = {
 		"Input", "Animation", "LocalXform1", "WorldXform1", "Cameras",
 		"LocalXform2", "WorldXform2", "Trigger", "BuildViews",
-		"Clear", "Render", "Present"
+		"Clear", "Render", "Present",
+		"ClearColor", "ClearDepth"
 	};
 
 	inline constexpr const char* kProfCounterNames[] = {
@@ -151,6 +161,7 @@ namespace LV3
 		std::string config;              // "Release", "RelWithAsserts"
 		int width = 0, height = 0;
 		int views = 0;
+		std::string renderDriver = "inconnu"; // pilote SDL : il decide de la memoire du FrameBuffer
 		//std::string ablation = "none";   // M2 : un run d'ablation se declare LUI-MEME
 	};
 

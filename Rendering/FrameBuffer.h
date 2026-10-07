@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <type_traits>
 #include "../Lighting/Color.h"
+#include "ClearKernels.h"
 
 namespace LV3
 {
@@ -55,8 +56,19 @@ namespace LV3
             reinterpret_cast<uint32_t*>(row)[x] = std::bit_cast<uint32_t>(color);
         }
 
+
+//        // SONDE 2a : noinline + debugbreak, lecture du desassemblage. A RETIRER.
+//        //__declspec(noinline) void Clear(Color color) noexcept
+//        {
+//            __debugbreak();
+//              ......
+//            }
+//        }
+
+
         // Efface ligne par ligne EN UTILISANT LE PITCH.
-                // Jamais un memset global : les lignes peuvent etre espacees.
+        // Jamais un memset global : les lignes peuvent etre espacees.
+        // Stores non temporels : voir ClearKernels.h (chantier Clear, M14-M16).
         void Clear(Color color) noexcept
         {
             const uint32_t v = std::bit_cast<uint32_t>(color);
@@ -64,20 +76,12 @@ namespace LV3
             {
                 uint32_t* row = reinterpret_cast<uint32_t*>(
                     reinterpret_cast<uint8_t*>(m_Pixels) + y * m_Pitch);
-                std::fill(row, row + m_Width, v);
+                ClearKernel::StreamFill(row, static_cast<size_t>(m_Width), v);
             }
+            ClearKernel::Fence();   // visible avant SDL_UnlockTexture
         }
 
-        //LV3_FORCEINLINE float& DepthAt(int x, int y) noexcept
-        //{
-        //    return m_depth[size_t(y) * size_t(m_Width) + size_t(x)];
-        //}
 
-        // Le viewport DERIVE de la cible. Une seule source de verite.
-        //[[nodiscard]] Viewport GetViewport() const noexcept
-        //{
-        //    return Viewport::FullScreen(m_width, m_height);
-        //}
 
         [[nodiscard]] int32_t Width()  const { return m_Width; }
         [[nodiscard]] int32_t Height() const { return m_Height; }

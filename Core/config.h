@@ -176,3 +176,17 @@ namespace LV3
 #if LV3_LOD_STATS && !LV3_PROFILE
 	#error "LV3_LOD_STATS=1 exige LV3_PROFILE=1 : sans harnais, les compteurs ne vont nulle part"
 #endif
+
+//// 9. Chantier Clear (2b) : FACON d'ecrire les buffers couleur et profondeur.
+////    0 = STL (reference J : rep stosd / memset -> rep stosb)
+////    1 = stores SSE2 ordinaires (_mm_store_si128 : RFO)
+////    2 = stores SSE2 non temporels (_mm_stream_si128 : sans RFO, hors cache)
+////    3 = stores AVX2 non temporels (_mm256_stream_si256) : seule la LARGEUR
+////        change par rapport a 2. Intrinseques seulement, SANS /arch:AVX2.
+////    Variante de MESURE, declaree dans l'en-tete CSV (clear=). Defaut 0.
+//#ifndef LV3_CLEAR_VARIANT
+//	#define LV3_CLEAR_VARIANT 3
+//#endif
+//#if LV3_CLEAR_VARIANT < 0 || LV3_CLEAR_VARIANT > 3
+//	#error "LV3_CLEAR_VARIANT : 0 (STL), 1 (ordinaires), 2 (non temporels SSE2) ou 3 (non temporels AVX2)"
+//#endif
