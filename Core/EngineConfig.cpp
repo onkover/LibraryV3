@@ -85,7 +85,7 @@ namespace LV3
             }
 
             // ── debug (optionnel) ──────────────────────────────────
-            if (r.Has("debug"))
+           // if (r.Has("debug"))
             {
                 JsonReader rd = r.Child("debug");
                 const float range = rd.Read("depthDisplayRange", LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE);
@@ -106,7 +106,7 @@ namespace LV3
             }
 
             // ── lod (optionnel) ────────────────────────────────────
-            if (r.Has("lod"))
+            //if (r.Has("lod"))
             {
                 JsonReader rl = r.Child("lod");
                 const float tau = rl.Read("tolerancePx", LV3_DEFAULT_LOD_TOLERANCE_PX);
@@ -125,7 +125,7 @@ namespace LV3
             }
 
             // ── simulation ──────────────────────────────────
-            if (r.Has("simulationclock"))
+            //if (r.Has("simulationclock"))
             {
                 JsonReader rs = r.Child("simulationclock");
 
@@ -143,7 +143,7 @@ namespace LV3
             }
 
             // ── viewport (optionnel) ───────────
-            if (r.Has("viewport"))
+           //if (r.Has("viewport"))
             {
                 JsonReader rv = r.Child("viewport");
                 const int requested = rv.Read("maxViewport", static_cast<int>(kMaxCamerasHard));

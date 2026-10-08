@@ -22,8 +22,10 @@ namespace LV3
     class JsonReader
     {
     public:
-        JsonReader(const nlohmann::json& j, std::string comp, std::string owner) noexcept
-            : m_j(j), m_comp(std::move(comp)), m_owner(std::move(owner)) {}
+        // delegated = true : bloc ecrit null par l'auteur -> chaque cle absente est ANNONCEE (info), pas un souci.
+        JsonReader(const nlohmann::json& j, std::string comp, std::string owner, bool delegated = false) noexcept
+            : m_j(j), m_comp(std::move(comp)), m_owner(std::move(owner)), m_delegated(delegated) {
+        }
 
         //template<typename T>
         //[[nodiscard]] T Read(const char* key, T def)
@@ -120,39 +122,81 @@ namespace LV3
         //}
         
         // Tableau de EXACTEMENT 3 nombres. Meme regle que Read.
-            [[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f & def)
+        [[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f & def)
+        {
+            m_seen.insert(key);
+
+            const auto it = m_j.find(key);
+            if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
+            if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
+
+            const nlohmann::json& a = *it;
+            if (!a.is_array() || a.size() != 3
+                || !a[0].is_number() || !a[1].is_number() || !a[2].is_number())
             {
-                m_seen.insert(key);
-
-                const auto it = m_j.find(key);
-                if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
-                if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
-
-                const nlohmann::json& a = *it;
-                if (!a.is_array() || a.size() != 3
-                    || !a[0].is_number() || !a[1].is_number() || !a[2].is_number())
-                {
-                    WarnDefault(key, "mal formee (attendu : 3 nombres)", ToLog(def));
-                    return def;
-                }
-                return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+                WarnDefault(key, "mal formee (attendu : 3 nombres)", ToLog(def));
+                return def;
             }
+            return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+        }
+
+        // DELEGATION : la cle est consommee ICI, son contenu sera lu par un AUTRE
+        // parseur (qui ouvrira son propre JsonReader). 'meaning' dit, pour les
+        // messages, ce que vaut l'absence ("racine", "aucun composant").
+        //   absente -> souci + nullptr   null -> info + nullptr   sinon -> &contenu
+        [[nodiscard]] const nlohmann::json* Delegate(const char* key, std::string_view meaning)
+        {
+            m_seen.insert(key);
+
+            const auto it = m_j.find(key);
+            if (it == m_j.end()) { WarnDefault(key, "absente", std::string(meaning));  return nullptr; }
+            if (it->is_null()) { AnnounceDefault(key, std::string(meaning));        return nullptr; }
+            return &*it;
+        }
 
 
+        //// Descente dans un sous-objet. Accepte un objet ou un tableau
+        //// NON const : elle consomme une cle.        
+        //[[nodiscard]] JsonReader Child(const char* key)
+        //{
+        //    m_seen.insert(key);
+        //    static const nlohmann::json s_empty = nlohmann::json::object();
 
-        // Descente dans un sous-objet. Accepte un objet ou un tableau
-        // NON const : elle consomme une cle.        
+        //    const auto it = m_j.find(key);
+        //    if (it != m_j.end() && !it->is_object() && !it->is_array())
+        //        Logger::warn("[" + m_comp + "] '" + key + "' n'est ni un objet ni un tableau sur " + m_owner + " — bloc ignoré");
+
+        //    const bool ok = (it != m_j.end()) && (it->is_object() || it->is_array());
+        //    return JsonReader(ok ? *it : s_empty, m_comp + "." + key, m_owner);
+        //}
+                // Meme regle que pour une cle :
+        //   absent       -> souci (bloc) ; chaque cle lue dedans : souci + defaut
+        //   null         -> info  (bloc) ; chaque cle lue dedans : ANNONCEE (lecteur delegue)
+        //   mauvais type -> souci (bloc) ; comme absent
+        //   La delegation se transmet aux sous-blocs.
         [[nodiscard]] JsonReader Child(const char* key)
         {
             m_seen.insert(key);
             static const nlohmann::json s_empty = nlohmann::json::object();
+            const std::string comp = m_comp + "." + key;
 
             const auto it = m_j.find(key);
-            if (it != m_j.end() && !it->is_object() && !it->is_array())
-                Logger::warn("[" + m_comp + "] '" + key + "' n'est ni un objet ni un tableau sur " + m_owner + " — bloc ignoré");
-
-            const bool ok = (it != m_j.end()) && (it->is_object() || it->is_array());
-            return JsonReader(ok ? *it : s_empty, m_comp + "." + key, m_owner);
+            if (it == m_j.end())
+            {
+                Absent(key, "bloc entier par defaut");
+                return JsonReader(s_empty, comp, m_owner, m_delegated);
+            }
+            if (it->is_null())
+            {
+                AnnounceDefault(key, "bloc entier par defaut");
+                return JsonReader(s_empty, comp, m_owner, true);
+            }
+            if (!it->is_object() && !it->is_array())
+            {
+                WarnDefault(key, "ni objet ni tableau", "bloc entier par defaut");
+                return JsonReader(s_empty, comp, m_owner, m_delegated);
+            }
+            return JsonReader(*it, comp, m_owner, m_delegated);
         }
 
         // itérer les enfants d'un OBJET et retourner un JsonReader par enfant
@@ -217,6 +261,15 @@ namespace LV3
         }
 
     private:
+        // Cle absente : SOUCI, sauf dans un bloc delegue (null) ou l'auteur a ecrit "tout par defaut".
+        void Absent(const char* key, const std::string& taken) const
+        {
+            if (m_delegated)
+                Logger::info("[" + m_comp + "] cle '" + key + "' (bloc null) sur " + m_owner + " — valeur retenue : " + taken);
+            else
+                WarnDefault(key, "absente", taken);
+        }
+
         // SOUCI : compte dans Logger::warnCount().
         void WarnDefault(const char* key, std::string_view why, const std::string& taken) const
         {
@@ -242,6 +295,7 @@ namespace LV3
         const nlohmann::json& m_j;
         std::string          m_comp, m_owner;
         std::set<std::string, std::less<>> m_seen;
+        bool m_delegated = false;   // bloc null : absences annoncees, pas signalees
     };
 
 } // namespace LV3

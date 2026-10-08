@@ -42,118 +42,264 @@ namespace LV3
 			return false;
 		}
 
-		Logger::info("=== Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>() +" ===");            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
+		// ── Niveau FICHIER : meme regle que partout (R28 : jamais operator[]) ──
+		JsonReader rs(sceneData, "Scene", jsonSceneFile);
+		const std::string sceneName = rs.Read("sceneName", std::string("<sans nom>"));
+		Logger::info("=== Phase 1 : Construction de la scène " + sceneName + " ===");
 
-
-		if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
+		const nlo_json* pNodes = rs.Delegate("nodes", "aucun noeud");
+		rs.WarnUnread();
+		if (!pNodes || !pNodes->is_array())
 		{
-			// Préparer le contexte de parsing
-			std::unordered_map<std::string, Entity> entityMap;
-			ParseContext ctx{ sceneFilePath, pRM, entityMap, registry };// , out_activeCamera };
+			Logger::error("SceneSerializer::Load — 'nodes' absent ou pas un tableau dans " + jsonSceneFile + " — scene refusee");
+			return false;
+		}
 
-			for (const auto& nodeJson : sceneData["nodes"])
+		std::unordered_map<std::string, Entity> entityMap;
+		ParseContext ctx{ sceneFilePath, pRM, entityMap, registry };
+
+		// ── PASSE 1 : chaque noeud lu UNE fois, par UN lecteur ──
+		std::size_t index = 0;
+		for (const nlo_json& nodeJson : *pNodes)
+		{
+			// Etiquette de DIAGNOSTIC seulement : la VALIDATION de 'id' est faite par rn.Read
+			std::string where = "noeud #" + std::to_string(index++);
+			if (!nodeJson.is_object())
 			{
-				// Crée une Entité vide et la stocke dans la , 
-				std::string id = nodeJson["id"];
-				if (ctx.entityMap.count(id))    // ou entityMap.contains(id) en C++20+
-				{
-					Logger::error("LoadSceneGraph — id dupliqué : '" + id + "'");
-					return false;
-				}
-
-				Entity entity = registry.CreateEntity();
-				entityMap[id] = entity;
-				registry.addComponent<NameComponent>(entity, NameComponent{ id });
-
-				if (!ParseNode(&nodeJson, ctx, entity))
-				{
-					Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
-					return false;
-				}
-
-				#if LV3_VERBOSE_LOG
-					Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
-				#endif		
-
+				Logger::error("SceneSerializer::Load — " + where + " n'est pas un objet — scene refusee");
+				return false;
 			}
-			Logger::success("Première passe terminée.\n");
-			Logger::info("*****************************");
-			Logger::info("Phase 2 : Link des hiérarchie");
+			if (const auto itId = nodeJson.find("id"); itId != nodeJson.end() && itId->is_string())
+				where += " '" + itId->get<std::string>() + "'";
 
-			for (const auto& nodeJson : sceneData["nodes"])
+			JsonReader rn(nodeJson, "Node", where);
+
+			const std::string id = rn.Read("id", std::string{});
+			if (id.empty())
 			{
-				if (!ParseHierarchy(&nodeJson, ctx))
-				{
-					Logger::error("SceneSerializer::Load — erreur lors des hiérarchies");
-					return false;
-				}
+				Logger::error("SceneSerializer::Load — " + where + " : 'id' absent ou vide — scene refusee");
+				return false;
+			}
+			if (ctx.entityMap.contains(id))
+			{
+				Logger::error("LoadSceneGraph — id dupliqué : '" + id + "'");
+				return false;
 			}
 
+			const Entity entity = registry.CreateEntity();
+			ctx.entityMap.emplace(id, entity);
+			registry.addComponent<NameComponent>(entity, NameComponent{ id });
 
-			ResolveDeferredReferences(ctx);
-			ValidateHierarchy(registry);
+			if (!ParseNode(rn, ctx, entity))
+			{
+				Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
+				return false;
+			}
 
-			Logger::info("[Diag] Deuxième passe terminée. Hiérarchie assemblée.");
-			Logger::info("[Diag] BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
-			Logger::info("[Diag] SceneSerializer::Load — scène chargée : " + sceneFilePath + jsonSceneFile);
-			Logger::success("[Diag] Construction de la scène terminée avec succès.\n");
+		#if LV3_VERBOSE_LOG
+			Logger::info(id + " " + std::to_string(ctx.entityMap.size()) + " noeuds créés.");
+		#endif
 		}
-		else
-		{
-			Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
-		}
+		Logger::success("Première passe terminée.\n");
+		Logger::info("*****************************");
+		Logger::info("Phase 2 : Link des hiérarchie");
+
+		// ── PASSE 2 : plus AUCUNE lecture JSON, seulement des resolutions ──
+		if (!ResolveParents(ctx))
+			return false;
+
+		ResolveDeferredReferences(ctx);
+		ValidateHierarchy(registry);
+
+		Logger::info("[Diag] Deuxième passe terminée. Hiérarchie assemblée.");
+		Logger::info("[Diag] BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
+		Logger::info("[Diag] SceneSerializer::Load — scène chargée : " + sceneFilePath + jsonSceneFile);
+		Logger::success("[Diag] Construction de la scène terminée avec succès.\n");
 
 		return true;
+
+
+		//Logger::info("=== Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>() +" ===");            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
+
+
+		//if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
+		//{
+		//	// Préparer le contexte de parsing
+		//	std::unordered_map<std::string, Entity> entityMap;
+		//	ParseContext ctx{ sceneFilePath, pRM, entityMap, registry };// , out_activeCamera };
+
+		//	for (const auto& nodeJson : sceneData["nodes"])
+		//	{
+		//		// Crée une Entité vide et la stocke dans la , 
+		//		std::string id = nodeJson["id"];
+		//		if (ctx.entityMap.count(id))    // ou entityMap.contains(id) en C++20+
+		//		{
+		//			Logger::error("LoadSceneGraph — id dupliqué : '" + id + "'");
+		//			return false;
+		//		}
+
+		//		Entity entity = registry.CreateEntity();
+		//		entityMap[id] = entity;
+		//		registry.addComponent<NameComponent>(entity, NameComponent{ id });
+
+		//		if (!ParseNode(&nodeJson, ctx, entity))
+		//		{
+		//			Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
+		//			return false;
+		//		}
+
+		//		#if LV3_VERBOSE_LOG
+		//			Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
+		//		#endif		
+
+		//	}
+		//	Logger::success("Première passe terminée.\n");
+		//	Logger::info("*****************************");
+		//	Logger::info("Phase 2 : Link des hiérarchie");
+
+		//	for (const auto& nodeJson : sceneData["nodes"])
+		//	{
+		//		if (!ParseHierarchy(&nodeJson, ctx))
+		//		{
+		//			Logger::error("SceneSerializer::Load — erreur lors des hiérarchies");
+		//			return false;
+		//		}
+		//	}
+
+
+		//	ResolveDeferredReferences(ctx);
+		//	ValidateHierarchy(registry);
+
+		//	Logger::info("[Diag] Deuxième passe terminée. Hiérarchie assemblée.");
+		//	Logger::info("[Diag] BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
+		//	Logger::info("[Diag] SceneSerializer::Load — scène chargée : " + sceneFilePath + jsonSceneFile);
+		//	Logger::success("[Diag] Construction de la scène terminée avec succès.\n");
+		//}
+		//else
+		//{
+		//	Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
+		//}
+
+		//return true;
 	}
 
 
 
 
-	bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	//bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
+	//{
+	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
+	//	if (!nodeJson.is_object()) return false;
+
+	//	if (!nodeJson.contains("components")) return true;
+	//	const nlo_json& comps = nodeJson["components"];
+
+	//	// ============================================================
+	//	//  Le Transform D'ABORD, hors de la boucle.
+	//	//
+	//	//  /!\ nlohmann::json stocke ses objets dans un std::map :
+	//	//      items() parcourt les cles par ordre ALPHABETIQUE,
+	//	//      PAS dans l'ordre d'ecriture du fichier.
+	//	//      "Camera" < "CameraFPS" < "Mesh" < "Transform" < "Trigger"
+	//	//      -> le Transform serait parse en avant-dernier.
+	//	//
+	//	//  Or ParseMesh (rayon d'orbite) et ParseCameraFPS (yaw/pitch
+	//	//  initiaux) le LISENT. Ils doivent le trouver deja en place.
+	//	// ============================================================
+	//	if (comps.contains("Transform"))
+	//		ParseTransform(&comps["Transform"], ctx, entity);
+
+	//	for (auto& [compName, compJson] : comps.items())
+	//	{
+	//		if (compName == "Transform")     continue;              // deja fait ci-dessus
+	//		else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
+	//		else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
+	//		else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity);// , ctx.out_activeCamera);
+	//		else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
+	//		else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
+	//		else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
+	//		else if (compName == "Health")        ParseHealth(&compJson, ctx, entity);
+	//		else if (compName == "PlayerControl") PlayerControif compName == "Mesh"l(&compJson, ctx, entity);
+	//		else
+	//		{
+	//			// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
+	//			Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
+	//		}
+	//	}
+	//	#if LV3_VERBOSE_LOG
+	//		Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
+	//	#endif
+	//	return true;
+
+	//}
+
+	bool SceneSerializer::ParseNode(JsonReader& rn, ParseContext& ctx, Entity entity)
 	{
-		const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
-		if (!nodeJson.is_object()) return false;
-
-		if (!nodeJson.contains("components")) return true;
-		const nlo_json& comps = nodeJson["components"];
-
-		// ============================================================
-		//  Le Transform D'ABORD, hors de la boucle.
-		//
-		//  /!\ nlohmann::json stocke ses objets dans un std::map :
-		//      items() parcourt les cles par ordre ALPHABETIQUE,
-		//      PAS dans l'ordre d'ecriture du fichier.
-		//      "Camera" < "CameraFPS" < "Mesh" < "Transform" < "Trigger"
-		//      -> le Transform serait parse en avant-dernier.
-		//
-		//  Or ParseMesh (rayon d'orbite) et ParseCameraFPS (yaw/pitch
-		//  initiaux) le LISENT. Ils doivent le trouver deja en place.
-		// ============================================================
-		if (comps.contains("Transform"))
-			ParseTransform(&comps["Transform"], ctx, entity);
-
-		for (auto& [compName, compJson] : comps.items())
+		// ── 1. PARENT : LU ici, RESOLU plus tard (passe 2, ResolveParents) ──
+		//    absente -> souci + racine     null -> info + racine
+		if (const nlo_json* pParent = rn.Delegate("parent", "racine"))
 		{
-			if (compName == "Transform")     continue;              // deja fait ci-dessus
-			else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
-			else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
-			else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity);// , ctx.out_activeCamera);
-			else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
-			else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
-			else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
-			else if (compName == "Health")        ParseHealth(&compJson, ctx, entity);
-			else if (compName == "PlayerControl") PlayerControl(&compJson, ctx, entity);
-			else
+			if (!pParent->is_string() || pParent->get_ref<const std::string&>().empty())
 			{
-				// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
-				Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
+				Logger::error("ParseNode — 'parent' doit etre un id (texte non vide) ou null sur " + EntityLabel(ctx.registry, entity));
+				return false;     // un graphe faux ne se charge pas « presque bien »
+			}
+			ctx.pendingParents.push_back({ entity, pParent->get<std::string>() });
+		}
+
+		// ── 2. COMPOSANTS : DELEGUES, chaque Parse* ouvre son propre JsonReader ──
+		//    absente -> souci (noeud sans composant)     null -> info
+		if (const nlo_json* pComps = rn.Delegate("components", "aucun composant"))
+		{
+			if (!pComps->is_object())
+			{
+				Logger::error("ParseNode — 'components' doit etre un objet sur " + EntityLabel(ctx.registry, entity));
+				return false;
+			}
+			const nlo_json& comps = *pComps;
+
+			// ============================================================
+			//  Le Transform D'ABORD, hors de la boucle.
+			//
+			//  /!\ nlohmann::json stocke ses objets dans un std::map :
+			//      items() parcourt les cles par ordre ALPHABETIQUE,
+			//      PAS dans l'ordre d'ecriture du fichier.
+			//      "Camera" < "CameraFPS" < "Mesh" < "Transform" < "Trigger"
+			//      -> le Transform serait parse en avant-dernier.
+			//
+			//  Or ParseMesh (rayon d'orbite) et ParseCameraFPS (yaw/pitch
+			//  initiaux) le LISENT. Ils doivent le trouver deja en place.
+			// ============================================================
+			if (const auto itT = comps.find("Transform"); itT != comps.end())
+				ParseTransform(&*itT, ctx, entity);
+
+			for (auto& [compName, compJson] : comps.items())
+			{
+				if (compName == "Transform")     continue;              // deja fait ci-dessus
+				else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
+				else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
+				else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity);
+				else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
+				else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
+				else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
+				else if (compName == "Health")        ParseHealth(&compJson, ctx, entity);
+				else if (compName == "PlayerControl") PlayerControl(&compJson, ctx, entity);
+				else
+				{
+					// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
+					Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity));
+				}
 			}
 		}
+
+		// ── 3. CLES DE NOEUD INCONNUES ("parnet", "Notes", "type"...) : enfin signalees.
+		//    '_type', '_note' : prefixe '_' = assume, non lu.
+		rn.WarnUnread();
+
 		#if LV3_VERBOSE_LOG
 			Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
 		#endif
 		return true;
-
 	}
 
 	void SceneSerializer::ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity)
@@ -357,8 +503,6 @@ namespace LV3
 		// ── 2. PLANS ──────────────────────────────────────────────────
 		c.m_nearPlane = r.Read("near", 0.1f);
 		c.m_infiniteFar = r.Read("infiniteFar", false);
-		c.m_depthDisplayRange = r.Read("depthDisplayRange", -1.0f);
-//		c.m_lodTolerancePx = r.Read("lodTolerancePx", -1.0f);   // -1 : defaut moteur
 		c.m_farPlane = r.Read("far", 1000.0f);
 
 		// Surcharges MOTEUR (precondition : EngineConfig charge AVANT la scene, cf. main.cpp)
@@ -596,31 +740,51 @@ namespace LV3
 	}
 
 
-	bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
+	//bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
+	//{
+	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
+	//	if (!nodeJson.is_object()) return false;
+
+	//	if (nodeJson.contains("parent"))
+	//	{
+	//		const std::string childId = nodeJson["id"];
+	//		const std::string parentId = nodeJson["parent"];
+
+	//		// R28 : operator[] d'une map n'est JAMAIS un lookup — il insère.
+	//		// Ici, un parent mal orthographié fabriquait Entity(0) : l'objet
+	//		// devenait enfant du PREMIER noeud de la scène, sans un mot.
+	//		const auto itChild = ctx.entityMap.find(childId);
+	//		const auto itParent = ctx.entityMap.find(parentId);
+	//		LV3_ASSERT(itChild != ctx.entityMap.end());   // créé en passe 1, sinon bug interne
+
+	//		if (itParent == ctx.entityMap.end())
+	//		{
+	//			Logger::error("ParseHierarchy — parent '" + parentId + "' introuvable pour '" + childId + "'");
+	//			return false;      // un graphe faux ne se charge pas « presque bien »
+	//		}
+
+	//		linkChildToParent(ctx.registry, itChild->second, itParent->second);
+	//	}
+	//	return true;
+	//}
+	
+	// Passe 2 : aucune lecture JSON. Les liens ont ete LUS par ParseNode.
+	bool SceneSerializer::ResolveParents(ParseContext& ctx)
 	{
-		const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
-		if (!nodeJson.is_object()) return false;
-
-		if (nodeJson.contains("parent"))
+		for (const PendingParentLink& link : ctx.pendingParents)
 		{
-			const std::string childId = nodeJson["id"];
-			const std::string parentId = nodeJson["parent"];
-
-			// R28 : operator[] d'une map n'est JAMAIS un lookup — il insère.
-			// Ici, un parent mal orthographié fabriquait Entity(0) : l'objet
-			// devenait enfant du PREMIER noeud de la scène, sans un mot.
-			const auto itChild = ctx.entityMap.find(childId);
-			const auto itParent = ctx.entityMap.find(parentId);
-			LV3_ASSERT(itChild != ctx.entityMap.end());   // créé en passe 1, sinon bug interne
-
+			// R28 : find(), jamais operator[] (un parent mal orthographie
+			// fabriquait Entity(0) : enfant du PREMIER noeud, sans un mot).
+			const auto itParent = ctx.entityMap.find(link.parentId);
 			if (itParent == ctx.entityMap.end())
 			{
-				Logger::error("ParseHierarchy — parent '" + parentId + "' introuvable pour '" + childId + "'");
+				Logger::error("ResolveParents — parent '" + link.parentId + "' introuvable pour "
+					+ EntityLabel(ctx.registry, link.child));
 				return false;      // un graphe faux ne se charge pas « presque bien »
 			}
-
-			linkChildToParent(ctx.registry, itChild->second, itParent->second);
+			linkChildToParent(ctx.registry, link.child, itParent->second);
 		}
+		ctx.pendingParents.clear();
 		return true;
 	}
 

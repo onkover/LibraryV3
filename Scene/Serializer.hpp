@@ -7,6 +7,8 @@
 
 namespace LV3
 {
+    class JsonReader;     // reference seulement : le type complet n'est requis que dans le .cpp
+
     class SceneSerializer
     {
     public:
@@ -32,11 +34,18 @@ namespace LV3
     private:
         // ── Parsers internes ──────────────────────────────────
         // Forward-declaration du type JSON pour éviter d'exposer nlohmann dans le header public. Le type est résolu dans le .cpp.
-
+        // Pourquoi: parent est lu en passe 1 et résolu en passe 2, parce qu’un parent peut être déclaré après son enfant.C’est le même patron que PendingEntityRef.
         struct PendingEntityRef
         {
             Entity      owner;
             std::string targetName;
+        };
+
+        // 'parent' LU en passe 1 (ParseNode), RESOLU en passe 2 (ResolveParents)
+        struct PendingParentLink
+        {
+            Entity      child;
+            std::string parentId;
         };
 
         struct ParseContext
@@ -52,12 +61,12 @@ namespace LV3
             // il doit être déclaré en dernier, après les membres que tu passes positionnellement :
             // --------------------------
             std::vector<PendingEntityRef> pendingFollowTargets; // liste des références à résoudre après le parsing de tous les noeuds
-
+            std::vector<PendingParentLink> pendingParents;      // remplie par ParseNode, videe par ResolveParents (DERNIER membre)
         };
 
         static void ResolveDeferredReferences(ParseContext& ctx);
-
-        static bool ParseNode(const void* jsonNode, ParseContext& ctx, Entity entity);
+        static bool ResolveParents(ParseContext& ctx);
+        static bool ParseNode(JsonReader& rn, ParseContext& ctx, Entity entity);
         static void ParseTransform(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseMesh(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseLight(const void* pJsonNode, ParseContext& ctx, Entity entity);
@@ -67,7 +76,7 @@ namespace LV3
         static void ParseTrigger(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void PlayerControl(const void* pJsonNode, ParseContext& ctx, Entity entity);
         static void ParseHealth(const void* pJsonNode, ParseContext& ctx, Entity entity);
-        static bool ParseHierarchy(const void* pJsonNode, ParseContext& ctx);
+        //static bool ParseHierarchy(const void* pJsonNode, ParseContext& ctx);
 
     };
 }
