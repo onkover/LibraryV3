@@ -10,6 +10,9 @@
 #include <string>
 #include <string_view>
 #include <set>
+#include <optional>
+#include <format>
+#include <type_traits>
 #include "Core/Logger.h"
 #include "Maths/Vectorlib.h"
 #include "../Ressources/json.hpp"
@@ -22,44 +25,121 @@ namespace LV3
         JsonReader(const nlohmann::json& j, std::string comp, std::string owner) noexcept
             : m_j(j), m_comp(std::move(comp)), m_owner(std::move(owner)) {}
 
+        //template<typename T>
+        //[[nodiscard]] T Read(const char* key, T def)
+        //{
+        //    m_seen.insert(key);
+        //    if (!Has(key))
+        //    {
+        //        Logger::warn("[" + m_comp + "] cle absente '" + key + "' sur " + m_owner + ". Prise en compte de la clé par défaut : ");
+        //        return def;
+        //    }
+        //    try
+        //    {
+        //        return m_j.value(key, def);
+        //    }
+        //    catch (const nlohmann::json::type_error&)
+        //    {
+        //        Logger::warn("[" + m_comp + "] '" + key + "' de type invalide sur " + m_owner + " — défaut utilisé");
+        //        return def;
+        //    }
+        //}
+
+                // ── REGLE (Onky, 2026-10-07) : trois formes d'ecriture, aucune muette ──
+        //   valeur exacte -> prise, silence
+        //   cle absente   -> SOUCI : warn + defaut pris
+        //   null          -> delegation ecrite : info + valeur retenue
+        //   type invalide -> SOUCI : warn + defaut pris
+
         template<typename T>
         [[nodiscard]] T Read(const char* key, T def)
         {
             m_seen.insert(key);
-            if (!Has(key))
-            {
-                Logger::warn("[" + m_comp + "] cle absente '" + key + "' sur " + m_owner + ". Prise en compte de la clé par défaut : ");
-                return def;
-            }
+
+            const auto it = m_j.find(key);                 // R28 : find(), jamais operator[]
+            if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
+            if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
+
             try
             {
-                return m_j.value(key, def);
+                return it->get<T>();
             }
             catch (const nlohmann::json::type_error&)
             {
-                Logger::warn("[" + m_comp + "] '" + key + "' de type invalide sur " + m_owner + " — défaut utilisé");
+                WarnDefault(key, "de type invalide", ToLog(def));
                 return def;
             }
         }
 
-
-        // Lit un tableau JSON de 3 nombres et retourne un Vec3f. Si la clé est absente ou invalide, retourne la valeur par défaut.
-        [[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f& def)
+        // Surcharge d'une valeur MOTEUR (camera -> EngineConfig).
+        // nullopt = "suivre le moteur" ; engineValue ne sert QU'AUX messages.
+        template<typename T>
+        [[nodiscard]] std::optional<T> TryRead(const char* key, const T& engineValue)
         {
             m_seen.insert(key);
 
-            // R28 (variante nlohmann) : operator[] const EXIGE la clé (assert/UB si absente),
-            // operator[] non-const l'INSÈRE. Ni l'un ni l'autre n'est un lookup : find().
+            const std::string taken = ToLog(engineValue) + " (moteur)";
             const auto it = m_j.find(key);
-            if (it == m_j.end()) return def;
+            if (it == m_j.end()) { WarnDefault(key, "absente", taken);  return std::nullopt; }
+            if (it->is_null()) { AnnounceDefault(key, taken);        return std::nullopt; }
 
-            const nlohmann::json& a = *it;
-            if (!a.is_array() || a.size() < 3) return def;
-            if (!a[0].is_number() || !a[1].is_number() || !a[2].is_number()) return def;
-            return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
-
+            try
+            {
+                return it->get<T>();
+            }
+            catch (const nlohmann::json::type_error&)
+            {
+                WarnDefault(key, "de type invalide", taken);
+                return std::nullopt;
+            }
         }
+
+        //── Trois verbes, trois contrats. C'est le SITE D'APPEL qui sait. ──
+         //  Read    : cle REQUISE.     Absente -> avertissement + def.
+         //  ReadOr  : cle OPTIONNELLE. Absente -> silence + def (choix de l'auteur).
+         //  TryRead : cle OPTIONNELLE sans defaut. Absente -> nullopt
+         //            (surcharges : "absente" != toute valeur, pas de sentinelle).
+         //  Pour les trois : type invalide -> avertissement. Une erreur d'auteur
+         //  n'est JAMAIS muette. Les trois marquent la cle comme vue (WarnUnread).
+
+        // Lit un tableau JSON de 3 nombres et retourne un Vec3f. Si la clé est absente ou invalide, retourne la valeur par défaut.
+        //[[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f& def)
+        //{
+        //    m_seen.insert(key);
+
+        //    // R28 (variante nlohmann) : operator[] const EXIGE la clé (assert/UB si absente),
+        //    // operator[] non-const l'INSÈRE. Ni l'un ni l'autre n'est un lookup : find().
+        //    const auto it = m_j.find(key);
+        //    if (it == m_j.end()) return def;
+
+        //    const nlohmann::json& a = *it;
+        //    if (!a.is_array() || a.size() < 3) return def;
+        //    if (!a[0].is_number() || !a[1].is_number() || !a[2].is_number()) return def;
+        //    return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+
+        //}
         
+        // Tableau de EXACTEMENT 3 nombres. Meme regle que Read.
+            [[nodiscard]] Vec3f ReadVector(const char* key, const Vec3f & def)
+            {
+                m_seen.insert(key);
+
+                const auto it = m_j.find(key);
+                if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
+                if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
+
+                const nlohmann::json& a = *it;
+                if (!a.is_array() || a.size() != 3
+                    || !a[0].is_number() || !a[1].is_number() || !a[2].is_number())
+                {
+                    WarnDefault(key, "mal formee (attendu : 3 nombres)", ToLog(def));
+                    return def;
+                }
+                return Vec3f(a[0].get<float>(), a[1].get<float>(), a[2].get<float>());
+            }
+
+
+
         // Descente dans un sous-objet. Accepte un objet ou un tableau
         // NON const : elle consomme une cle.        
         [[nodiscard]] JsonReader Child(const char* key)
@@ -137,8 +217,30 @@ namespace LV3
         }
 
     private:
+        // SOUCI : compte dans Logger::warnCount().
+        void WarnDefault(const char* key, std::string_view why, const std::string& taken) const
+        {
+            Logger::warn("[" + m_comp + "] cle '" + key + "' " + std::string(why)
+                + " sur " + m_owner + " — defaut pris : " + taken);
+        }
+
+        // ANNONCE : l'auteur a ecrit null. Visible, mais pas un souci.
+        void AnnounceDefault(const char* key, const std::string& taken) const
+        {
+            Logger::info("[" + m_comp + "] cle '" + key + "' = null sur " + m_owner
+                + " — valeur retenue : " + taken);
+        }
+
+        template<typename T>
+        [[nodiscard]] static std::string ToLog(const T& v)
+        {
+            if constexpr (std::is_same_v<T, std::string>) return "\"" + v + "\"";
+            else if constexpr (std::is_same_v<T, Vec3f>)  return std::format("({}, {}, {})", v.x, v.y, v.z);
+            else                                          return std::format("{}", v);
+        }
+
         const nlohmann::json& m_j;
-        std::string                        m_comp, m_owner;
+        std::string          m_comp, m_owner;
         std::set<std::string, std::less<>> m_seen;
     };
 

@@ -6,7 +6,9 @@
 namespace LV3
 {
     LogLevel Logger::s_level = LogLevel::Info;
-   
+    std::uint32_t Logger::s_warnCount = 0;
+
+
 	// Définit le niveau de log.
     void Logger::setLevel(LogLevel lvl)
     {
@@ -53,19 +55,23 @@ namespace LV3
     {
         write(msg, LogLevel::Info);
     }
+    
     // Logue un message info
     void Logger::success(std::string_view msg)
     {
         write(msg, LogLevel::Success);
     }
+    
     // Logue un message info
     void Logger::debug(std::string_view msg)
     {
         write(msg, LogLevel::Debug);
     }
-	// Logue un message d'avertissement.
+	
+    // Logue un message d'avertissement.
     void Logger::warn (std::string_view msg)
     { 
+        ++s_warnCount;                       // compte AVANT le filtre de niveau
         write(msg, LogLevel::Warning);
     }
     
@@ -74,6 +80,7 @@ namespace LV3
     {
         write(msg, LogLevel::Error);
     }
+    
     // Logue un retour à la ligne
     void Logger::newline()
     {

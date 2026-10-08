@@ -17,8 +17,13 @@ namespace LV3
         static void error(std::string_view msg);
         static void setLevel(LogLevel lvl);
         static void newline();
+
+        // TNR : avertissements emis depuis le lancement, AFFICHES OU NON.
+        // Un silence ne se constate pas a l'oeil : il se compte.
+        [[nodiscard]] static std::uint32_t warnCount() noexcept { return s_warnCount; }
     private:
         static LogLevel s_level;
+        static std::uint32_t s_warnCount;
     };
 
 } // namespace LV3

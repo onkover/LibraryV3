@@ -88,8 +88,21 @@ namespace LV3
             if (r.Has("debug"))
             {
                 JsonReader rd = r.Child("debug");
-                debug.depthDisplayRange = rd.Read("depthDisplayRange", LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE);
+                const float range = rd.Read("depthDisplayRange", LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE);
+
+                // Meme garde que lod.tolerancePx : Fragment.cpp DIVISE par cette valeur.
+                // 0 -> mode Depth tout noir, negatif -> tout blanc, sans un mot.
+                if (!(range > 0.0f) || !std::isfinite(range))
+                {
+                    Logger::warn(std::format("[engine.debug] cle 'depthDisplayRange' invalide ({}, attendu > 0 et fini) sur {} — defaut pris : {}", range, path, LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE));
+                    debug.depthDisplayRange = LV3_DEFAULT_MAX_DEPTH_DISPLAY_RANGE;
+                }
+                else
+                    debug.depthDisplayRange = range;
+
                 rd.WarnUnread();
+
+
             }
 
             // ── lod (optionnel) ────────────────────────────────────

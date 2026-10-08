@@ -269,9 +269,18 @@ namespace LV3
 		v.m_sourceCamera = b.m_camera;		// ETAPE 0, avec le reste du contexte
 		v.viewport = b.m_viewport;			// la destination en pixels (et l'aspect ratio)
 		v.mode = b.m_mode;				// Mode de rendu pour la viewport
-		v.depthDisplayRange = (cam.m_depthDisplayRange > 0.0f)
+		//v.depthDisplayRange = (cam.m_depthDisplayRange > 0.0f)
+		//						? cam.m_depthDisplayRange
+		//						: LV3::EngineConfig::Get().debug.depthDisplayRange;
+
+		v.depthDisplayRange = cam.m_hasDepthDisplayRange
 								? cam.m_depthDisplayRange
 								: LV3::EngineConfig::Get().debug.depthDisplayRange;
+		// Les DEUX sources sont validees en amont (ParseCamera, EngineConfig) :
+		// si cette assertion saute, un ecrivain hors parsing a casse l'invariant.
+		LV3_ASSERT(v.depthDisplayRange > 0.0f && std::isfinite(v.depthDisplayRange));
+
+
 		v.reverseZ = true;					// convention du moteur, mémorisée pour le Z-buffer
 
 		LV3_ASSERT(b.m_viewport.width > 0 && b.m_viewport.height > 0);
@@ -365,9 +374,9 @@ namespace LV3
 		//  La division par tau est faite ICI, une fois par vue (amendement A13 § 6.4),
 		//  jamais par instance dans RenderView.
 		// ════════════════════════════════════════════════════════════════
-		v.lodTolerancePx = (cam.m_lodTolerancePx > 0.0f)
-			? cam.m_lodTolerancePx
-			: LV3::EngineConfig::Get().lod.tolerancePx;
+		v.lodTolerancePx = cam.m_hasLodTolerancePx
+							? cam.m_lodTolerancePx
+							: LV3::EngineConfig::Get().lod.tolerancePx;
 		LV3_ASSERT(v.lodTolerancePx > 0.0f && std::isfinite(v.lodTolerancePx));
 
 		v.lodParams = MakeScreenSizeParams(v);

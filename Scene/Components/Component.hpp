@@ -61,11 +61,20 @@ namespace LV3
 		float m_farPlane = 1000.0f;					// plan lointain, en unités monde
 		bool  m_infiniteFar = false;				// ignore m_farPlane : plus aucune limite lointaine
 
-		// --- Debug : affichage (PAS une donnée géométrique, cf. R20) ---
-		float m_depthDisplayRange = -1.0f;   // -1 = non défini -> utilise EngineConfig::debug.depthDisplayRange
+		//// --- Debug : affichage (PAS une donnée géométrique, cf. R20) ---
+		//float m_depthDisplayRange = -1.0f;   // -1 = non défini -> utilise EngineConfig::debug.depthDisplayRange
 
-		// --- Qualité : tolérance du LOD, en pixels (A13 bis) ---
-		float m_lodTolerancePx = -1.0f;      // -1 = non défini -> utilise EngineConfig::lod.tolerancePx
+		//// --- Qualité : tolérance du LOD, en pixels (A13 bis) ---
+		//float m_lodTolerancePx = -1.0f;      // -1 = non défini -> utilise EngineConfig::lod.tolerancePx
+
+		// Debug : affichage (PAS une donnée géométrique, cf. R20)
+		bool  m_hasDepthDisplayRange = false;	// false -> EngineConfig::debug.depthDisplayRange
+		float m_depthDisplayRange = 0.0f;		// sans objet si m_hasDepthDisplayRange == false
+
+		// Qualité : tolérance du LOD, en pixels (A13 bis)
+		bool  m_hasLodTolerancePx = false;		// false -> EngineConfig::lod.tolerancePx
+		float m_lodTolerancePx = 0.0f;			// sans objet si m_hasLodTolerancePx == false
+
 
 		// --- Perspective : paramétrage ---
 		ELensModel m_lensModel = ELensModel::FieldOfView;

@@ -1,20 +1,22 @@
 #pragma once
+/**********************************************
+
+	Helper pour la sérialisation du graph scene
+
+**********************************************/
 
 #include <fstream>
 #include <filesystem>
 #include <vector>
+#include <optional>
+#include <format>
+#include <cmath>
 #include "Maths/Projection.h"      // EProjectionType, ELensModel, EGateFit
-//#include "../Ressources/json.hpp"
 #include "Registry.hpp"
 #include "../core/JsonReader.h"
 
 namespace LV3
 {
-	/**********************************************
-
-		Helper pour la sérialisation du graph scene
-
-	**********************************************/
 
 	namespace fs = std::filesystem;
 
@@ -52,6 +54,27 @@ namespace LV3
 		if (s == "debug")    return ECameraCategory::Debug;
 		Logger::warn("[Camera] categorie inconnue '" + s + "' -> gameplay");
 		return ECameraCategory::Gameplay;
+	}
+
+	// ***********************************************************************************
+	// Surcharge d'une valeur MOTEUR, strictement positive et finie.
+	//   absente / null / type invalide : JsonReader::TryRead a deja parle -> nullopt (suit le moteur)
+	//   <= 0 ou non finie (1e39 -> inf)   : souci signale ICI             -> nullopt (suit le moteur)
+	// Validee UNE fois, a l'entree dans le moteur : le chemin chaud n'assert plus que l'invariant.
+	[[nodiscard]] inline std::optional<float> ReadPositiveOverride(JsonReader& r, const char* key, float engineValue, const char* comp, const std::string& owner)
+	{
+		const std::optional<float> v = r.TryRead(key, engineValue);
+
+		if (!v)
+			return std::nullopt;
+
+		if (!(*v > 0.0f) || !std::isfinite(*v))      // forme positive niee : rejette aussi NaN
+		{
+			Logger::warn(std::format("[{}] cle '{}' invalide ({}, attendu > 0 et fini) sur {} — defaut pris : {} (moteur)", comp, key, *v, owner, engineValue));
+			return std::nullopt;
+		}
+
+		return v;
 	}
 
 	// ***********************************************************************************

@@ -4,6 +4,7 @@
 #include "../Core/Logger.h"
 #include "Serializer.hpp"
 #include "Core/EventNames.h"
+#include "Core/EngineConfig.h"
 #include "Hierarchy.hpp"
 #include "SerializerHelpers.hpp"
 
@@ -351,15 +352,25 @@ namespace LV3
 		CameraComponent c;
 
 		// ── 1. PROJECTION : discriminant de premier niveau ─────────────
-//		c.m_projection = r.ReadProjectionType("projection");
 		c.m_projection = ReadProjectionType(r, "projection");
 
 		// ── 2. PLANS ──────────────────────────────────────────────────
 		c.m_nearPlane = r.Read("near", 0.1f);
 		c.m_infiniteFar = r.Read("infiniteFar", false);
 		c.m_depthDisplayRange = r.Read("depthDisplayRange", -1.0f);
-		c.m_lodTolerancePx = r.Read("lodTolerancePx", -1.0f);   // -1 : defaut moteur
+//		c.m_lodTolerancePx = r.Read("lodTolerancePx", -1.0f);   // -1 : defaut moteur
 		c.m_farPlane = r.Read("far", 1000.0f);
+
+		// Surcharges MOTEUR (precondition : EngineConfig charge AVANT la scene, cf. main.cpp)
+		const EngineConfig& cfg = EngineConfig::Get();
+
+		const std::optional<float> ddr = ReadPositiveOverride(r, "depthDisplayRange", cfg.debug.depthDisplayRange, "Camera", owner);
+		c.m_hasDepthDisplayRange = ddr.has_value();
+		c.m_depthDisplayRange = ddr.value_or(0.0f);	// sans objet si absent
+
+		const std::optional<float> tau = ReadPositiveOverride(r, "lodTolerancePx", cfg.lod.tolerancePx, "Camera", owner);
+		c.m_hasLodTolerancePx = tau.has_value();
+		c.m_lodTolerancePx = tau.value_or(0.0f);
 
 		if (c.m_infiniteFar && r.Has("far"))
 			Logger::warn("\033[33m[Camera] " + owner + " : 'far' est ignore (infiniteFar=true)\033[0m");
