@@ -59,7 +59,7 @@ namespace LV3
             m_seen.insert(key);
 
             const auto it = m_j.find(key);                 // R28 : find(), jamais operator[]
-            if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
+            if (it == m_j.end()) { Absent(key, ToLog(def));  return def; }
             if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
 
             try
@@ -82,7 +82,7 @@ namespace LV3
 
             const std::string taken = ToLog(engineValue) + " (moteur)";
             const auto it = m_j.find(key);
-            if (it == m_j.end()) { WarnDefault(key, "absente", taken);  return std::nullopt; }
+            if (it == m_j.end()) { Absent(key, taken); return std::nullopt; }
             if (it->is_null()) { AnnounceDefault(key, taken);        return std::nullopt; }
 
             try
@@ -127,7 +127,7 @@ namespace LV3
             m_seen.insert(key);
 
             const auto it = m_j.find(key);
-            if (it == m_j.end()) { WarnDefault(key, "absente", ToLog(def));  return def; }
+            if (it == m_j.end()) { Absent(key, ToLog(def));  return def; }
             if (it->is_null()) { AnnounceDefault(key, ToLog(def));        return def; }
 
             const nlohmann::json& a = *it;
@@ -149,7 +149,7 @@ namespace LV3
             m_seen.insert(key);
 
             const auto it = m_j.find(key);
-            if (it == m_j.end()) { WarnDefault(key, "absente", std::string(meaning));  return nullptr; }
+            if (it == m_j.end()) { Absent(key, std::string(meaning));  return nullptr; }
             if (it->is_null()) { AnnounceDefault(key, std::string(meaning));        return nullptr; }
             return &*it;
         }
