@@ -503,7 +503,9 @@ namespace LV3
 		// ── 2. PLANS ──────────────────────────────────────────────────
 		c.m_nearPlane = r.Read("near", 0.1f);
 		c.m_infiniteFar = r.Read("infiniteFar", false);
-		c.m_farPlane = r.Read("far", 1000.0f);
+		// 'far' n'existe que pour un plan lointain FINI : chaque branche lit SES cles (meme regle que la lentille). infiniteFar=true + 'far' ecrit -> WarnUnread le signale.
+		if (!c.m_infiniteFar)
+			c.m_farPlane = r.Read("far", 1000.0f);
 
 		// Surcharges MOTEUR (precondition : EngineConfig charge AVANT la scene, cf. main.cpp)
 		const EngineConfig& cfg = EngineConfig::Get();
@@ -515,9 +517,6 @@ namespace LV3
 		const std::optional<float> tau = ReadPositiveOverride(r, "lodTolerancePx", cfg.lod.tolerancePx, "Camera", owner);
 		c.m_hasLodTolerancePx = tau.has_value();
 		c.m_lodTolerancePx = tau.value_or(0.0f);
-
-		if (c.m_infiniteFar && r.Has("far"))
-			Logger::warn("\033[33m[Camera] " + owner + " : 'far' est ignore (infiniteFar=true)\033[0m");
 
 		// ── 3. LENTILLE : chaque branche assigne TOUS ses champs ──────
 		// ** Orthographique **
@@ -548,14 +547,12 @@ namespace LV3
 		}
 
 		// ── 4. GIZMO ──────────────────────────────────────────────────
-		if (r.Has("gizmo"))
+		//    absent -> souci ; null -> "pas de gizmo" annonce ; 0 = pas de gizmo
 		{
 			JsonReader rg = r.Child("gizmo");
-			c.m_gizmoLength = std::max(0.0f, rg.Read("length", 2.0f));
+			c.m_gizmoLength = std::max(0.0f, rg.Read("length", 0.0f));
 			rg.WarnUnread();
 		}
-		else
-			c.m_gizmoLength = 0.0f;
 
 
 		// ── 5. SELECTION ──────────────────────────────────────────────
@@ -730,7 +727,7 @@ namespace LV3
 
 		HealthComponent t;
 		t.m_maxHealth = r.Read("maxHealth", 100);
-		t.m_currentHealth = r.Read("m_currentHealth", 100);
+		t.m_currentHealth = r.Read("currentHealth", t.m_maxHealth);   // defaut : pleine sante
 
 		ctx.registry.addComponent(entity, std::move(t)); // Transforme la copie forcée en déplacement 
 		// POD trivial (int seul) — cohérence du réflexe, encore une fois.
