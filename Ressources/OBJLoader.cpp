@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <set>
+#include "../Core/Logger.h"
 
 namespace LV3 {
 
@@ -81,8 +83,17 @@ MeshHandle OBJLoader::Load(const std::string& filepath, ResourceManager& rm, con
 	// Si ok, on charge les matériaux référencés dans le fichier OBJ (via les fichiers MTL) et on construit le mesh final
     namespace fs = std::filesystem;
     const std::string baseDir = fs::path(filepath).parent_path().string();
-    const MaterialMap matMap  = LoadMaterials(parsedDataOBJ, baseDir, rm);
-   
+    const MaterialMap matMap = LoadMaterials(parsedDataOBJ, baseDir, rm);
+
+    // 'usemtl' sans materiau charge correspondant : ses faces partent avec
+    // MaterialHandle::Invalid(). Avant : sans un mot. Un message par NOM, pas par face.
+    {
+        std::set<std::string> reported;
+        for (const auto& mc : parsedDataOBJ.materialChanges)
+            if (!mc.materialName.empty() && !matMap.contains(mc.materialName)
+                && reported.insert(mc.materialName).second)
+                Logger::warn("[OBJ] usemtl '" + mc.materialName + "' introuvable dans les mtllib de " + filepath + " — materiau par defaut");
+    }
 	// et pour finir, on construit le mesh à partir des données parsées et des matériaux chargés, en appliquant les options de chargement spécifiées
     return BuildMesh(parsedDataOBJ, matMap, options, rm);
 }
