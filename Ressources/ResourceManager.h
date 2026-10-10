@@ -46,13 +46,10 @@ namespace LV3 {
 
         ResourceManager(const ResourceManager&)            = delete;
         ResourceManager& operator=(const ResourceManager&) = delete;
-        //ResourceManager(ResourceManager&&)                 = default;
-        //ResourceManager& operator=(ResourceManager&&)      = default;
         ResourceManager(ResourceManager&&)            noexcept;
         ResourceManager& operator=(ResourceManager&&) noexcept;
 
         // ── Meshes ────────────────────────────────────────────
-//        MeshHandle       LoadMesh(const std::string& filepath, const OBJLoadOptions& opt={});
         [[nodiscard]] const MeshClass* GetMesh(MeshHandle h) const;
         [[nodiscard]] MeshClass*       GetMesh(MeshHandle h);
         [[nodiscard]] MeshHandle       FindMesh(const std::string& filepath, const OBJLoadOptions& opt) const;
@@ -63,17 +60,10 @@ namespace LV3 {
 
 
         // ── Matériaux ─────────────────────────────────────────
-        [[nodiscard]] MaterialHandle   FindMaterialByName(const std::string& name) const;
+        // Un materiau est identifie par (fichier MTL, nom) : deux MTL peuvent definir le meme nom.
+        [[nodiscard]] MaterialHandle   FindMaterial(const std::string& mtlPath, const std::string& name) const;
         [[nodiscard]] const Material*  GetMaterial(MaterialHandle h) const;
-  //      [[nodiscard]]       Material*  GetMaterial(MaterialHandle h);
 
-  //      // ── API interne (Loaders) ─────────────────────────────
-  //      MeshHandle     RegisterMesh    (std::unique_ptr<MeshClass> mesh);
-  //      MaterialHandle RegisterMaterial(std::unique_ptr<Material> mat);
-
-		//// ── Utilitaires ─────────────────────────────────────────
-  //      [[nodiscard]] size_t GetMeshCount()     const noexcept;
-  //      [[nodiscard]] size_t GetMaterialCount() const noexcept;
 
         [[nodiscard]] Material* GetMaterial(MaterialHandle h);
 
@@ -96,7 +86,7 @@ namespace LV3 {
 
         // ── API interne (Loaders) ─────────────────────────────
         MeshHandle     RegisterMesh(std::unique_ptr<MeshClass> mesh);
-        MaterialHandle RegisterMaterial(std::unique_ptr<Material> mat);
+        MaterialHandle RegisterMaterial(std::unique_ptr<Material> mat, const std::string& mtlPath);
         LodChainHandle RegisterLodChain(const LodChain& chain);   // verifie les invariants de SelectLodLevel
 
         // ── Utilitaires ─────────────────────────────────────────
@@ -119,7 +109,8 @@ namespace LV3 {
 
 		uint32_t m_nextMaterialId = 1u; // Compteur pour générer des handles uniques pour les matériaux
         std::unordered_map<uint32_t,    std::unique_ptr<Material>>  m_materials;
-        std::unordered_map<std::string, MaterialHandle>             m_nameToMaterial;        
+        std::unordered_map<std::string, MaterialHandle>             m_keyToMaterial;   // cle = MaterialKey(mtl, nom)
+        [[nodiscard]] static std::string MaterialKey(const std::string& mtlPath, const std::string& name);
         MaterialHandle AllocateMaterialHandle() noexcept;
 
         // Index = id du handle. Case 0 = sentinelle de l'id invalide, jamais lue.

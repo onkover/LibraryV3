@@ -118,120 +118,8 @@ namespace LV3
 
 		return true;
 
-
-		//Logger::info("=== Phase 1 : Construction de la scène" + sceneData["sceneName"].get<std::string>() +" ===");            // utiliser sceneData["sceneName"].dump() si on n"est pas sûr que ce soit une string
-
-
-		//if (sceneData.contains("nodes") && sceneData["nodes"].is_array())
-		//{
-		//	// Préparer le contexte de parsing
-		//	std::unordered_map<std::string, Entity> entityMap;
-		//	ParseContext ctx{ sceneFilePath, pRM, entityMap, registry };// , out_activeCamera };
-
-		//	for (const auto& nodeJson : sceneData["nodes"])
-		//	{
-		//		// Crée une Entité vide et la stocke dans la , 
-		//		std::string id = nodeJson["id"];
-		//		if (ctx.entityMap.count(id))    // ou entityMap.contains(id) en C++20+
-		//		{
-		//			Logger::error("LoadSceneGraph — id dupliqué : '" + id + "'");
-		//			return false;
-		//		}
-
-		//		Entity entity = registry.CreateEntity();
-		//		entityMap[id] = entity;
-		//		registry.addComponent<NameComponent>(entity, NameComponent{ id });
-
-		//		if (!ParseNode(&nodeJson, ctx, entity))
-		//		{
-		//			Logger::error("SceneSerializer::Load — erreur lors du parsing du noeud : " + id);
-		//			return false;
-		//		}
-
-		//		#if LV3_VERBOSE_LOG
-		//			Logger::info(id + " " + std::to_string(entityMap.size()) + " noeuds créés.");
-		//		#endif		
-
-		//	}
-		//	Logger::success("Première passe terminée.\n");
-		//	Logger::info("*****************************");
-		//	Logger::info("Phase 2 : Link des hiérarchie");
-
-		//	for (const auto& nodeJson : sceneData["nodes"])
-		//	{
-		//		if (!ParseHierarchy(&nodeJson, ctx))
-		//		{
-		//			Logger::error("SceneSerializer::Load — erreur lors des hiérarchies");
-		//			return false;
-		//		}
-		//	}
-
-
-		//	ResolveDeferredReferences(ctx);
-		//	ValidateHierarchy(registry);
-
-		//	Logger::info("[Diag] Deuxième passe terminée. Hiérarchie assemblée.");
-		//	Logger::info("[Diag] BuildSceneGraph (ECS) terminé. " + std::to_string(registry.GetAliveCount()) + " entités créées.");
-		//	Logger::info("[Diag] SceneSerializer::Load — scène chargée : " + sceneFilePath + jsonSceneFile);
-		//	Logger::success("[Diag] Construction de la scène terminée avec succès.\n");
-		//}
-		//else
-		//{
-		//	Logger::warn("SceneSerializer::Load — clé 'nodes' absente ou invalide dans " + sceneFilePath);
-		//}
-
-		//return true;
 	}
 
-
-
-
-	//bool SceneSerializer::ParseNode(const void* pJsonNode, ParseContext& ctx, Entity entity)
-	//{
-	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
-	//	if (!nodeJson.is_object()) return false;
-
-	//	if (!nodeJson.contains("components")) return true;
-	//	const nlo_json& comps = nodeJson["components"];
-
-	//	// ============================================================
-	//	//  Le Transform D'ABORD, hors de la boucle.
-	//	//
-	//	//  /!\ nlohmann::json stocke ses objets dans un std::map :
-	//	//      items() parcourt les cles par ordre ALPHABETIQUE,
-	//	//      PAS dans l'ordre d'ecriture du fichier.
-	//	//      "Camera" < "CameraFPS" < "Mesh" < "Transform" < "Trigger"
-	//	//      -> le Transform serait parse en avant-dernier.
-	//	//
-	//	//  Or ParseMesh (rayon d'orbite) et ParseCameraFPS (yaw/pitch
-	//	//  initiaux) le LISENT. Ils doivent le trouver deja en place.
-	//	// ============================================================
-	//	if (comps.contains("Transform"))
-	//		ParseTransform(&comps["Transform"], ctx, entity);
-
-	//	for (auto& [compName, compJson] : comps.items())
-	//	{
-	//		if (compName == "Transform")     continue;              // deja fait ci-dessus
-	//		else if (compName == "Mesh")          ParseMesh(&compJson, ctx, entity);
-	//		else if (compName == "Light")         ParseLight(&compJson, ctx, entity);
-	//		else if (compName == "Camera")        ParseCamera(&compJson, ctx, entity);// , ctx.out_activeCamera);
-	//		else if (compName == "CameraFPS")     ParseCameraFPS(&compJson, ctx, entity);
-	//		else if (compName == "CameraFollow")  ParseCameraFollow(&compJson, ctx, entity);
-	//		else if (compName == "Trigger")       ParseTrigger(&compJson, ctx, entity);
-	//		else if (compName == "Health")        ParseHealth(&compJson, ctx, entity);
-	//		else if (compName == "PlayerControl") PlayerControif compName == "Mesh"l(&compJson, ctx, entity);
-	//		else
-	//		{
-	//			// Un nom de composant inconnu ne doit PAS avorter tout le chargement.
-	//			Logger::warn("Composant inconnu ignore : '" + compName + "' sur " + EntityLabel(ctx.registry, entity) + "\n");
-	//		}
-	//	}
-	//	#if LV3_VERBOSE_LOG
-	//		Logger::info(EntityLabel(ctx.registry, entity) + " : Tous les composants du node ont été parsés.");
-	//	#endif
-	//	return true;
-
-	//}
 
 	bool SceneSerializer::ParseNode(JsonReader& rn, ParseContext& ctx, Entity entity)
 	{
@@ -342,33 +230,6 @@ namespace LV3
 			return;
 		}
 
-		//// --- 2. Chargement. UNE seule variable de chemin, celle qu'on charge vraiment ---
-		//const std::string fullPath = ResolvePath(ctx.baseDir, modelPath);
-
-		//OBJLoadOptions opts;
-		//opts.flipUVsVertically = false;
-		//opts.generateNormalsIfMissing = true;
-
-		//auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
-		//if (!meshResult.has_value())
-		//{
-		//	const char* reason =
-		//		meshResult.error() == EMeshLoadError::FileNotFound ? "fichier introuvable"
-		//		: meshResult.error() == EMeshLoadError::ParseFailed ? "echec de parsing OBJ"
-		//		: "mesh vide";
-		//	Logger::error("ParseMesh — " + std::string(reason) + " : " + modelPath);
-		//	return;
-		//}
-		//const MeshHandle hMesh = *meshResult;
-
-		//// 4d-2 : le composant porte une CHAINE. Sans descripteur, chaine implicite
-		//// de longueur 1, partagee par toutes les entites de ce mesh.
-		//const LodChainHandle hMeshChain = ctx.pRM.GetOrCreateSingleLevelChain(hMesh);
-		//if (!hMeshChain.IsValid())
-		//{
-		//	Logger::error("ParseMesh — chaine refusee pour : " + modelPath);
-		//	return;
-		//}
 
 		// --- 2. Chargement. UNE seule variable de chemin, celle qu'on charge vraiment ---
 		const std::string fullPath = ResolvePath(ctx.baseDir, modelPath);
@@ -394,10 +255,6 @@ namespace LV3
 		}
 		else
 		{
-			//OBJLoadOptions opts;
-			//opts.flipUVsVertically = false;
-			//opts.generateNormalsIfMissing = true;
-
 			auto meshResult = ctx.pRM.LoadMeshChecked(fullPath, opts);
 			if (!meshResult.has_value())
 			{

@@ -117,11 +117,17 @@ void ResourceManager::UnloadMesh(MeshHandle h)
 
 
 // ── Matériaux ─────────────────────────────────────────
-
-MaterialHandle ResourceManager::FindMaterialByName(const std::string& name) const {
-    auto it=m_nameToMaterial.find(name);
-    return (it!=m_nameToMaterial.end())?it->second:MaterialHandle::Invalid();
+// Seul endroit ou la cle d'un materiau est fabriquee : "<MTL canonique>#<nom>".
+std::string ResourceManager::MaterialKey(const std::string& mtlPath, const std::string& name)
+{
+    return CanonicalKey(mtlPath) + "#" + name;
 }
+
+MaterialHandle ResourceManager::FindMaterial(const std::string& mtlPath, const std::string& name) const {
+    auto it = m_keyToMaterial.find(MaterialKey(mtlPath, name));
+    return (it != m_keyToMaterial.end()) ? it->second : MaterialHandle::Invalid();
+}
+
 const Material* ResourceManager::GetMaterial(MaterialHandle h) const {
     if(!h.IsValid()) return nullptr;
     auto it=m_materials.find(h.id);
@@ -204,13 +210,13 @@ MeshHandle ResourceManager::RegisterMesh(std::unique_ptr<MeshClass> mesh) {
     return h;
 }
 
-MaterialHandle ResourceManager::RegisterMaterial(std::unique_ptr<Material> mat){
-    LV3_ASSERT(mat!=nullptr);
-    const std::string& name=mat->GetName();
-    auto it=m_nameToMaterial.find(name);
-    if(it!=m_nameToMaterial.end()) return it->second;
-    const MaterialHandle h=AllocateMaterialHandle();
-    m_nameToMaterial.emplace(name,h);
+MaterialHandle ResourceManager::RegisterMaterial(std::unique_ptr<Material> mat, const std::string& mtlPath) {
+    LV3_ASSERT(mat != nullptr);
+    const std::string key = MaterialKey(mtlPath, mat->GetName());
+    auto it = m_keyToMaterial.find(key);
+    if (it != m_keyToMaterial.end()) return it->second;   // meme MTL relu (autre OBJ, autre niveau de LOD)
+    const MaterialHandle h = AllocateMaterialHandle();
+    m_keyToMaterial.emplace(key, h);
     m_materials.emplace(h.id,std::move(mat));
     return h;
 }
@@ -259,20 +265,15 @@ LodChainHandle ResourceManager::RegisterLodChain(const LodChain& chain)
 
 // ── API interne (Loaders) ─────────────────────────────
 
-void ResourceManager::UnloadAll(){
-    //m_meshes.clear(); 
-    //m_pathToMesh.clear();
-    //m_meshIdToPath.clear();
-
-    //m_materials.clear(); 
-    //m_nameToMaterial.clear();
-    
+void ResourceManager::UnloadAll()
+{
+  
     m_meshes.clear();
     m_pathToMesh.clear();
     m_meshIdToPath.clear();
 
     m_materials.clear();
-    m_nameToMaterial.clear();
+    m_keyToMaterial.clear();
 
     // PAS de clear() : la taille EST le prochain id. Retrecir recyclerait les ids (ABA).
     for (LodChain& c : m_lodChains) c = LodChain{};       // cases vides, ids preserves

@@ -30,7 +30,7 @@ namespace LV3
         auto flush=[&]()
         {
             if (!pCurrentMat) return;
-            result[currentName] = rm.RegisterMaterial(std::move(pCurrentMat));
+            result[currentName] = rm.RegisterMaterial(std::move(pCurrentMat), mtlPath);
             currentName.clear();
         };
 
