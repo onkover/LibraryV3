@@ -24,7 +24,7 @@ ResourceManager::~ResourceManager()     // Cf. commentaire dans ResourceManager.
 std::expected<MeshHandle, EMeshLoadError> ResourceManager::LoadMeshChecked(const std::string& filepath, const OBJLoadOptions& opt)
 {
 	// 0. Canonise l'URL pour avoir la même clé quelque soit le chemin d'accès (ex: "assets/cube.obj", "Assets/cube.obj", "assets\\cube.obj" et "./assets/cube.obj" désignent tous le même fichier physique, mais ce sont quatre chaînes différentes, donc quatre clés différentes pour unordered_map<std::string, MeshHandle>).
-    const std::string key = CanonicalKey(filepath);
+    const std::string key = CanonicalKey(filepath) + opt.CacheKey();
 
     // 1. Vérifie si le mesh est déjà chargé dans le cache
     if (auto it = m_pathToMesh.find(key); it != m_pathToMesh.end())
@@ -73,10 +73,9 @@ MeshClass* ResourceManager::GetMesh(MeshHandle h)
 
 //***********************************************************************************************
 
-MeshHandle ResourceManager::FindMesh(const std::string& filepath) const
+MeshHandle ResourceManager::FindMesh(const std::string& filepath, const OBJLoadOptions& opt) const
 {
-    auto it = m_pathToMesh.find(CanonicalKey(filepath));
-    return (it != m_pathToMesh.end()) ? it->second : MeshHandle::Invalid();
+    auto it = m_pathToMesh.find(CanonicalKey(filepath) + opt.CacheKey());    return (it != m_pathToMesh.end()) ? it->second : MeshHandle::Invalid();
 }
 
 //***********************************************************************************************
@@ -85,9 +84,9 @@ MeshHandle ResourceManager::FindMesh(const std::string& filepath) const
 /// </summary>
 /// <param name="filepath">Chemin du fichier du maillage utilisé comme clé de recherche.</param>
 /// <returns>true si un maillage correspondant au chemin est présent, sinon false.</returns>
-bool ResourceManager::IsMeshLoaded(const std::string& filepath) const
+bool ResourceManager::IsMeshLoaded(const std::string& filepath, const OBJLoadOptions& opt) const
 {
-    return m_pathToMesh.find(CanonicalKey(filepath)) != m_pathToMesh.end();
+    return m_pathToMesh.find(CanonicalKey(filepath) + opt.CacheKey()) != m_pathToMesh.end();
 }
 
 //***********************************************************************************************
@@ -137,7 +136,7 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
 std::expected<LodChainHandle, ELodChainLoadError>
 ResourceManager::LoadLodChainChecked(const std::string& filepath, const OBJLoadOptions& opts)
 {
-    const std::string key = CanonicalKey(filepath);
+    const std::string key = CanonicalKey(filepath) + opts.CacheKey();
     if (auto it = m_pathToLodChain.find(key); it != m_pathToLodChain.end())
         return it->second;
 

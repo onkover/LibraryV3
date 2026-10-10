@@ -54,10 +54,9 @@ namespace LV3 {
         // ── Meshes ────────────────────────────────────────────
 //        MeshHandle       LoadMesh(const std::string& filepath, const OBJLoadOptions& opt={});
         [[nodiscard]] const MeshClass* GetMesh(MeshHandle h) const;
-        [[nodiscard]]       MeshClass* GetMesh(MeshHandle h);
-        [[nodiscard]] MeshHandle       FindMesh(const std::string& filepath) const;
-        [[nodiscard]] bool             IsMeshLoaded(const std::string& filepath) const;
-        // Nouvelle méthode, canal d'erreur explicite — coexiste avec LoadMesh() pour ne pas casser les appelants existants qui se contentent d'un MeshHandle invalide.
+        [[nodiscard]] MeshClass*       GetMesh(MeshHandle h);
+        [[nodiscard]] MeshHandle       FindMesh(const std::string& filepath, const OBJLoadOptions& opt) const;
+        [[nodiscard]] bool             IsMeshLoaded(const std::string& filepath, const OBJLoadOptions& opt) const;        // Nouvelle méthode, canal d'erreur explicite — coexiste avec LoadMesh() pour ne pas casser les appelants existants qui se contentent d'un MeshHandle invalide.
         [[nodiscard]] std::expected<MeshHandle, EMeshLoadError> LoadMeshChecked(const std::string& filepath, const OBJLoadOptions& opt = {});
 
         void UnloadMesh(MeshHandle h);
