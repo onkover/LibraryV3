@@ -736,35 +736,6 @@ namespace LV3
 
 	}
 
-
-	//bool SceneSerializer::ParseHierarchy(const void* pJsonNode, ParseContext& ctx)
-	//{
-	//	const nlo_json& nodeJson = *static_cast<const nlo_json*>(pJsonNode);
-	//	if (!nodeJson.is_object()) return false;
-
-	//	if (nodeJson.contains("parent"))
-	//	{
-	//		const std::string childId = nodeJson["id"];
-	//		const std::string parentId = nodeJson["parent"];
-
-	//		// R28 : operator[] d'une map n'est JAMAIS un lookup — il insère.
-	//		// Ici, un parent mal orthographié fabriquait Entity(0) : l'objet
-	//		// devenait enfant du PREMIER noeud de la scène, sans un mot.
-	//		const auto itChild = ctx.entityMap.find(childId);
-	//		const auto itParent = ctx.entityMap.find(parentId);
-	//		LV3_ASSERT(itChild != ctx.entityMap.end());   // créé en passe 1, sinon bug interne
-
-	//		if (itParent == ctx.entityMap.end())
-	//		{
-	//			Logger::error("ParseHierarchy — parent '" + parentId + "' introuvable pour '" + childId + "'");
-	//			return false;      // un graphe faux ne se charge pas « presque bien »
-	//		}
-
-	//		linkChildToParent(ctx.registry, itChild->second, itParent->second);
-	//	}
-	//	return true;
-	//}
-	
 	// Passe 2 : aucune lecture JSON. Les liens ont ete LUS par ParseNode.
 	bool SceneSerializer::ResolveParents(ParseContext& ctx)
 	{
