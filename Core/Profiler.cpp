@@ -15,6 +15,7 @@ namespace LV3
 		ProfFrame  s_cur;
 		uint32_t   s_warmup = 0;
 		uint32_t   s_index = 0;
+		bool       s_armed = false;     // Begin() appele : sans lui, AUCUNE frame n'est mesuree
 		bool       s_running = false;
 		bool       s_full = false;
 
@@ -75,6 +76,7 @@ namespace LV3
 		s_index = 0;
 		s_running = false;
 		s_full = false;
+		s_armed = true;
 		s_overheadNs = MeasureOverhead(s_resolutionNs);
 
 		Logger::info("[Prof] harnais arme : " + std::to_string(expectedFrames)
@@ -88,7 +90,12 @@ namespace LV3
 
 	void Profiler::BeginFrame(uint64_t simTimeMilliDays)
 	{
-		s_cur = ProfFrame{};                       // POD : remise a zero triviale
+	
+		// Le harnais est arme par Begin() : sinon, on ignore les frames. Le moteur
+		// sans --bench, plus de ligne [Prof]. Avec --bench=N, le comportement reste identique, et le vrai « budget épuisé » apparaît toujours si la boucle dépasse N frames.
+		if (!s_armed) return;                      // binaire PROFILE lance sans --bench : rien a mesurer
+
+		s_cur = ProfFrame{};                       // POD : remise a zero triviale	
 		s_cur.index = s_index;
 		s_cur.warmup = (s_index < s_warmup) ? 1u : 0u;
 		s_cur.simTimeMilliDays = simTimeMilliDays;

@@ -248,7 +248,7 @@ OBJLoader::MaterialMap OBJLoader::LoadMaterials(const ParseResult& parsed, const
     {
         const std::string full = (fs::path(baseDir) / fs::path(mtlName)).lexically_normal().string();
         
-        MaterialMap loaded = MTLLoader::Load(full, baseDir, rm);
+        MaterialMap loaded = rm.LoadMaterialLibrary(full);
         
         for (auto& [name, handle] : loaded)
             result.emplace(std::move(name), handle);

@@ -137,6 +137,19 @@ Material* ResourceManager::GetMaterial(MaterialHandle h){
     return const_cast<Material*>(static_cast<const ResourceManager*>(this)->GetMaterial(h));
 }
 
+// Meme patron que LoadMeshChecked : cle canonique, cache, puis delegation au chargeur.
+MaterialMap ResourceManager::LoadMaterialLibrary(const std::string& mtlPath)
+{
+    const std::string key = CanonicalKey(mtlPath);
+    if (auto it = m_pathToMtl.find(key); it != m_pathToMtl.end())
+        return it->second;
+
+    MaterialMap result = MTLLoader::Load(mtlPath, *this);
+    if (fs::exists(mtlPath))                      // on ne met en cache QUE les succes :
+        m_pathToMtl.emplace(key, result);         // un MTL absent est signale a chaque OBJ qui le reference
+    return result;
+}
+
 // ── Chaines de LOD ────────────────────────────────────
 // Meme patron que LoadMeshChecked : cle canonique, cache, puis delegation au chargeur.
 std::expected<LodChainHandle, ELodChainLoadError>
@@ -274,6 +287,7 @@ void ResourceManager::UnloadAll()
 
     m_materials.clear();
     m_keyToMaterial.clear();
+    m_pathToMtl.clear();
 
     // PAS de clear() : la taille EST le prochain id. Retrecir recyclerait les ids (ABA).
     for (LodChain& c : m_lodChains) c = LodChain{};       // cases vides, ids preserves

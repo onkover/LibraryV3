@@ -10,9 +10,12 @@
 namespace LV3 
 {
 
-    MaterialMap MTLLoader::Load(const std::string& mtlPath, const std::string& baseDir, ResourceManager& rm)
+    MaterialMap MTLLoader::Load(const std::string& mtlPath, ResourceManager& rm)
     {
         MaterialMap result;
+        // map_Kd & co sont relatifs au MTL, pas a l'OBJ qui le reference
+        const std::string baseDir = std::filesystem::path(mtlPath).parent_path().string();
+
         std::ifstream file(mtlPath);
         if (!file.is_open())
         {
@@ -29,7 +32,14 @@ namespace LV3
 	    // Fonction lambda pour enregistrer le matériau courant dans le ResourceManager et réinitialiser les variables de suivi
         auto flush=[&]()
         {
-            if (!pCurrentMat) return;
+                if (!pCurrentMat) return;
+                if (result.contains(currentName))   // 2e 'newmtl' du meme nom dans CE fichier
+                {
+                    Logger::warn("[MTL] materiau '" + currentName + "' defini deux fois dans " + mtlPath + " — seconde definition ignoree");
+                    pCurrentMat.reset();
+                    currentName.clear();
+                    return;
+                }
             result[currentName] = rm.RegisterMaterial(std::move(pCurrentMat), mtlPath);
             currentName.clear();
         };

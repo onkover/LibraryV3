@@ -9,7 +9,7 @@
 #include "LodChain.h"
 #include "LodChainLoader.h"     // ELodChainLoadError (type complet requis par std::expected)
 #include "OBJLoader.h"
-
+#include "MTLLoader.h"           // MaterialMap
 #include "geometry/Material.h"
 #include "OBJLoadOptions.h" 
 #include "geometry/SubMesh.h"
@@ -62,6 +62,8 @@ namespace LV3 {
         // ── Matériaux ─────────────────────────────────────────
         // Un materiau est identifie par (fichier MTL, nom) : deux MTL peuvent definir le meme nom.
         [[nodiscard]] MaterialHandle   FindMaterial(const std::string& mtlPath, const std::string& name) const;
+        // Bibliotheque MTL : lue UNE fois par chemin canonique, puis servie par le cache.
+        [[nodiscard]] MaterialMap      LoadMaterialLibrary(const std::string& mtlPath);
         [[nodiscard]] const Material*  GetMaterial(MaterialHandle h) const;
 
 
@@ -111,6 +113,7 @@ namespace LV3 {
         std::unordered_map<uint32_t,    std::unique_ptr<Material>>  m_materials;
         std::unordered_map<std::string, MaterialHandle>             m_keyToMaterial;   // cle = MaterialKey(mtl, nom)
         [[nodiscard]] static std::string MaterialKey(const std::string& mtlPath, const std::string& name);
+        std::unordered_map<std::string, MaterialMap>                m_pathToMtl;      // MTL canonique -> nom court -> handle
         MaterialHandle AllocateMaterialHandle() noexcept;
 
         // Index = id du handle. Case 0 = sentinelle de l'id invalide, jamais lue.
