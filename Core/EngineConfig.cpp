@@ -121,6 +121,16 @@ namespace LV3
                 else
                     lod.tolerancePx = tau;
 
+                // Seuil du rendu en point. 0 est LEGAL (= desactive) : forme '>= 0'.
+                const float pt = rl.Read("pointRadiusPx", LV3_DEFAULT_LOD_POINT_RADIUS_PX);
+                if (!(pt >= 0.0f) || !std::isfinite(pt))
+                {
+                    Logger::warn(std::format("[engine.lod] cle 'pointRadiusPx' invalide ({}, attendu >= 0 et fini) sur {} — defaut pris : {}", pt, path, LV3_DEFAULT_LOD_POINT_RADIUS_PX));
+                    lod.pointRadiusPx = LV3_DEFAULT_LOD_POINT_RADIUS_PX;
+                }
+                else
+                    lod.pointRadiusPx = pt;
+
                 rl.WarnUnread();
             }
 

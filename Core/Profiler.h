@@ -100,6 +100,11 @@ namespace LV3
 		//    Invariant : Σ LodLevel* == MeshesTested - MeshesCulled
 		//    ORDRE CONTIGU OBLIGATOIRE : RenderSystem indexe par (LodLevel0 + niveau).
 		LodLevel0, LodLevel1, LodLevel2, LodLevel3,
+
+		// ── Rendu en point (etape 4) : paires (instance, vue) dessinees comme UN pixel.
+		//    Invariant : Σ LodLevel* + PointSplats == MeshesTested - MeshesCulled
+		PointSplats,
+
 		Count
 	};
 
@@ -134,7 +139,8 @@ namespace LV3
 		"InstPx0to1", "InstPx1to4", "InstPx4to16", "InstPx16plus",
 		"FacesPx0to1", "FacesPx1to4", "FacesPx4to16", "FacesPx16plus",
 		"VertsInside", "TrisEmittedInside",
-		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3"
+		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3",
+		"PointSplats"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

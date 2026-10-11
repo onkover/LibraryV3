@@ -47,6 +47,8 @@ namespace LV3
 
         // --- LOD (A13 bis) : resolus UNE fois par vue dans BuildViewData ---
         float            lodTolerancePx = 0.5f;   // tau effectif (camera, sinon EngineConfig)
+        float            pointRadiusOverTau = 0.0f; // seuil du rendu en point, DANS L'UNITE de lodParams (px / tau)
+
         ScreenSizeParams lodParams{};             // comme MakeScreenSizeParams, mais kPx DEJA divise par tau :
                                                   // ProjectedRadiusPx(lodParams, ...) rend directement une grandeur / tau
 

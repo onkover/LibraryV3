@@ -30,4 +30,29 @@ namespace LV3
         RasterizeTriangle(tri.v0, tri.v1, tri.v2, m_vp, m_fragment, &m_ctx);
 
     }
+    /// <summary>
+	/// Dessine un point dans la vue à la place du mesh (car celui-ci est reduit à un seul pixel). 
+    /// Le fragment est appelé avec des poids barycentriques (1, 0, 0) et la profondeur du point.
+    /// </summary>
+    /// <param name="p"></param>
+    /// <param name="color"></param>
+    void Renderer::DrawPoint(const RasterVertex& p, Color color)
+    {
+        if (!IsReady()) return;
+
+        // Pixel qui CONTIENT le point : les centres sont en (i + 0,5), floor donne i.
+        const int32_t x = int32_t(std::floor(p.x));
+        const int32_t y = int32_t(std::floor(p.y));
+        if (x < m_vp.x || x >= m_vp.x + m_vp.width ||
+            y < m_vp.y || y >= m_vp.y + m_vp.height) return;   // centre hors de la vue
+
+        if (m_mode == ERenderMode::Wireframe) { m_ctx.fb->SetPixel(x, y, color); return; }
+        if (!m_fragment) return;
+
+        // Triangle degenere : les trois sommets SONT le point, poids (1, 0, 0).
+        m_ctx.color = color;
+        m_ctx.z0 = m_ctx.z1 = m_ctx.z2 = p.z;
+        m_ctx.invW0 = m_ctx.invW1 = m_ctx.invW2 = p.invW;
+        m_fragment(x, y, BarycentricWeights{ 1.0f, 0.0f, 0.0f }, &m_ctx);
+    }
 }

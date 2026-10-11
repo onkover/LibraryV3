@@ -382,6 +382,9 @@ namespace LV3
 		v.lodParams = MakeScreenSizeParams(v);
 		v.lodParams.kPx /= v.lodTolerancePx;
 
+		// Meme unite que ProjectedRadiusPx(lodParams, ...) : on compare des px/tau
+		// a des px/tau, sans une division de plus par instance.
+		v.pointRadiusOverTau = LV3::EngineConfig::Get().lod.pointRadiusPx / v.lodTolerancePx;
 
 		// ════════════════════════════════════════════════════════════════
 		//  PAS D'ÉTAPE 6 ICI.

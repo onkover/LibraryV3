@@ -70,60 +70,6 @@ namespace LV3
 
 
 
-    //// ── Le seul endroit du moteur où la division par w a lieu ──
-    //static void EmitClipTriangle(Renderer& renderer, const ViewData& view,
-    //    const ClipVertex& a, const ClipVertex& b,
-    //    const ClipVertex& c, Color col)
-    //{
-    //    const ClipVertex* v[3] = { &a, &b, &c };
-
-    //    Vec3f r[3];
-    //    float invW[3];
-
-    //    for (int k = 0; k < 3; ++k)
-    //    {
-    //        // Après clipping, w > 0 est GARANTI. Pas de garde nécessaire.
-    //        invW[k] = 1.0f / v[k]->clip.w;
-    //        r[k] = view.viewport.ToRaster({ v[k]->clip.x * invW[k],
-    //                                        v[k]->clip.y * invW[k],
-    //                                        v[k]->clip.z * invW[k] });
-    //    }
-
-    //    // Backface : signe déjà calibré et verrouillé par la TNR (front-face = aire > 0)
-    //    if (IsBackFacing(EdgeFunction(r[0], r[1], r[2]))) return;
-
-    //    // Compte APRES le backface, AVANT le rejet 3b : le compteur garde le sens
-    //    // de la Reference F, les runs restent comparables.
-    //    LV3_PROF_COUNT(EProfCounter::TrisRasterized, 1);
-
-    //    // ── CHANTIER 3b : rejet precoce EXACT ─────────────────────────────
-    //   // Aucun centre de pixel dans la boite serree => aucun pixel couvert.
-    //   // Mesure : 99,7 % des triangles de la ceinture. Exact en mode plein
-    //   // uniquement : le Wireframe trace le contour meme d'un triangle vide.
-    //    if (view.mode != ERenderMode::Wireframe &&
-    //        TightPixelBox(r[0], r[1], r[2], view.viewport).Empty())
-    //    {
-    //        LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, 1);
-    //        return;
-    //    }
-
-    //    // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
-    //    #if LV3_ABLATION_RASTER     // M7 : ablation de la rasterisation, declaree dans l'en-tete CSV
-    //        (void)renderer; (void)col;
-    //    #else
-
-    //        renderer.DrawTriangle(
-    //            RasterTriangle{ { r[0].x, r[0].y }, { r[1].x, r[1].y }, { r[2].x, r[2].y },
-    //                              r[0].z,  r[1].z,  r[2].z,
-    //                              invW[0], invW[1], invW[2] },
-    //            col);
-
-    //    #endif
-
-
-    //}
-
-
      // ── AVAL COMMUN aux deux chemins : backface, compteur, rejet 3b, soumission.
     //    SOURCE UNIQUE : le chemin Inside (2b) et le chemin clippe y passent tous deux.
     static LV3_FORCEINLINE void EmitRasterTriangle(Renderer& renderer, const ViewData& view, const RasterVertex& a, const RasterVertex& b, const RasterVertex& c, Color col)
@@ -242,15 +188,32 @@ namespace LV3
 
             const AABB3d& box = chain->bounds;
             const float   rW = BoundingRadiusWorld(box, modelMatrix);   // rayon monde de la sphere englobante
-            const float   wC = MulRow(mvp, box.Center()).w;             // w_clip de son centre
+            const Vec4f   cClip = MulRow(mvp, box.Center());            // centre en espace clip
+            const float   wC = cClip.w;                                 // w_clip de son centre
 
-            // q' = q / tau, en pixels par unite LOCALE : rayon apparent (deja divise par tau,
-            // cf. view.lodParams) / rayon local. +inf (touche le near) ou NaN (boite ponctuelle)
+            // Rayon apparent / tau (lodParams.kPx est deja divise par tau). 
+            // Calcule UNE fois : il sert au rendu en point ET a la selection du niveau.
+            const float   rOverTau = ProjectedRadiusPx(view.lodParams, wC, rW);
+
+            // ── 3a. RENDU EN POINT (etape 4) : instance sous-pixel -> UN pixel, aucun sommet.
+            //    Inside seulement : w > 0 garanti pour le centre. Une instance Intersect
+            //    (au bord de l'ecran) garde la geometrie complete : cas rare.
+            //    +inf (touche le near) et NaN : comparaison fausse -> geometrie complete.
+            if (vis == EIntersect::Inside && rOverTau < view.pointRadiusOverTau)
+            {
+                LV3_PROF_COUNT(EProfCounter::PointSplats, 1);
+                renderer.DrawPoint(ProjectClip(cClip, view.viewport), dbg ? dbg->m_color : FaceColor(0));
+                continue;
+            }
+
+            // q' = q / tau, en pixels par unite LOCALE : rayon apparent (deja divise par tau)
+            // / rayon local. +inf (touche le near) ou NaN (boite ponctuelle)
             // -> aucune comparaison vraie dans SelectLodLevel -> L0.
-            const float    qOverTau = ProjectedRadiusPx(view.lodParams, wC, rW) / box.Extent().length();
+            const float    qOverTau = rOverTau / box.Extent().length();
+
             const uint32_t level = SelectLodLevel(*chain, qOverTau);
 
-            // Compte AVANT tout 'continue' : l'invariant Σ LodLevel* == MeshesTested - MeshesCulled
+            // Compte AVANT tout 'continue' : l'invariant  LodLevel* + PointSplats == MeshesTested - MeshesCulled
             // ne tient que si chaque paire non cullee est comptee exactement une fois.
             LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::LodLevel0) + level), 1);
 

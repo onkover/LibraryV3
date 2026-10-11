@@ -67,6 +67,7 @@ namespace LV3
     struct LodConfig
     {
         float tolerancePx = LV3_DEFAULT_LOD_TOLERANCE_PX;   // tau par defaut, surchargeable par camera
+        float pointRadiusPx = LV3_DEFAULT_LOD_POINT_RADIUS_PX; // seuil du rendu en point ; 0 = desactive
     };
 
     struct EngineConfig

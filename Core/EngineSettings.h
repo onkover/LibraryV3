@@ -89,6 +89,12 @@ namespace LV3
     // sous la moitie de l'espacement entre deux centres de pixels.
     #define LV3_DEFAULT_LOD_TOLERANCE_PX    0.5f
 
+    // Rendu en POINT (phase G, etape 4) : une instance dont la sphere englobante
+    // a un rayon apparent < ce seuil (pixels) est dessinee comme UN pixel, sans
+    // transformer un seul sommet. 0 = jamais de point (geometrie complete partout).
+    #define LV3_DEFAULT_LOD_POINT_RADIUS_PX 1.0f
+
+
 } // namespace LV3
 
 /*

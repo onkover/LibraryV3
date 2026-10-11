@@ -5,6 +5,7 @@
 #include "Viewport.h"
 #include "RenderTypes.h"
 #include "Fragment.h"   // FragmentContext, FragmentCallback
+#include "VertexStage.h" // RasterVertex
 
 namespace LV3
 {
@@ -71,6 +72,10 @@ namespace LV3
 
         // ── Soumission ──────────────────────────────────────────
         void DrawTriangle(const RasterTriangle& tri, Color color);
+
+        // UN fragment : le pixel qui contient p. Meme chemin de fragment que les
+        // triangles (test de profondeur, mode de la vue) : Solid, Depth... a l'identique.
+        void DrawPoint(const RasterVertex& p, Color color);
 
     private:
         FragmentContext  m_ctx{};
