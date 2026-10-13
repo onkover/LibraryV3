@@ -102,11 +102,24 @@ namespace LV3
     [[nodiscard]] LV3_FORCEINLINE PixelBox TightPixelBox(const V& a, const V& b, const V& c,
         const Viewport& vp) noexcept
     {
-        PixelBox bx{
+/*        PixelBox bx{
             int32_t(std::ceil(std::min({ a.x, b.x, c.x }) - 0.5f)),
             int32_t(std::ceil(std::min({ a.y, b.y, c.y }) - 0.5f)),
             int32_t(std::floor(std::max({ a.x, b.x, c.x }) - 0.5f)) + 1,
-            int32_t(std::floor(std::max({ a.y, b.y, c.y }) - 0.5f)) + 1 };
+            int32_t(std::floor(std::max({ a.y, b.y, c.y }) - 0.5f)) + 1 };*/
+            
+            // B2 : PAS de std::min({...}) : la STL MSVC en fait un appel hors ligne
+            // a __std_max_element_f_ (tableau en pile + call). Forme binaire = vminss/vmaxss.
+            const float minX = std::min(a.x, std::min(b.x, c.x));
+            const float minY = std::min(a.y, std::min(b.y, c.y));
+            const float maxX = std::max(a.x, std::max(b.x, c.x));
+            const float maxY = std::max(a.y, std::max(b.y, c.y));
+            PixelBox bx{
+                int32_t(std::ceil(minX - 0.5f)),
+                int32_t(std::ceil(minY - 0.5f)),
+                int32_t(std::floor(maxX - 0.5f)) + 1,
+                int32_t(std::floor(maxY - 0.5f)) + 1 };
+
         vp.ClampBox(bx.x0, bx.y0, bx.x1, bx.y1);
         return bx;
     }
@@ -114,7 +127,8 @@ namespace LV3
 
 
     // ════════════════════════════════════════════════════════════
-    //  DÉCLARÉES ICI, définies dans Rasterizer.cpp : elles bouclent.
+    //  DÉCLARÉES ICI, définies dans R
+    // asterizer.cpp : elles bouclent.
     // ════════════════════════════════════════════════════════════
 
     [[nodiscard]] bool IsTopLeft(const Vec2f& a, const Vec2f& b) noexcept;

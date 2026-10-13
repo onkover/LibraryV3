@@ -298,7 +298,9 @@
     <ClCompile Include="Scene\CameraBinding.CPP" />
     <ClCompile Include="Scene\DebugGizmos.cpp" />
     <ClCompile Include="Scene\Hierarchy.cpp" />
-    <ClCompile Include="Scene\RenderSystem.cpp" />
+    <ClCompile Include="Scene\RenderSystem.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />
   </ItemGroup>

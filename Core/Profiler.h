@@ -49,6 +49,7 @@ namespace LV3
 						//    les colonnes des CSV de reference gardent leur position.
 		ClearColor,     // Clean_Render  (inclus dans Clear)
 		ClearDepth,     // BeginFrame -> DepthBuffer::Clear (inclus dans Clear)
+		RenderVerts,    // etage SOMMETS : ProjectPositions / TransformPositions (inclus dans Render)
 
 		Count
 	};
@@ -125,7 +126,7 @@ namespace LV3
 		"Input", "Animation", "LocalXform1", "WorldXform1", "Cameras",
 		"LocalXform2", "WorldXform2", "Trigger", "BuildViews",
 		"Clear", "Render", "Present",
-		"ClearColor", "ClearDepth"
+		"ClearColor", "ClearDepth", "RenderVerts"
 	};
 
 	inline constexpr const char* kProfCounterNames[] = {

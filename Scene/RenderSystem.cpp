@@ -251,82 +251,6 @@ namespace LV3
             }
             #endif
 
-        //    // La chaine : bornes de culling (union des niveaux) et handles des niveaux.
-        //    // Une ligne de cache, indexee directement par l'id (pas de hachage).
-        //    const LodChain* chain = rm.GetLodChain(meshComp.m_MeshlodChain);
-        //    if (!chain) continue;
-
-        //    // 4d-2 : toujours L0. L'etape 4d-3 remplacera ce 0 par SelectLodLevel.
-        //    const MeshClass* mesh = rm.GetMesh(chain->levels[0]);
-        //    if (!mesh || mesh->faceCount() == 0) continue;
-
-
-        //    // Garanti par RegisterMesh. Le if est un filet memoire actif en Release
-        //    // (meme patron que DestroyEntity, bug 53) : un seul test par mesh, gratuit.
-        //    const size_t nVerts = mesh->vertexCount();
-        //    LV3_ASSERT(nVerts <= ClipSpaceBuffer::Capacity());
-        //    if (nVerts > ClipSpaceBuffer::Capacity()) continue;
-
-        //    const Matrix44f& modelMatrix = transform.m_worldMatrix;
-
-        //    //const EIntersect vis = view.frustum.Classify(mesh->GetMeshAABB().Transformed(modelMatrix));
-        //    //            
-        //    // Boite de la CHAINE, pas du mesh : un niveau grossier peut deborder de L0.
-        //    // (Chaine implicite : bounds == boite du mesh, resultat identique a avant.)
-        //    const EIntersect vis = view.frustum.Classify(chain->bounds.Transformed(modelMatrix));
-
-        //    // Un mesh CLASSIFIE, pour toutes les vues cumulees. Le rapport
-        //    // MeshesCulled / MeshesTested donne l'efficacite du frustum culling.
-        //    LV3_PROF_COUNT(EProfCounter::MeshesTested, 1);
-
-        //#if LV3_DEBUG
-        //    if (vi < kMaxViews)
-        //    {
-        //        switch (vis)
-        //        {
-        //        case EIntersect::Inside:    ++g_perView[vi].inside;    break;
-        //        case EIntersect::Intersect: ++g_perView[vi].intersect; break;
-        //        case EIntersect::Outside:   ++g_perView[vi].outside;   break;
-        //        }
-        //    }
-        //#endif
-
-        //    if (vis == EIntersect::Outside)
-        //    {
-        //        LV3_PROF_COUNT(EProfCounter::MeshesCulled, 1);
-        //        continue;
-        //    }
-
-        //    // Faces qui ENTRENT dans le pipeline. faceCount() est un simple
-        //    // accesseur : rappel de la regle, jamais d'expression a effet de bord
-        //    // dans LV3_PROF_COUNT, elle disparaitrait quand LV3_PROFILE vaut 0.
-        //    LV3_PROF_COUNT(EProfCounter::FacesSubmitted, mesh->faceCount());
-        //   
-        //    // Inside ⇒ l'AABB monde est entièrement dans les 6 plans, donc devant le near :
-        //    // w > 0 pour CHAQUE sommet. C'est cette garantie qui autorise le chantier 2b.
-        //    const bool needsNearClip = (vis == EIntersect::Intersect);
-
-        //    const Matrix44f mvp = modelMatrix * view.viewProjectionMatrix;
-        //    const uint8_t   vpf = mesh->vertsPerFace;
-        //    const size_t    nFaces = mesh->faceCount();
-
-        //    #if LV3_LOD_STATS
-        //    {
-        //        // Taille apparente de CETTE instance dans CETTE vue.
-        //        // Point ① LOD (A12a) : la selection du niveau viendra ICI,
-        //        // avec la meme formule. mvp est deja la : w du centre = une MulRow.
-        //        const AABB3d& box = mesh->GetMeshAABB();
-        //        const float   rW = BoundingRadiusWorld(box, modelMatrix);
-        //        const float   wC = MulRow(mvp, box.Center()).w;
-        //        const float   rPx = ProjectedRadiusPx(ssp, wC, rW);
-        //        LV3_ASSERT(rPx >= 0.0f);   // echoue aussi sur NaN ; +inf admis (touche le near)
-
-        //        // Tranche sans branche : 0 (<1), 1 (<4), 2 (<16), 3 (>=16 ou inf).
-        //        const uint8_t b = uint8_t(rPx >= 1.0f) + uint8_t(rPx >= 4.0f) + uint8_t(rPx >= 16.0f);
-        //        LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::InstPx0to1) + b), 1);
-        //        LV3_PROF_COUNT(EProfCounter(uint8_t(EProfCounter::FacesPx0to1) + b), nFaces);
-        //    }
-        //    #endif
 
 
             // ── Teinte : invariante pour toute l'entite, evaluee UNE fois ──
@@ -343,7 +267,11 @@ namespace LV3
             {
                 LV3_PROF_COUNT(EProfCounter::FacesInside, nFaces);
 
-                ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
+                {   // B0b : sous-zone de Render, l'etage SOMMETS seul
+                    LV3_PROF_SCOPE(EProfZone::RenderVerts);
+                    ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
+                }
+                
                 const RasterVertex* const rv = rasterBuf.Data();
 
                 for (size_t f = 0; f < nFaces; ++f)
@@ -363,7 +291,11 @@ namespace LV3
             }
 
             // ── CHEMIN INTERSECT : inchange. Espace clip, clipping near, projection par coin.
-            TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
+            {   // B0b : meme sous-zone, chemin clippe
+                LV3_PROF_SCOPE(EProfZone::RenderVerts);
+                TransformPositions(mvp, mesh->vertexPositions.data(), nVerts, clipBuf.Data());
+            }
+
             const Vec4f* const clip = clipBuf.Data();
 
             for (size_t f = 0; f < nFaces; ++f)
