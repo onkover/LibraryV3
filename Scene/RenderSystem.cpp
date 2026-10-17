@@ -11,6 +11,9 @@
 #include "Rendering/clipper.h"
 #include "Core/Profiler.h"            // hors pch.h : inclusion explicite (phase G)
 #include "Rendering/VertexStage.h"
+#include "Rendering/FaceStage.h"     // B4 : ClassifyFaces8
+#include <bit>                       // std::popcount, std::countr_zero
+#include <algorithm>
 
 namespace LV3
 {
@@ -68,7 +71,21 @@ namespace LV3
     }
 #endif
 
-
+    // ── SOUMISSION : fin commune des chemins Inside scalaire, Inside par lots (B4) et clippe.
+    static LV3_FORCEINLINE void SubmitRasterTriangle(Renderer& renderer,
+        const RasterVertex& a, const RasterVertex& b, const RasterVertex& c, Color col)
+    {
+        // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
+        #if LV3_ABLATION_RASTER
+            (void)renderer; (void)a; (void)b; (void)c; (void)col;
+        #else
+            renderer.DrawTriangle(
+                RasterTriangle{ { a.x, a.y }, { b.x, b.y }, { c.x, c.y },
+                              a.z,    b.z,    c.z,
+                              a.invW, b.invW, c.invW },
+                col);
+        #endif
+    }
 
      // ── AVAL COMMUN aux deux chemins : backface, compteur, rejet 3b, soumission.
     //    SOURCE UNIQUE : le chemin Inside (2b) et le chemin clippe y passent tous deux.
@@ -88,16 +105,18 @@ namespace LV3
             return;
         }
 
-        // ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
-        #if LV3_ABLATION_RASTER
-                (void)renderer; (void)col;
-        #else
-                renderer.DrawTriangle(
-                    RasterTriangle{ { a.x, a.y }, { b.x, b.y }, { c.x, c.y },
-                                      a.z,    b.z,    c.z,
-                                      a.invW, b.invW, c.invW },
-                                    col);
-        #endif
+        SubmitRasterTriangle(renderer, a, b, c, col);
+
+        //// ⚠⚠⚠ ABLATION M7 — CHANTIER 2 — À RETIRER IMMÉDIATEMENT APRÈS LA MESURE ⚠⚠⚠
+        //#if LV3_ABLATION_RASTER
+        //        (void)renderer; (void)col;
+        //#else
+        //        renderer.DrawTriangle(
+        //            RasterTriangle{ { a.x, a.y }, { b.x, b.y }, { c.x, c.y },
+        //                              a.z,    b.z,    c.z,
+        //                              a.invW, b.invW, c.invW },
+        //                            col);
+        //#endif
     }
 
     // ── Chemin CLIPPE (meshes Intersect) : projection par COIN, parce que les
@@ -111,6 +130,89 @@ namespace LV3
                             ProjectClip(b.clip, view.viewport),
                             ProjectClip(c.clip, view.viewport), col);
     }
+
+
+    // ════════════════════════════════════════════════════════════
+    //  CHANTIER B4 — etage FACES par lots de 8
+    //  Domaine : triangles (vpf == 3), chemin Inside, hors Wireframe.
+    //  Tests en AVX2 (ClassifyFaces8), dessin SCALAIRE des seules survivantes.
+    //  Meme ordre d'emission et memes compteurs que la boucle scalaire.
+    // ════════════════════════════════════════════════════════════
+    static void EmitTriangleList8(Renderer& renderer, const RasterVertex* rv,
+        const uint32_t* indices, size_t nFaces, size_t nVerts, const Viewport& vp,
+        bool hasTint, Color tint)
+    {
+        (void)nVerts;   // lu par le seul filet Debug ci-dessous
+        LV3_ASSERT((reinterpret_cast<uintptr_t>(rv) & 15u) == 0);   // exige par _mm_load_ps
+
+        // Indices du DERNIER lot quand nFaces n'est pas multiple de 8 (voir plus bas).
+        uint32_t padIdx[24];
+
+        for (size_t base = 0; base < nFaces; base += 8)     // base = 1re face du lot
+        {
+            // ── 1. Taille du lot et masque des couloirs VALIDES ─────────────
+            // n = 8 sauf pour le dernier lot. valid a n bits a 1 : n = 8 -> 0xFF, n = 3 -> 0x07.
+            const size_t    n = std::min<size_t>(8, nFaces - base);
+            const uint32_t  valid = (1u << n) - 1u;
+            const uint32_t* idx = indices + base * 3;      // 24 indices du lot
+
+            // ── 2. Dernier lot incomplet : PAS de boucle scalaire de queue ──
+            // On complete les couloirs n..7 en REPETANT la derniere vraie face :
+            // ClassifyFaces8 lit toujours 24 indices valides (aucun debordement),
+            // et 'valid' efface ensuite les couloirs de bourrage. Un seul chemin de calcul.
+            if (n < 8)
+            {
+                for (size_t j = 0; j < 8; ++j)
+                {
+                    const size_t src = std::min(j, n - 1) * 3;   // j >= n -> face n-1
+                    padIdx[j * 3 + 0] = idx[src + 0];
+                    padIdx[j * 3 + 1] = idx[src + 1];
+                    padIdx[j * 3 + 2] = idx[src + 2];
+                }
+                idx = padIdx;
+            }
+
+            // ── 3. Les deux tests, 8 faces d'un coup ────────────────────────
+            const FaceMasks8 m = ClassifyFaces8(rv, idx, vp);
+
+#if LV3_DEBUG
+            // Filet Debug : CHAQUE lot est refait en scalaire et compare bit a bit.
+            // Toute divergence vectoriel / scalaire leve une assertion sur la frame fautive.
+            for (uint32_t k = 0; k < 8; ++k)
+            {
+                const uint32_t* t = idx + k * 3;
+                LV3_ASSERT(t[0] < nVerts && t[1] < nVerts && t[2] < nVerts);
+                const bool fr = !IsBackFacing(EdgeFunction(rv[t[0]], rv[t[1]], rv[t[2]]));
+                const bool sv = fr && !TightPixelBox(rv[t[0]], rv[t[1]], rv[t[2]], vp).Empty();
+                LV3_ASSERT(fr == bool((m.front >> k) & 1u) && sv == bool((m.survive >> k) & 1u));
+            }
+#endif
+
+            // ── 4. Compteurs : memes definitions que EmitRasterTriangle ─────
+            //   TrisRasterized    = faces AVANT                  (apres backface)
+            //   TrisEarlyRejected = faces AVANT a boite VIDE     (rejet 3b)
+            // popcount = nombre de bits a 1 (instruction popcnt sous /arch:AVX2).
+            const uint32_t front = m.front & valid;    // on ignore les couloirs de bourrage
+            uint32_t       surv = m.survive & valid;
+            LV3_PROF_COUNT(EProfCounter::TrisRasterized, uint64_t(std::popcount(front)));
+            LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, uint64_t(std::popcount(front & ~surv)));
+
+            // ── 5. Compaction : on ne visite QUE les survivantes ────────────
+            // Exemple : surv = 0b00101010 -> k = 1, puis 3, puis 5 (ordre CROISSANT,
+            // donc meme ordre de DrawTriangle que l'ancienne boucle : depth identique).
+            while (surv)
+            {
+                const uint32_t k = uint32_t(std::countr_zero(surv)); // tzcnt : bit 1 le plus bas
+                surv &= surv - 1u;                                    // efface ce bit (blsr)
+
+                const uint32_t* t = idx + k * 3;   // k < n : jamais une face de bourrage
+                SubmitRasterTriangle(renderer, rv[t[0]], rv[t[1]], rv[t[2]],
+                    hasTint ? tint : FaceColor(int(base + k)));
+            }
+        }
+    }
+
+
 
     void RenderView(Registry& registry, ResourceManager& rm, Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf, RasterSpaceBuffer& rasterBuf) 
     {
@@ -274,6 +376,15 @@ namespace LV3
                 
                 const RasterVertex* const rv = rasterBuf.Data();
 
+                // B4 : triangles hors Wireframe -> tests par lots de 8.
+                // Wireframe (pas de rejet 3b) et quads (eventail) : boucle scalaire inchangee.
+                if (vpf == 3 && view.mode != ERenderMode::Wireframe)
+                {
+                    EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
+                        view.viewport, hasTint, tint);
+                    continue;
+                }
+
                 for (size_t f = 0; f < nFaces; ++f)
                 {
                     const uint32_t* const idx = &mesh->indices[f * vpf];
@@ -343,4 +454,5 @@ namespace LV3
 
         }
     }
+
 }

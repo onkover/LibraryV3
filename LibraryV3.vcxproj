@@ -239,6 +239,7 @@
     <ClInclude Include="Rendering\Clipper.h" />
     <ClInclude Include="Rendering\ClipVertex.h" />
     <ClInclude Include="Rendering\DepthBuffer.h" />
+    <ClInclude Include="Rendering\FaceStage.h" />
     <ClInclude Include="Rendering\Fragment.h" />
     <ClInclude Include="Rendering\FrameBuffer.h" />
     <ClInclude Include="Rendering\Rasterizer.h" />
