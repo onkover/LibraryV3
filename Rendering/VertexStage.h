@@ -13,6 +13,7 @@
 #include "../Core/EngineSettings.h"   // kMaxMeshVerticesHard
 #include "Viewport.h"                 // ToRaster : la projection vit desormais ICI
 #include <memory>
+#include "../Core/AlignedAllocator.h"   // B3 : RasterSpaceBuffer aligne 64 o
 
 namespace LV3
 {
@@ -71,21 +72,39 @@ namespace LV3
     class RasterSpaceBuffer
     {
     public:
-        RasterSpaceBuffer() : m_data(std::make_unique<RasterVertex[]>(kMaxMeshVerticesHard)) {}
+//        RasterSpaceBuffer() : m_data(std::make_unique<RasterVertex[]>(kMaxMeshVerticesHard)) {}
+        // B3 : aligne 64 o (exige par _mm256_store_ps). Un lot de 8 = 128 o = 2 lignes EXACTES ;
+        // aligne 16 o seulement, un store de 32 o sur deux chevauchait deux lignes.
+        RasterSpaceBuffer() : m_data(kMaxMeshVerticesHard) {}
+
         RasterSpaceBuffer(const RasterSpaceBuffer&) = delete;
         RasterSpaceBuffer& operator=(const RasterSpaceBuffer&) = delete;
 
-        [[nodiscard]] RasterVertex* Data()       noexcept { return m_data.get(); }
-        [[nodiscard]] const RasterVertex* Data() const noexcept { return m_data.get(); }
+        //[[nodiscard]] RasterVertex* Data()       noexcept { return m_data.get(); }
+        //[[nodiscard]] const RasterVertex* Data() const noexcept { return m_data.get(); }
+        [[nodiscard]] RasterVertex* Data()       noexcept { return m_data.data(); }
+        [[nodiscard]] const RasterVertex* Data() const noexcept { return m_data.data(); }
         [[nodiscard]] static constexpr size_t Capacity() noexcept { return kMaxMeshVerticesHard; }
 
     private:
-        std::unique_ptr<RasterVertex[]> m_data;
+        //std::unique_ptr<RasterVertex[]> m_data;
+        SimdVector<RasterVertex> m_data;
+
     };
+
+    // ProjectPositions8 ecrit PaddedCount() sommets : le bourrage doit tenir dans le tampon.
+    static_assert(kMaxMeshVerticesHard% kSimdWidthF32 == 0, "capacite multiple de 8 : le bourrage tient");
+
 
     // dst[i] = ProjectClip(MulRow(mvp, src[i]), vp) pour i < count.
     // PRECONDITION : w > 0 pour TOUT sommet. Garantie UNIQUEMENT pour un mesh
     // classe Inside par le frustum. Un mesh Intersect passe par TransformPositions,
     // puis par le clipping near : pour lui, la division n'a de sens qu'APRES.
     void ProjectPositions(const Matrix44f& mvp, const Viewport& vp, const Vec3f* src, size_t count, RasterVertex* dst) noexcept;
+
+    // ── Chantier B3 ── MEME resultat que ProjectPositions, AU BIT PRES, 8 sommets par lot.
+    // Entree SoA (MeshClass::positionsSoA), sortie AoS RasterVertex (lue indexee par l'etage faces).
+    // PRECONDITIONS : paddedCount multiple de 8 ; px, py, pz, dst alignes 32 o ;
+    // w > 0 pour TOUT sommet, bourrage compris (contrat Inside ; bourrage = dernier sommet).
+    void ProjectPositions8(const Matrix44f& mvp, const Viewport& vp, const float* px, const float* py, const float* pz, size_t paddedCount, RasterVertex* dst) noexcept;
 }

@@ -218,6 +218,10 @@ MeshHandle ResourceManager::RegisterMesh(std::unique_ptr<MeshClass> mesh) {
         return MeshHandle::Invalid();
     }
 
+    // B3 : cuisson SoA ICI, porte unique, APRES toute retouche des positions (echelle OBJ...).
+    // Un mesh enregistre ne modifie plus ses positions : le filet Debug de RenderView le verifie.
+    mesh->BakePositionsSoA();
+
     const MeshHandle h = AllocateMeshHandle();
     m_meshes.emplace(h.id, std::move(mesh));
     return h;

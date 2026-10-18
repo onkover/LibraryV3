@@ -6,12 +6,27 @@
 #include "../Maths/Vectorlib.h"
 #include "../Maths/geometry/AABB3d.h"
 #include "../Core/Types.h"
+#include "../Core/AlignedAllocator.h"   // B3 : SimdVector
 
 #include "FaceView.h"
 #include "SubMesh.h"
 namespace LV3
 {
     class ResourceManager; // forward
+
+    // ── B3 : positions en SoA pour l'etage sommets AVX2 ──────────
+    // x[], y[], z[] alignes 64 o, taille PaddedCount() = multiple de 8.
+    // Bourrage : couloirs count..padded-1 = DERNIER sommet repete
+    //   -> un lot lit toujours des positions reelles (w > 0 sur Inside),
+    //   -> aucune boucle scalaire de queue (meme idee que le dernier lot de B4).
+    // CUIT une fois par RegisterMesh. vertexPositions (AoS) reste la SOURCE :
+    // chemin clippe, normales, AABB, filet Debug. Cout : 12 o par sommet, en double.
+    struct PositionsSoA
+    {
+        SimdVector<float> x, y, z;
+        size_t            count = 0;     // vrais sommets (== vertexCount() apres cuisson)
+        [[nodiscard]] size_t PaddedCount() const noexcept { return x.size(); }
+    };
 
     class MeshClass {
     public:
@@ -34,6 +49,7 @@ namespace LV3
         std::vector<Vec3f>    vertexPositions;
         std::vector<Vec3f>    vertexNormals;
         std::vector<Vec2f>    vertexUVs;
+        PositionsSoA          positionsSoA;   // B3 : copie SoA de vertexPositions, cuite par RegisterMesh
 
         // ── Connectivité ──────────────────────────────────────        
 		std::vector<uint32_t> indices;                              // liste des indices de vertex pour chaque face (3 par triangle, 4 par quad)
@@ -69,6 +85,7 @@ namespace LV3
         void ComputeFaceNormals()  noexcept;
         void ComputeFaceAABBs()    noexcept;
         void ComputeMeshAABB()     noexcept;
+        void BakePositionsSoA();             // B3 : AoS -> SoA + bourrage. Appele par RegisterMesh SEUL.
 
         [[nodiscard]] FaceView GetFaceView(size_t i, Material* mat=nullptr) const noexcept;
 

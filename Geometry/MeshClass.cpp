@@ -165,6 +165,34 @@ void MeshClass::ComputeMeshAABB() noexcept
 }
 
 //**************************************************************************************
+// B3 : transposition AoS -> SoA, UNE fois au chargement, jamais par frame.
+void MeshClass::BakePositionsSoA()
+{
+    const size_t n = vertexPositions.size();
+    const size_t padded = (n + kSimdWidthF32 - 1) / kSimdWidthF32 * kSimdWidthF32;   // exemple 2143 -> 2144
+
+    positionsSoA.x.resize(padded);
+    positionsSoA.y.resize(padded);
+    positionsSoA.z.resize(padded);
+    positionsSoA.count = n;
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        positionsSoA.x[i] = vertexPositions[i].x;
+        positionsSoA.y[i] = vertexPositions[i].y;
+        positionsSoA.z[i] = vertexPositions[i].z;
+    }
+
+    // Bourrage : repete le DERNIER sommet. n == 0 -> padded == 0 : boucle vide, pas d'acces [n-1].
+    for (size_t i = n; i < padded; ++i)
+    {
+        positionsSoA.x[i] = vertexPositions[n - 1].x;
+        positionsSoA.y[i] = vertexPositions[n - 1].y;
+        positionsSoA.z[i] = vertexPositions[n - 1].z;
+    }
+}
+
+//**************************************************************************************
 
 /// <summary>
 /// Gets a view of a specific face in the mesh.

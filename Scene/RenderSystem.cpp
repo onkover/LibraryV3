@@ -13,6 +13,7 @@
 #include "Rendering/VertexStage.h"
 #include "Rendering/FaceStage.h"     // B4 : ClassifyFaces8
 #include <bit>                       // std::popcount, std::countr_zero
+#include <cstring>                   // B3 : std::memcmp (filet Debug)
 #include <algorithm>
 
 namespace LV3
@@ -369,11 +370,31 @@ namespace LV3
             {
                 LV3_PROF_COUNT(EProfCounter::FacesInside, nFaces);
 
-                {   // B0b : sous-zone de Render, l'etage SOMMETS seul
-                    LV3_PROF_SCOPE(EProfZone::RenderVerts);
-                    ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
-                }
+                //{   // B0b : sous-zone de Render, l'etage SOMMETS seul
+                //    LV3_PROF_SCOPE(EProfZone::RenderVerts);
+                //    ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
+                //}
                 
+                {   // B0b : sous-zone de Render, l'etage SOMMETS seul
+                    // B3 : 8 sommets par lot depuis la SoA ; ecrit PaddedCount() >= nVerts sommets
+                    // (le bourrage n'est jamais indexe : les indices restent < nVerts).
+                    LV3_PROF_SCOPE(EProfZone::RenderVerts);
+                    const PositionsSoA& soa = mesh->positionsSoA;
+                    LV3_ASSERT(soa.count == nVerts);   // cuite par RegisterMesh
+                    ProjectPositions8(mvp, view.viewport, soa.x.data(), soa.y.data(), soa.z.data(), soa.PaddedCount(), rasterBuf.Data());
+                }
+
+                #if LV3_DEBUG
+                    // Filet Debug B3 (HORS de la zone mesuree) : chaque sommet est recalcule en scalaire
+                    // depuis l'AoS (la SOURCE) et compare octet par octet. Attrape aussi une SoA perimee
+                    // (positions modifiees apres RegisterMesh sans nouvelle cuisson).
+                    for (size_t i = 0; i < nVerts; ++i)
+                    {
+                        const RasterVertex ref = ProjectClip(MulRow(mvp, mesh->vertexPositions[i]), view.viewport);
+                        LV3_ASSERT(std::memcmp(&ref, &rasterBuf.Data()[i], sizeof(RasterVertex)) == 0);
+                    }
+                #endif
+
                 const RasterVertex* const rv = rasterBuf.Data();
 
                 // B4 : triangles hors Wireframe -> tests par lots de 8.

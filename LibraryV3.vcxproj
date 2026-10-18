@@ -203,6 +203,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Core\AlignedAllocator.h" />
     <ClInclude Include="Core\Compiler.h" />
     <ClInclude Include="Core\config.h" />
     <ClInclude Include="Core\ContentRoot.h" />
@@ -290,7 +291,9 @@
     <ClCompile Include="Rendering\Fragment.cpp" />
     <ClCompile Include="Rendering\Rasterizer.cpp" />
     <ClCompile Include="Rendering\Renderer.cpp" />
-    <ClCompile Include="Rendering\VertexStage.cpp" />
+    <ClCompile Include="Rendering\VertexStage.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="Ressources\CommunFunctions.cpp" />
     <ClCompile Include="Ressources\LodChainLoader.cpp" />
     <ClCompile Include="Ressources\MTLLoader.cpp" />
