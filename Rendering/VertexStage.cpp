@@ -78,7 +78,8 @@ namespace LV3
         {
             // ── 1. CHARGER : 3 lectures, aucune transposition(la SoA l'a faite au chargement).
             // MSVC emet vmovups (verifie a l'asm) : l'alignement n'est controle que par
-            // l'assertion d'entree, il sert la performance (pas de ligne coupee), pas la securite.            const __m256 x = _mm256_load_ps(px + i);     // [x0 x1 x2 x3 | x4 x5 x6 x7]
+            // l'assertion d'entree, il sert la performance (pas de ligne coupee), pas la securite.
+            const __m256 x = _mm256_load_ps(px + i);     // [x0 x1 x2 x3 | x4 x5 x6 x7]
             const __m256 y = _mm256_load_ps(py + i);     // [y0 .. y7]
             const __m256 z = _mm256_load_ps(pz + i);     // [z0 .. z7]
 
