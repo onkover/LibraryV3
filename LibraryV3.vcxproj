@@ -303,7 +303,7 @@
     <ClCompile Include="Scene\DebugGizmos.cpp" />
     <ClCompile Include="Scene\Hierarchy.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />

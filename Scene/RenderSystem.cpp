@@ -141,10 +141,21 @@ namespace LV3
     // ════════════════════════════════════════════════════════════
     static void EmitTriangleList8(Renderer& renderer, const RasterVertex* rv,
         const uint32_t* indices, size_t nFaces, size_t nVerts, const Viewport& vp,
-        bool hasTint, Color tint)
+        bool hasTint, Color tint,
+        const FacePlanesSoA& planes, const Vec4f& eye, float tau)      // B5
     {
         (void)nVerts;   // lu par le seul filet Debug ci-dessous
         LV3_ASSERT((reinterpret_cast<uintptr_t>(rv) & 15u) == 0);   // exige par _mm_load_ps
+
+        // B5 : la SoA des plans couvre TOUS les lots, bourrage compris.
+        LV3_ASSERT(planes.count == nFaces && planes.PaddedCount() >= (nFaces + 7) / 8 * 8);
+        LV3_ASSERT(((uintptr_t(planes.nx.data()) | uintptr_t(planes.ny.data())
+            | uintptr_t(planes.nz.data()) | uintptr_t(planes.d.data())) & 31u) == 0);
+
+        // B5 : oeil et seuil diffuses UNE fois par (instance, vue), HORS de la boucle des lots.
+        const __m256 ex = _mm256_set1_ps(eye.x), ey = _mm256_set1_ps(eye.y);
+        const __m256 ez = _mm256_set1_ps(eye.z), ew = _mm256_set1_ps(eye.w);
+        const __m256 negTau = _mm256_set1_ps(-tau);
 
         // Indices du DERNIER lot quand nFaces n'est pas multiple de 8 (voir plus bas).
         uint32_t padIdx[24];
@@ -156,6 +167,27 @@ namespace LV3
             const size_t    n = std::min<size_t>(8, nFaces - base);
             const uint32_t  valid = (1u << n) - 1u;
             const uint32_t* idx = indices + base * 3;      // 24 indices du lot
+
+            // ── 1b. B5 : face arriere en espace OBJET, AVANT tout gather ─────
+            const uint32_t objBack = valid & ObjBackMask8(
+                planes.nx.data() + base, planes.ny.data() + base,
+                planes.nz.data() + base, planes.d.data() + base, ex, ey, ez, ew, negTau);
+
+            #if LV3_DEBUG
+                // Filet B5 (1) : SIMD == scalaire au bit pres. Couloirs VALIDES seulement.
+                for (uint32_t k = 0; k < n; ++k)
+                {
+                    const size_t f = base + k;
+                    const float s = ((planes.nx[f] * eye.x + planes.ny[f] * eye.y)
+                        + planes.nz[f] * eye.z) + planes.d[f] * eye.w;
+                    LV3_ASSERT(bool((objBack >> k) & 1u) == (s < -tau));
+                }
+            #endif
+
+            LV3_PROF_COUNT(EProfCounter::TrisObjRejected, uint64_t(std::popcount(objBack)));
+
+            // Lot ENTIEREMENT arriere : ni gather, ni test ecran, ni compteur ecran.
+            if (objBack == valid) continue;
 
             // ── 2. Dernier lot incomplet : PAS de boucle scalaire de queue ──
             // On complete les couloirs n..7 en REPETANT la derniere vraie face :
@@ -193,8 +225,11 @@ namespace LV3
             //   TrisRasterized    = faces AVANT                  (apres backface)
             //   TrisEarlyRejected = faces AVANT a boite VIDE     (rejet 3b)
             // popcount = nombre de bits a 1 (instruction popcnt sous /arch:AVX2).
-            const uint32_t front = m.front & valid;    // on ignore les couloirs de bourrage
-            uint32_t       surv = m.survive & valid;
+            // B5 : une face rejetee en objet est ecartee QUEL QUE SOIT son lot
+            // (sinon son sort dependrait de ses 7 voisines).
+            const uint32_t keep = valid & ~objBack;
+            const uint32_t front = m.front & keep;     // ni bourrage, ni face surement arriere
+            uint32_t       surv = m.survive & keep;
             LV3_PROF_COUNT(EProfCounter::TrisRasterized, uint64_t(std::popcount(front)));
             LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, uint64_t(std::popcount(front & ~surv)));
 
@@ -401,8 +436,31 @@ namespace LV3
                 // Wireframe (pas de rejet 3b) et quads (eventail) : boucle scalaire inchangee.
                 if (vpf == 3 && view.mode != ERenderMode::Wireframe)
                 {
+                    //EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
+                    //    view.viewport, hasTint, tint);
+                    //continue;
+                    // B5 : l'oeil de la VUE dans le repere de l'OBJET, une fois par (instance, vue).
+                    const FacePlanesSoA& planes = mesh->facePlanesSoA;
+                    LV3_ASSERT(planes.count == nFaces);   // cuite par RegisterMesh
+                    const Vec4f eye = HomogeneousEye(mvp);
+                    const float tau = ObjBackThreshold(eye, planes.maxAbsD);
+
                     EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
-                        view.viewport, hasTint, tint);
+                        view.viewport, hasTint, tint, planes, eye, tau);
+
+                    #if LV3_DEBUG
+                        // Filet B5 (2) : toute face rejetee en objet est VRAIMENT arriere,
+                        // jugee par l'aire exacte en double (ni l'ecran float, ni l'objet float).
+                        for (size_t f = 0; f < nFaces; ++f)
+                        {
+                            const float s = ((planes.nx[f] * eye.x + planes.ny[f] * eye.y)
+                                + planes.nz[f] * eye.z) + planes.d[f] * eye.w;
+                            if (!(s < -tau)) continue;
+                            const uint32_t* t = &mesh->indices[f * 3];
+                            LV3_ASSERT(ExactRasterArea(mvp, view.viewport, mesh->vertexPositions[t[0]],
+                                mesh->vertexPositions[t[1]], mesh->vertexPositions[t[2]]) > -1e-9);
+                        }
+                    #endif
                     continue;
                 }
 

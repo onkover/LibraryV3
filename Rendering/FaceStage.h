@@ -29,6 +29,7 @@
 #include <cstdint>
 #include "VertexStage.h"  // RasterVertex { x, y, z, invW } : 16 octets, AoS
 #include "Viewport.h"
+#include <cmath>         // B5 : std::sqrt, std::fabs (ObjBackThreshold)
 
 namespace LV3
 {
@@ -172,5 +173,81 @@ namespace LV3
         const uint32_t f = uint32_t(_mm256_movemask_ps(front));
         const uint32_t s = f & uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(nonEmpty)));
         return { f, s };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  CHANTIER B5 — face arriere en espace OBJET
+    //  IDENTITE (Cauchy-Binet) : aire_raster(a, b, c) = -K * (L . E) / (w0 * w1 * w2),  K > 0
+    //    L = (n, d) : plan de la face (cuit) ; E : oeil homogene, tire de mvp
+    //  Inside : w > 0  =>  face AVANT  <=>  s = L . E > 0.
+    //  Ortho (E.w = 0) et miroir (signe de E) : aucun code special.
+    // ════════════════════════════════════════════════════════════
+
+    // E_k = (-1)^k * det(C prive de sa ligne k), C = colonnes 0, 1 et 3 de mvp (x, y, w du clip).
+    // r_i = (m[i][0], m[i][1], m[i][3]), det(a, b, c) = a . (b x c) :
+    //   E = ( r1.(r2 x r3), -r0.(r2 x r3), r0.(r1 x r3), -r0.(r1 x r2) )
+    // P * mvp a x = y = w = 0 pour P = E : c'est le CENTRE de projection.
+    //   perspective : E = lambda * (oeil_objet, 1)    ortho : E = lambda * (direction vers la camera, 0)
+    [[nodiscard]] LV3_FORCEINLINE Vec4f HomogeneousEye(const Matrix44f& m) noexcept
+    {
+        const Vec3f r0{ m[0][0], m[0][1], m[0][3] };
+        const Vec3f r1{ m[1][0], m[1][1], m[1][3] };
+        const Vec3f r2{ m[2][0], m[2][1], m[2][3] };
+        const Vec3f r3{ m[3][0], m[3][1], m[3][3] };
+        const Vec3f c23 = r2.crossProduct(r3);
+        return { r1.dotProduct(c23),
+                 -r0.dotProduct(c23),
+                  r0.dotProduct(r1.crossProduct(r3)),
+                 -r0.dotProduct(r1.crossProduct(r2)) };
+    }
+
+    // ***********************************************************************************
+    // Rejet en objet seulement si s < -tau, tau = kObjBackMargin * (|E.xyz| + |E.w| * maxAbsD).
+    // |n| = 1 et |d| <= maxAbsD => tau est une fraction de la plus grande valeur possible de s :
+    // sin(angle rasant) > 1/64 (0,9 degre). Plus rasant : l'ecran decide, comme avant.
+    inline constexpr float kObjBackMargin = 1.0f / 64.0f;
+
+    // VERITE des filets B5 (Debug et test hors moteur) : aire raster des 3 sommets float,
+    // en DOUBLE de bout en bout (MulRow, /w, ToRaster, EdgeFunction). Jamais appelee en Release.
+    [[nodiscard]] inline double ExactRasterArea(const Matrix44f& m, const Viewport& vp,
+        const Vec3f& a, const Vec3f& b, const Vec3f& c) noexcept
+    {
+        const Vec3f* p[3] = { &a, &b, &c };
+        double X[3], Y[3];
+        for (int i = 0; i < 3; ++i)
+        {
+            double r[4];
+            for (int j = 0; j < 4; ++j)
+                r[j] = double(p[i]->x) * m[0][j] + double(p[i]->y) * m[1][j]
+                + double(p[i]->z) * m[2][j] + double(m[3][j]);
+            X[i] = vp.x + (r[0] / r[3] * 0.5 + 0.5) * vp.width;
+            Y[i] = vp.y + (0.5 - r[1] / r[3] * 0.5) * vp.height;
+        }
+        return (X[0] - X[2]) * (Y[1] - Y[2]) - (Y[0] - Y[2]) * (X[1] - X[2]);   // EdgeFunction(a, b, c)
+    }
+
+    // ***********************************************************************************
+    [[nodiscard]] LV3_FORCEINLINE float ObjBackThreshold(const Vec4f& e, float maxAbsD) noexcept
+    {
+        const float exyz = std::sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
+        return kObjBackMargin * (exyz + std::fabs(e.w) * maxAbsD);
+    }
+    // ***********************************************************************************
+    // 8 faces consecutives : bit k = 1 <=> face k SUREMENT arriere (s < -tau).
+    // nx..d : 1re face du lot, alignes 32 o. ex..ew, negTau : diffuses HORS de la boucle par l'appelant.
+    // Meme ordre que le scalaire du filet : ((nx*ex + ny*ey) + nz*ez) + d*ew. Pas de FMA.
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ObjBackMask8(
+        const float* nx, const float* ny, const float* nz, const float* d,
+        __m256 ex, __m256 ey, __m256 ez, __m256 ew, __m256 negTau) noexcept
+    {
+        // 4 lectures CONTIGUES : aucun gather (la SoA a ete faite au chargement)
+        const __m256 s = _mm256_add_ps(_mm256_add_ps(_mm256_add_ps(
+            _mm256_mul_ps(_mm256_load_ps(nx), ex),          // nx*ex
+            _mm256_mul_ps(_mm256_load_ps(ny), ey)),         // + ny*ey
+            _mm256_mul_ps(_mm256_load_ps(nz), ez)),         // + nz*ez
+            _mm256_mul_ps(_mm256_load_ps(d), ew));         // + d*ew   -> s = [s0 .. s7]
+
+        // _CMP_LT_OQ : NaN -> FAUX = "pas sur", l'ecran decide (un doute ne rejette JAMAIS).
+        return uint32_t(_mm256_movemask_ps(_mm256_cmp_ps(s, negTau, _CMP_LT_OQ)));
     }
 }

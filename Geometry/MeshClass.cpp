@@ -191,6 +191,53 @@ void MeshClass::BakePositionsSoA()
         positionsSoA.z[i] = vertexPositions[n - 1].z;
     }
 }
+//**************************************************************************************
+// B5: transposition AoS->SoA, UNE fois au chargement, jamais par frame
+// /!\ Le calcul se fait en double, avec un seul arrondi float à la fin.
+
+void MeshClass::BakeFacePlanesSoA()
+{
+    facePlanesSoA = FacePlanesSoA{};            // re-cuisson : on repart de zero
+    if (vertsPerFace != 3) return;              // quads : B5 ne s'applique pas
+
+    const size_t n = faceCount();
+    const size_t padded = (n + kSimdWidthF32 - 1) / kSimdWidthF32 * kSimdWidthF32;
+
+    // resize met des 0.0f : le bourrage (plans nuls) est deja en place.
+    facePlanesSoA.nx.resize(padded);
+    facePlanesSoA.ny.resize(padded);
+    facePlanesSoA.nz.resize(padded);
+    facePlanesSoA.d.resize(padded);
+    facePlanesSoA.count = n;
+
+    for (size_t f = 0; f < n; ++f)
+    {
+        const Vec3f& p0 = vertexPositions[indices[f * 3 + 0]];
+        const Vec3f& p1 = vertexPositions[indices[f * 3 + 1]];
+        const Vec3f& p2 = vertexPositions[indices[f * 3 + 2]];
+
+        // MEME orientation que faceNormals : (p1 - p0) x (p2 - p0).
+        const double ux = double(p1.x) - p0.x, uy = double(p1.y) - p0.y, uz = double(p1.z) - p0.z;
+        const double vx = double(p2.x) - p0.x, vy = double(p2.y) - p0.y, vz = double(p2.z) - p0.z;
+        double nx = uy * vz - uz * vy;
+        double ny = uz * vx - ux * vz;
+        double nz = ux * vy - uy * vx;
+
+        const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        if (!(len > 0.0)) continue;             // degeneree (ou NaN) : plan NUL -> jamais rejetee
+
+        nx /= len; ny /= len; nz /= len;
+        const double d = -(nx * p0.x + ny * p0.y + nz * p0.z);
+
+        facePlanesSoA.nx[f] = float(nx);
+        facePlanesSoA.ny[f] = float(ny);
+        facePlanesSoA.nz[f] = float(nz);
+        facePlanesSoA.d[f] = float(d);
+        facePlanesSoA.maxAbsD = std::max(facePlanesSoA.maxAbsD, std::fabs(float(d)));
+    }
+}
+
+
 
 //**************************************************************************************
 

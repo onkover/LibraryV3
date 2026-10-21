@@ -28,6 +28,21 @@ namespace LV3
         [[nodiscard]] size_t PaddedCount() const noexcept { return x.size(); }
     };
 
+    // ── B5 : plans des faces en SoA, pour la face arriere en espace OBJET ──
+    // Face f : L_f = (nx, ny, nz, d), n = normalize((p1-p0) x (p2-p0)), d = -n.p0.
+    // Alignes 64 o, taille PaddedCount() = multiple de 8. Bourrage : ZEROS (s = 0, jamais rejete).
+    // Face degeneree : plan NUL -> jamais rejetee : l'ecran decide, comme avant.
+    // TRIANGLES SEULS (vertsPerFace == 3) : un quad n'est pas forcement plan -> SoA vide.
+    // maxAbsD = max |d| : borne le terme |E.w * d| du seuil tau (un scalaire par mesh).
+    struct FacePlanesSoA
+    {
+        SimdVector<float> nx, ny, nz, d;
+        size_t            count = 0;       // vraies faces (== faceCount() apres cuisson ; 0 pour des quads)
+        float             maxAbsD = 0.0f;
+        [[nodiscard]] size_t PaddedCount() const noexcept { return nx.size(); }
+    };
+
+
     class MeshClass {
     public:
         MeshClass()  = default;
@@ -50,6 +65,7 @@ namespace LV3
         std::vector<Vec3f>    vertexNormals;
         std::vector<Vec2f>    vertexUVs;
         PositionsSoA          positionsSoA;   // B3 : copie SoA de vertexPositions, cuite par RegisterMesh
+        FacePlanesSoA         facePlanesSoA;  // B5 : plans des faces (triangles), cuits par RegisterMesh
 
         // ── Connectivité ──────────────────────────────────────        
 		std::vector<uint32_t> indices;                              // liste des indices de vertex pour chaque face (3 par triangle, 4 par quad)
@@ -86,6 +102,7 @@ namespace LV3
         void ComputeFaceAABBs()    noexcept;
         void ComputeMeshAABB()     noexcept;
         void BakePositionsSoA();             // B3 : AoS -> SoA + bourrage. Appele par RegisterMesh SEUL.
+        void BakeFacePlanesSoA();            // B5 : plans des faces + bourrage. Appele par RegisterMesh SEUL.
 
         [[nodiscard]] FaceView GetFaceView(size_t i, Material* mat=nullptr) const noexcept;
 

@@ -106,6 +106,9 @@ namespace LV3
 		//    Invariant : Σ LodLevel* + PointSplats == MeshesTested - MeshesCulled
 		PointSplats,
 
+		// ── B5 : faces rejetees en espace OBJET (surement arriere), AVANT tout gather.
+		//    Sous-ensemble des faces arriere : TrisRasterized garde son sens (faces AVANT).
+		TrisObjRejected,
 		Count
 	};
 
@@ -141,7 +144,9 @@ namespace LV3
 		"FacesPx0to1", "FacesPx1to4", "FacesPx4to16", "FacesPx16plus",
 		"VertsInside", "TrisEmittedInside",
 		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3",
-		"PointSplats"
+		"PointSplats",
+		"TrisObjRejected"
+
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
