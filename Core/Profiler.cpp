@@ -23,6 +23,16 @@ namespace LV3
 		uint64_t   s_resolutionNs = 0;
 		std::chrono::steady_clock::time_point s_t0;
 
+
+		// M11 : la LIB ablate, la LIB declare. Un seul champ ablation= pour tous les paliers.
+		static constexpr const char* AblationName() noexcept
+		{
+			return LV3_ABLATION_RASTER ? "raster"        // palier M : DrawTriangle debranche
+				: LV3_ABLATION_PIXELS == 1 ? "pixels_setup"  // palier S
+				: LV3_ABLATION_PIXELS == 2 ? "pixels_edges"  // palier E
+				: "none";         // palier N
+		}
+
 		// Deux grandeurs DISTINCTES, mesurees sur la machine reelle :
 		//  - overhead   : cout d'une paire de bornes (ce que l'instrument AJOUTE)
 		//  - resolution : plus petit ecart non nul observable (en dessous,
@@ -85,7 +95,9 @@ namespace LV3
 			+ std::to_string(s_overheadNs) + " ns, resolution "
 			+ std::to_string(s_resolutionNs) + " ns"
 			+ (LV3_RASTER_STATS ? " | RASTER_STATS ACTIF : run de COMPTAGE, temps non recevables" : "")
-			+ (LV3_LOD_STATS ? " | LOD_STATS ACTIF : run de COMPTAGE, temps non recevables" : ""));
+			+ (LV3_LOD_STATS ? " | LOD_STATS ACTIF : run de COMPTAGE, temps non recevables" : "")
+			+ (LV3_ABLATION_PIXELS ? std::string(" | ABLATION PIXELS (") + AblationName()
+			+ ") : image FAUSSE, mesure C0 uniquement" : std::string()));
 	}
 
 	void Profiler::BeginFrame(uint64_t simTimeMilliDays)
@@ -150,6 +162,7 @@ namespace LV3
 	bool     Profiler::IsFull()     noexcept { return s_full; }
 
 
+
 	// Nom commercial du CPU (CPUID 0x80000002..4). M2 : la machine est ecrite
 	// DANS le fichier. Deux campagnes sur deux machines ne se comparent pas.
 	static std::string CpuBrand()
@@ -202,7 +215,8 @@ namespace LV3
 				<< ";config=" << info.config
 				<< ";cpu=" << CpuBrand()
 				<< ";affinity=" << AffinityMask()
-				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
+//				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
+				<< ";ablation=" << AblationName() // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
@@ -261,7 +275,8 @@ namespace LV3
 			g << "# scene=" << info.scene << ";config=" << info.config
 				<< ";cpu=" << CpuBrand()
 				<< ";affinity=" << AffinityMask()
-				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
+//				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
+				<< ";ablation=" << AblationName() // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :

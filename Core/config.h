@@ -149,7 +149,7 @@ namespace LV3
 #endif
 
 #ifndef LV3_ABLATION_RASTER
-	#define LV3_ABLATION_RASTER 0  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
+	#define LV3_ABLATION_RASTER 1  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
 #endif
 
 // 7. Statistiques de couverture du rasterizer (phase G, comptage 2b / 3).
@@ -190,3 +190,22 @@ namespace LV3
 //#if LV3_CLEAR_VARIANT < 0 || LV3_CLEAR_VARIANT > 3
 //	#error "LV3_CLEAR_VARIANT : 0 (STL), 1 (ordinaires), 2 (non temporels SSE2) ou 3 (non temporels AVX2)"
 //#endif
+
+
+// 10. Ablation de l'etage PIXELS (chantier C0). MESURE UNIQUEMENT : image fausse,
+//     TNR en echec. Ne jamais commiter une valeur differente de 0.
+//     0 = normal
+//     1 = palier S : RasterizeTriangle fait les appels + la preparation, AUCUN pixel
+//     2 = palier E : boucle d'aretes complete, AUCUN fragment (ni bary, ni appel, ni Z, ni couleur)
+//     Decomposition : prep = S - M, aretes = E - S, fragments = N - E (M = ABLATION_RASTER).
+#ifndef LV3_ABLATION_PIXELS
+	#define LV3_ABLATION_PIXELS 0
+#endif
+
+#if LV3_ABLATION_PIXELS < 0 || LV3_ABLATION_PIXELS > 2
+	#error "LV3_ABLATION_PIXELS : 0 (normal), 1 (preparation seule) ou 2 (aretes sans fragment)"
+#endif
+
+#if LV3_ABLATION_PIXELS && (LV3_RASTER_STATS || LV3_ABLATION_RASTER)
+	#error "LV3_ABLATION_PIXELS est exclusif de LV3_RASTER_STATS et de LV3_ABLATION_RASTER"
+#endif

@@ -33,9 +33,11 @@ namespace LV3
                 db.Height() == fb.Height() &&
                 "DepthBuffer et FrameBuffer de tailles differentes — TestAndSet ecrira hors bornes");
 
-            m_ctx.fb = &fb;  
+            m_ctx.fb = &fb;
             m_ctx.db = &db;
             db.Clear();
+            ProbeAlias4K(fb, db);   // C0b : une valeur par frame (corps dans Renderer.cpp, M11)
+
         }
 
         void EndFrame() noexcept { m_ctx.fb = nullptr; m_ctx.db = nullptr; }
@@ -82,5 +84,8 @@ namespace LV3
         FragmentCallback m_fragment = nullptr;
         Viewport     m_vp{};
         ERenderMode  m_mode = ERenderMode::Solid;
+
+        // C0b : (couleur - profondeur) mod 4096 -> EProfCounter::FbDbAlias4K. Vide sans LV3_PROFILE.
+        static void ProbeAlias4K(const FrameBuffer& fb, const DepthBuffer& db) noexcept;
     };
 }

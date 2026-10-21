@@ -30,7 +30,19 @@ namespace LV3
     
     #else
         // Les arguments DISPARAISSENT : tight/covered n'existent pas quand le commutateur vaut 0.
-        #define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+    #define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+    #endif
+
+    #if LV3_ABLATION_PIXELS
+        namespace
+        {
+            // C0 : PUITS d'ablation. Sans lui, l'optimiseur supprime le travail dont
+            // le resultat n'est plus lu, et le palier mesure du vide.
+            // volatile : l'ecriture ne peut pas etre supprimee. UNE ecriture par triangle.
+            // Forme "s = s + v" et non "s += v" : l'affectation composee sur un
+            // volatile est depreciee en C++20.
+            volatile uint32_t g_ablationSink = 0;
+        }
     #endif
 
 
@@ -133,6 +145,19 @@ namespace LV3
 
 
 
+#if LV3_ABLATION_PIXELS == 1
+      // ── C0, palier S : les deux appels + la preparation, AUCUN pixel.
+      //    Tout ce que la preparation produit est CONSOMME par le puits.
+        g_ablationSink = g_ablationSink
+            + uint32_t(bb.x0) + uint32_t(bb.y0) + uint32_t(bb.x1) + uint32_t(bb.y1)
+            + (uint32_t(tl0) | (uint32_t(tl1) << 1) | (uint32_t(tl2) << 2) | (uint32_t(flipped) << 3))
+            + std::bit_cast<uint32_t>(invArea);
+        (void)onFragment; (void)userData;
+#else
+#if LV3_ABLATION_PIXELS == 2
+        uint32_t ablCovered = 0;            // palier E : compteur en REGISTRE
+#endif
+
         for (int32_t y = bb.y0; y < bb.y1; ++y)
         {
             const float py = float(y) + 0.5f;
@@ -154,16 +179,25 @@ namespace LV3
                     ++covered;                                  // registre, pas d'appel
                 #endif
 
+                #if LV3_ABLATION_PIXELS == 2
+                    ++ablCovered;     // palier E : aretes seules, AUCUN fragment
+                #else
+                    // Si les sommets ont été échangés, w1 et w2 le sont aussi :
+                    // on les remet dans l'ordre du triangle d'origine.
+                    const BarycentricWeights bary = flipped
+                        ? BarycentricWeights{ w0 * invArea, w2 * invArea, w1 * invArea }
+                    : BarycentricWeights{ w0 * invArea, w1 * invArea, w2 * invArea };
 
-                // Si les sommets ont été échangés, w1 et w2 le sont aussi :
-                // on les remet dans l'ordre du triangle d'origine.
-                const BarycentricWeights bary = flipped
-                    ? BarycentricWeights{ w0 * invArea, w2 * invArea, w1 * invArea }
-                : BarycentricWeights{ w0 * invArea, w1 * invArea, w2 * invArea };
-
-                onFragment(x, y, bary, userData);
+                    onFragment(x, y, bary, userData);
+                #endif
             }
         }
+
+        #if LV3_ABLATION_PIXELS == 2
+                g_ablationSink = g_ablationSink + ablCovered;   // UNE ecriture par triangle
+                (void)onFragment; (void)userData; (void)invArea; (void)flipped;
+        #endif
+        #endif // LV3_ABLATION_PIXELS == 1
 
         // Depuis le 3a, pixels testes == aire de la boite serree, par construction.
         LV3_RASTER_RECORD(bb.Area(), bb.Area(), covered);

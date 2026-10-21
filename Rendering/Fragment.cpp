@@ -10,7 +10,7 @@ namespace LV3
 
         auto* ctx = AsFragmentContext(userData);
         const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;
-        if (!ctx->db->TestAndSet(x, y, z)) return;
+        if (!DepthTestAndSet(ctx, x, y, z)) return;
 
         ctx->fb->SetPixelUnchecked(x, y, Color{
             static_cast<uint8_t>(std::clamp(bary.w2, 0.f, 1.f) * 255.0f),   // b
@@ -28,7 +28,7 @@ namespace LV3
         const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
 
         // ── 2. EARLY-Z : rejeter AVANT tout autre calcul ──
-        if (!ctx->db->TestAndSet(x, y, z)) return;      // reverse-Z, GREATER
+        if (!DepthTestAndSet(ctx, x, y, z)) return;
 
         // ── 3. Le dénominateur n'est calculé QUE si le fragment survit ──
         // (couleur plate ici : rien à corriger. Structure en place pour la suite.)
@@ -51,7 +51,7 @@ namespace LV3
         auto* ctx = AsFragmentContext(userData);
 
         const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!ctx->db->TestAndSet(x, y, z)) return;
+        if (!DepthTestAndSet(ctx, x, y, z)) return;
 
         // ── LA division perspective par pixel ──
         const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
@@ -72,7 +72,7 @@ namespace LV3
 
         // 1. profondeur NDC — affine, pour le test de profondeur uniquement
         const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!ctx->db->TestAndSet(x, y, z)) return;
+        if (!DepthTestAndSet(ctx, x, y, z)) return;
 
         // 2. distance à l'œil — DIRECTE. w = d, et 1/w est linéaire en écran.
         const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
@@ -101,7 +101,7 @@ namespace LV3
         auto* ctx = AsFragmentContext(userData);
 
         const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!ctx->db->TestAndSet(x, y, z)) return;
+        if (!DepthTestAndSet(ctx, x, y, z)) return;
 
         // FAUX EXPRÈS : interpolation AFFINE de la distance,
         // au lieu de 1 / (interpolation affine de 1/w)

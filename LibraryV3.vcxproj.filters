@@ -215,7 +215,6 @@
     <ClInclude Include="Core\ContentRoot.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Rendering\DepthBuffer.h" />
     <ClInclude Include="Core\Profiler.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -236,6 +235,9 @@
     </ClInclude>
     <ClInclude Include="Core\AlignedAllocator.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\DepthBuffer.h">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

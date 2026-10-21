@@ -46,6 +46,10 @@ namespace LV3
         int32_t Width()  const noexcept { return m_Width; }
         int32_t Height() const noexcept { return m_Height; }
 
+        // Adresse du premier float : sonde C0b (4K-aliasing) uniquement. Lecture seule.
+        [[nodiscard]] const float* Data() const noexcept { return m_Data.data(); }
+
+
     private:
         std::vector<float> m_Data;
         int32_t m_Width = 0, m_Height = 0;

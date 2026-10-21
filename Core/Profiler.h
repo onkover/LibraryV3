@@ -109,6 +109,18 @@ namespace LV3
 		// ── B5 : faces rejetees en espace OBJET (surement arriere), AVANT tout gather.
 		//    Sous-ensemble des faces arriere : TrisRasterized garde son sens (faces AVANT).
 		TrisObjRejected,
+
+		// ── C0 (RASTER_STATS seulement) : fragments ayant PASSE le test de profondeur.
+		//    Invariant : PixelsDepthPassed <= PixelsCovered.
+		//    PixelsCovered - PixelsDepthPassed = fragments caches, rejetes par le Z (surdessin).
+		//    Vaut 0 dans un run de chronometrage (RASTER_STATS = 0).
+		PixelsDepthPassed,
+
+		// ── C0b : (adresse couleur - adresse profondeur) modulo 4096, UNE fois par frame.
+		//    Une VALEUR, pas un compte : sonde du 4K-aliasing (bimodalite de V2).
+		//    Si BeginFrame etait appele deux fois par frame, la valeur doublerait : max le montrerait.
+		FbDbAlias4K,
+
 		Count
 	};
 
@@ -145,8 +157,8 @@ namespace LV3
 		"VertsInside", "TrisEmittedInside",
 		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3",
 		"PointSplats",
-		"TrisObjRejected"
-
+		"TrisObjRejected",
+		"PixelsDepthPassed", "FbDbAlias4K"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

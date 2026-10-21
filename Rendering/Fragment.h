@@ -19,17 +19,6 @@ namespace LV3
     // Chaque fonction ShadeFragment_* définit SA propre structure de contexte.
     // C'est ce pointeur qui transite par le void* userData de RasterizeTriangle.
 
-    //struct UnlitContext
-    //{
-    //    FrameBuffer* fb;
-    //    Color        color;
-    //};
-
-    //struct DepthContext
-    //{
-    //    FrameBuffer* fb;
-    //    float z0, z1, z2; // profondeur des 3 sommets du triangle courant
-    //};
 
     struct FragmentContext
     {
@@ -47,6 +36,12 @@ namespace LV3
         // Un défaut qui échoue bruyamment vaut mieux qu'un défaut plausible.
 
         float depthDisplayRange = 100.f;   // debug seulement — PAS un paramètre de lentille
+        
+        #if LV3_RASTER_STATS
+            // C0 : fragments ayant passe le Z pour le triangle COURANT.
+            // Incremente par DepthTestAndSet, vide UNE fois par triangle par le Renderer.
+            uint32_t depthPassed = 0;
+        #endif
     };
 
     // Comptage de couverture — utilise par la TNR top-left.
@@ -66,6 +61,19 @@ namespace LV3
             "FragmentContext : contexte incompatible derriere le void*");
     #endif    
         return ctx;
+    }
+
+
+    // Test de profondeur de TOUS les shaders : un seul endroit ou compter le surdessin.
+    // Sans RASTER_STATS, c'est exactement l'ancien TestAndSet (inline, aucun surcout).
+    [[nodiscard]] LV3_FORCEINLINE bool DepthTestAndSet(FragmentContext* ctx,
+        int32_t x, int32_t y, float z) noexcept
+    {
+        const bool pass = ctx->db->TestAndSet(x, y, z);
+        #if LV3_RASTER_STATS
+                ctx->depthPassed += pass ? 1u : 0u;   // sans branche : setcc + add
+        #endif
+        return pass;
     }
 
 
