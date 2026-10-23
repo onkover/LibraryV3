@@ -7,44 +7,90 @@
 
 namespace LV3
 {
-    #if LV3_RASTER_STATS
-        namespace
-        {
-            // UN enregistrement par triangle, jamais par pixel (voir contre-exemple).
-            void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept
-            {
-                const EProfCounter bucket =
-                    covered == 0 ? EProfCounter::TrisCov0
-                    : covered == 1 ? EProfCounter::TrisCov1
-                    : covered <= 4 ? EProfCounter::TrisCov2to4
-                    : EProfCounter::TrisCov5plus;
-                LV3_PROF_COUNT(bucket, 1);
-                if (tight == 0) LV3_PROF_COUNT(EProfCounter::TrisTightEmpty, 1);
-                LV3_PROF_COUNT(EProfCounter::PixelsTested, tested);
-                LV3_PROF_COUNT(EProfCounter::PixelsTight, tight);
-                LV3_PROF_COUNT(EProfCounter::PixelsCovered, covered);
-            }
-        }
-    
-        #define LV3_RASTER_RECORD(tested, tight, covered) RecordRasterStats((tested), (tight), (covered))
-    
-    #else
-        // Les arguments DISPARAISSENT : tight/covered n'existent pas quand le commutateur vaut 0.
-    #define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+    //#if LV3_RASTER_STATS
+    //    // UN enregistrement par triangle, jamais par pixel (voir contre-exemple).
+    //    // C1 : hors de l'espace anonyme, déclarée dans Rasterizer.h (le noyau template l'appelle).
+    //    void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept
+    //    {
+    //        const EProfCounter bucket =
+    //            covered == 0 ? EProfCounter::TrisCov0
+    //            : covered == 1 ? EProfCounter::TrisCov1
+    //            : covered <= 4 ? EProfCounter::TrisCov2to4
+    //            : EProfCounter::TrisCov5plus;
+    //        LV3_PROF_COUNT(bucket, 1);
+    //        if (tight == 0) LV3_PROF_COUNT(EProfCounter::TrisTightEmpty, 1);
+    //        LV3_PROF_COUNT(EProfCounter::PixelsTested, tested);
+    //        LV3_PROF_COUNT(EProfCounter::PixelsTight, tight);
+    //        LV3_PROF_COUNT(EProfCounter::PixelsCovered, covered);
+    //    }
+    //#endif
+
+    //namespace
+    //{
+    //    // Puits du chemin GÉNÉRIQUE : un appel indirect par pixel couvert.
+    //    // Ne sert plus qu'aux TNR et aux sondes (ShadeFragment_Count, DepthProbe...).
+    //    struct CallbackSink
+    //    {
+    //        FragmentCallback onFragment;
+    //        void* userData;
+    //        int32_t          y = 0;
+
+    //        LV3_FORCEINLINE void BeginRow(int32_t row) noexcept { y = row; }
+    //        LV3_FORCEINLINE void Pixel(int32_t x, const BarycentricWeights& b) { onFragment(x, y, b, userData); }
+    //    };
+    //}
+
+
+
+    //#if LV3_ABLATION_PIXELS
+    //    namespace
+    //    {
+    //        // C0 : PUITS d'ablation. Sans lui, l'optimiseur supprime le travail dont
+    //        // le resultat n'est plus lu, et le palier mesure du vide.
+    //        // volatile : l'ecriture ne peut pas etre supprimee. UNE ecriture par triangle.
+    //        // Forme "s = s + v" et non "s += v" : l'affectation composee sur un
+    //        // volatile est depreciee en C++20.
+    //        volatile uint32_t g_ablationSink = 0;
+    //    }
+    //#endif
+
+#if LV3_RASTER_STATS
+    // UN enregistrement par triangle, jamais par pixel (voir contre-exemple).
+    // C1 : hors de l'espace anonyme, déclarée dans Rasterizer.h (le noyau template l'appelle).
+    void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept
+    {
+        const EProfCounter bucket =
+            covered == 0 ? EProfCounter::TrisCov0
+            : covered == 1 ? EProfCounter::TrisCov1
+            : covered <= 4 ? EProfCounter::TrisCov2to4
+            : EProfCounter::TrisCov5plus;
+        LV3_PROF_COUNT(bucket, 1);
+        if (tight == 0) LV3_PROF_COUNT(EProfCounter::TrisTightEmpty, 1);
+        LV3_PROF_COUNT(EProfCounter::PixelsTested, tested);
+        LV3_PROF_COUNT(EProfCounter::PixelsTight, tight);
+        LV3_PROF_COUNT(EProfCounter::PixelsCovered, covered);
+    }
     #endif
 
     #if LV3_ABLATION_PIXELS
-        namespace
-        {
-            // C0 : PUITS d'ablation. Sans lui, l'optimiseur supprime le travail dont
-            // le resultat n'est plus lu, et le palier mesure du vide.
-            // volatile : l'ecriture ne peut pas etre supprimee. UNE ecriture par triangle.
-            // Forme "s = s + v" et non "s += v" : l'affectation composee sur un
-            // volatile est depreciee en C++20.
-            volatile uint32_t g_ablationSink = 0;
-        }
+        // C0 : PUITS d'ablation, declare dans Rasterizer.h (C1 : le noyau template l'utilise).
+        volatile uint32_t g_ablationSink = 0;
     #endif
 
+    namespace
+    {
+        // Puits du chemin GÉNÉRIQUE : un appel indirect par pixel couvert.
+        // Ne sert plus qu'aux TNR et aux sondes (ShadeFragment_Count, DepthProbe...).
+        struct CallbackSink
+        {
+            FragmentCallback onFragment;
+            void* userData;
+            int32_t          y = 0;
+
+            LV3_FORCEINLINE void BeginRow(int32_t row) noexcept { y = row; }
+            LV3_FORCEINLINE void Pixel(int32_t x, const BarycentricWeights& b) { onFragment(x, y, b, userData); }
+        };
+    }
 
     bool IsTopLeft(const Vec2f& a, const Vec2f& b) noexcept
     {
@@ -70,137 +116,156 @@ namespace LV3
     
     */
 
-
-    void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
-        const Viewport& vp,
-        FragmentCallback onFragment, void* userData)
-    {
-
-       /*
-       Si des pixels ne sont pas déssiné
-           * épars comme du bruit (Épars et fins → le biais top-left) est la signature exacte d'un seuil dépendant de l'échelle
-           * Une fente le long d'une arête aurait désigné la géométrie ; 
-           * Fentes nettes le long des arêtes partagées → le biais aussi, mais plus grave
-           * Trous par triangle entier → géométrie ou culling, pas le remplissage
-        3 tests
-        * Coupe 1 — le biais : Remets bias = 0.0f partout dans ta version actuelle. Les trous disparaissent → c'était bien lui, applique le correctif ci-dessus.
-        * Coupe 2 — le Z-buffer : Dans ShadeFragment_Solid, commente if (!ctx->db->TestAndSet(...)) return;. Les trous disparaissent → ce sont deux triangles à profondeur quasi identique qui se rejettent mutuellement. Symptôme d'un z-fighting sur géométrie coplanaire.
-        * Coupe 3 — la géométrie : Passe en Wireframe. Regarde de près : les arêtes forment-elles une surface fermée ? S'il y a des vides dans le fil de fer, le problème est dans le mesh ou dans la triangulation en éventail des quads, pas dans le rasterizer.
-       */
-
-        // ── Normalise le sens de parcours : on travaille toujours en aire POSITIVE.
-
-        Vec2f p0 = v0, p1 = v1, p2 = v2;
-        float area = EdgeFunction(p0, p1, p2);
-        if (area == 0.0f) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }   // triangle dégénéré
-
-        const bool flipped = (area < 0.0f);
-        if (flipped) { std::swap(p1, p2); area = -area; }
-
-    //    // ── Bounding box, rognée au VIEWPORT (= le scissor)
-    //    int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
-    //    int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
-    //    int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
-    //    int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
-    //    vp.ClampBox(minX, minY, maxX, maxY);
-
-
-    //#if LV3_RASTER_STATS
-    //    const PixelBox tb = TightPixelBox(p0, p1, p2, vp);   // la MEME formule que le rejet 3b
-    //    const uint32_t tight = tb.Area();
-    //    uint32_t       covered = 0;
-    //#endif
-
-    //    if (minX >= maxX || minY >= maxY) { LV3_RASTER_RECORD(0u, tight, 0u); return; }
-
-    // ── CHANTIER 3a : boite SERREE, rognee au VIEWPORT (= le scissor).
-    //    Seuls les pixels dont le CENTRE (x+1/2, y+1/2) peut etre dans le triangle.
-    //    Source UNIQUE, partagee avec le rejet 3b : TightPixelBox.
-    //    Exactitude prouvee AVANT la bascule (C3 § 6, C4 § 7.1) : aucun pixel
-    //    couvert hors de cette boite sur ~1,4 million testes.
-    const PixelBox bb = TightPixelBox(p0, p1, p2, vp);
-
-    #if LV3_RASTER_STATS
-            uint32_t covered = 0;
-    #endif
-
-        if (bb.Empty()) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
-
-        // ── Règle top-left : évaluée UNE fois par triangle, pas par pixel
-        const bool tl0 = IsTopLeft(p1, p2);
-        const bool tl1 = IsTopLeft(p2, p0);
-        const bool tl2 = IsTopLeft(p0, p1);
-
-        const float invArea = 1.0f / area;
-
-
-
-//#ifdef _DEBUG
-//        const float bboxArea = float(maxX - minX) * float(maxY - minY);   // apres ClampBox
-//        if (bboxArea > 0.0f && std::fabs(area) < 1e-4f * bboxArea)
-//            Logger::warn("[RASTER] triangle quasi degenere : |area|=" + std::to_string(std::fabs(area))
-//                + "  bbox=" + std::to_string(bboxArea)
-//                + "  ratio=" + std::to_string(std::fabs(area) / bboxArea) + "\n");
+    /* ***************************************************************************
+    Si des pixels ne sont pas déssiné
+        * épars comme du bruit (Épars et fins → le biais top-left) est la signature exacte d'un seuil dépendant de l'échelle
+        * Une fente le long d'une arête aurait désigné la géométrie ;
+        * Fentes nettes le long des arêtes partagées → le biais aussi, mais plus grave
+        * Trous par triangle entier → géométrie ou culling, pas le remplissage
+     3 tests
+     * Coupe 1 — le biais : Remets bias = 0.0f partout dans ta version actuelle. Les trous disparaissent → c'était bien lui, applique le correctif ci-dessus.
+     * Coupe 2 — le Z-buffer : Dans ShadeFragment_Solid, commente if (!ctx->db->TestAndSet(...)) return;. Les trous disparaissent → ce sont deux triangles à profondeur quasi identique qui se rejettent mutuellement. Symptôme d'un z-fighting sur géométrie coplanaire.
+     * Coupe 3 — la géométrie : Passe en Wireframe. Regarde de près : les arêtes forment-elles une surface fermée ? S'il y a des vides dans le fil de fer, le problème est dans le mesh ou dans la triangulation en éventail des quads, pas dans le rasterizer.
+    */
+//    void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+//        const Viewport& vp,
+//        FragmentCallback onFragment, void* userData)
+//    {
+//
+//
+//        // ── Normalise le sens de parcours : on travaille toujours en aire POSITIVE.
+//
+//        Vec2f p0 = v0, p1 = v1, p2 = v2;
+//        float area = EdgeFunction(p0, p1, p2);
+//        if (area == 0.0f) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }   // triangle dégénéré
+//
+//        const bool flipped = (area < 0.0f);
+//        if (flipped) { std::swap(p1, p2); area = -area; }
+//
+//    //    // ── Bounding box, rognée au VIEWPORT (= le scissor)
+//    //    int minX = int(std::floor(std::min({ p0.x, p1.x, p2.x })));
+//    //    int minY = int(std::floor(std::min({ p0.y, p1.y, p2.y })));
+//    //    int maxX = int(std::ceil(std::max({ p0.x, p1.x, p2.x }))) + 1;
+//    //    int maxY = int(std::ceil(std::max({ p0.y, p1.y, p2.y }))) + 1;
+//    //    vp.ClampBox(minX, minY, maxX, maxY);
+//
+//
+//    //#if LV3_RASTER_STATS
+//    //    const PixelBox tb = TightPixelBox(p0, p1, p2, vp);   // la MEME formule que le rejet 3b
+//    //    const uint32_t tight = tb.Area();
+//    //    uint32_t       covered = 0;
+//    //#endif
+//
+//    //    if (minX >= maxX || minY >= maxY) { LV3_RASTER_RECORD(0u, tight, 0u); return; }
+//
+//    // ── CHANTIER 3a : boite SERREE, rognee au VIEWPORT (= le scissor).
+//    //    Seuls les pixels dont le CENTRE (x+1/2, y+1/2) peut etre dans le triangle.
+//    //    Source UNIQUE, partagee avec le rejet 3b : TightPixelBox.
+//    //    Exactitude prouvee AVANT la bascule (C3 § 6, C4 § 7.1) : aucun pixel
+//    //    couvert hors de cette boite sur ~1,4 million testes.
+//    const PixelBox bb = TightPixelBox(p0, p1, p2, vp);
+//
+//    #if LV3_RASTER_STATS
+//            uint32_t covered = 0;
+//    #endif
+//
+//        if (bb.Empty()) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
+//
+//        // ── Règle top-left : évaluée UNE fois par triangle, pas par pixel
+//        const bool tl0 = IsTopLeft(p1, p2);
+//        const bool tl1 = IsTopLeft(p2, p0);
+//        const bool tl2 = IsTopLeft(p0, p1);
+//
+//        const float invArea = 1.0f / area;
+//
+//
+//
+////#ifdef _DEBUG
+////        const float bboxArea = float(maxX - minX) * float(maxY - minY);   // apres ClampBox
+////        if (bboxArea > 0.0f && std::fabs(area) < 1e-4f * bboxArea)
+////            Logger::warn("[RASTER] triangle quasi degenere : |area|=" + std::to_string(std::fabs(area))
+////                + "  bbox=" + std::to_string(bboxArea)
+////                + "  ratio=" + std::to_string(std::fabs(area) / bboxArea) + "\n");
+////#endif
+//
+//
+//
+//#if LV3_ABLATION_PIXELS == 1
+//      // ── C0, palier S : les deux appels + la preparation, AUCUN pixel.
+//      //    Tout ce que la preparation produit est CONSOMME par le puits.
+//        g_ablationSink = g_ablationSink
+//            + uint32_t(bb.x0) + uint32_t(bb.y0) + uint32_t(bb.x1) + uint32_t(bb.y1)
+//            + (uint32_t(tl0) | (uint32_t(tl1) << 1) | (uint32_t(tl2) << 2) | (uint32_t(flipped) << 3))
+//            + std::bit_cast<uint32_t>(invArea);
+//        (void)onFragment; (void)userData;
+//#else
+//#if LV3_ABLATION_PIXELS == 2
+//        uint32_t ablCovered = 0;            // palier E : compteur en REGISTRE
 //#endif
+//
+//        for (int32_t y = bb.y0; y < bb.y1; ++y)
+//        {
+//            const float py = float(y) + 0.5f;
+//            for (int32_t x = bb.x0; x < bb.x1; ++x)
+//            {
+//                const float px = float(x) + 0.5f;
+//
+//                const float w0 = EdgeFunction(p1, p2, px, py);
+//                const float w1 = EdgeFunction(p2, p0, px, py);
+//                const float w2 = EdgeFunction(p0, p1, px, py);
+//
+//                // Strictement dedans, OU exactement sur une arête top/left.
+//                // Aucune constante magique : indépendant de la taille du triangle.
+//                if (!(w0 > 0.0f || (w0 == 0.0f && tl0))) continue;
+//                if (!(w1 > 0.0f || (w1 == 0.0f && tl1))) continue;
+//                if (!(w2 > 0.0f || (w2 == 0.0f && tl2))) continue;
+//
+//                #if LV3_RASTER_STATS
+//                    ++covered;                                  // registre, pas d'appel
+//                #endif
+//
+//                #if LV3_ABLATION_PIXELS == 2
+//                    ++ablCovered;     // palier E : aretes seules, AUCUN fragment
+//                #else
+//                    // Si les sommets ont été échangés, w1 et w2 le sont aussi :
+//                    // on les remet dans l'ordre du triangle d'origine.
+//                    const BarycentricWeights bary = flipped
+//                        ? BarycentricWeights{ w0 * invArea, w2 * invArea, w1 * invArea }
+//                    : BarycentricWeights{ w0 * invArea, w1 * invArea, w2 * invArea };
+//
+//                    onFragment(x, y, bary, userData);
+//                #endif
+//            }
+//        }
+//
+//        #if LV3_ABLATION_PIXELS == 2
+//                g_ablationSink = g_ablationSink + ablCovered;   // UNE ecriture par triangle
+//                (void)onFragment; (void)userData; (void)invArea; (void)flipped;
+//        #endif
+//        #endif // LV3_ABLATION_PIXELS == 1
+//
+//        // Depuis le 3a, pixels testes == aire de la boite serree, par construction.
+//        LV3_RASTER_RECORD(bb.Area(), bb.Area(), covered);
+//    }
 
 
-
-#if LV3_ABLATION_PIXELS == 1
-      // ── C0, palier S : les deux appels + la preparation, AUCUN pixel.
-      //    Tout ce que la preparation produit est CONSOMME par le puits.
-        g_ablationSink = g_ablationSink
-            + uint32_t(bb.x0) + uint32_t(bb.y0) + uint32_t(bb.x1) + uint32_t(bb.y1)
-            + (uint32_t(tl0) | (uint32_t(tl1) << 1) | (uint32_t(tl2) << 2) | (uint32_t(flipped) << 3))
-            + std::bit_cast<uint32_t>(invArea);
-        (void)onFragment; (void)userData;
-#else
-#if LV3_ABLATION_PIXELS == 2
-        uint32_t ablCovered = 0;            // palier E : compteur en REGISTRE
-#endif
-
-        for (int32_t y = bb.y0; y < bb.y1; ++y)
+    // Chemin GÉNÉRIQUE : mêmes préparation et boucle que les noyaux C1
+    // (SetupTriangle + ForEachCoveredPixel), seul le puits diffère.
+    // C1 : plus d'ablation ici, le moteur n'emprunte plus ce chemin (voir RasterizeTriangleT).
+    void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentCallback onFragment, void* userData)
+    {
+        TriangleSetup s;
+        if (!SetupTriangle(v0, v1, v2, vp, s))
         {
-            const float py = float(y) + 0.5f;
-            for (int32_t x = bb.x0; x < bb.x1; ++x)
-            {
-                const float px = float(x) + 0.5f;
-
-                const float w0 = EdgeFunction(p1, p2, px, py);
-                const float w1 = EdgeFunction(p2, p0, px, py);
-                const float w2 = EdgeFunction(p0, p1, px, py);
-
-                // Strictement dedans, OU exactement sur une arête top/left.
-                // Aucune constante magique : indépendant de la taille du triangle.
-                if (!(w0 > 0.0f || (w0 == 0.0f && tl0))) continue;
-                if (!(w1 > 0.0f || (w1 == 0.0f && tl1))) continue;
-                if (!(w2 > 0.0f || (w2 == 0.0f && tl2))) continue;
-
-                #if LV3_RASTER_STATS
-                    ++covered;                                  // registre, pas d'appel
-                #endif
-
-                #if LV3_ABLATION_PIXELS == 2
-                    ++ablCovered;     // palier E : aretes seules, AUCUN fragment
-                #else
-                    // Si les sommets ont été échangés, w1 et w2 le sont aussi :
-                    // on les remet dans l'ordre du triangle d'origine.
-                    const BarycentricWeights bary = flipped
-                        ? BarycentricWeights{ w0 * invArea, w2 * invArea, w1 * invArea }
-                    : BarycentricWeights{ w0 * invArea, w1 * invArea, w2 * invArea };
-
-                    onFragment(x, y, bary, userData);
-                #endif
-            }
+            LV3_RASTER_RECORD(0u, 0u, 0u); 
+            return;
         }
 
-        #if LV3_ABLATION_PIXELS == 2
-                g_ablationSink = g_ablationSink + ablCovered;   // UNE ecriture par triangle
-                (void)onFragment; (void)userData; (void)invArea; (void)flipped;
-        #endif
-        #endif // LV3_ABLATION_PIXELS == 1
+        CallbackSink sink{ onFragment, userData };
+        [[maybe_unused]] const uint32_t covered = ForEachCoveredPixel(s, sink);
 
-        // Depuis le 3a, pixels testes == aire de la boite serree, par construction.
-        LV3_RASTER_RECORD(bb.Area(), bb.Area(), covered);
+        // Depuis le 3a, pixels testés == aire de la boîte serrée, par construction.
+        LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
     }
 
 

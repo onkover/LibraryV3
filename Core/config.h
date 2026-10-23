@@ -149,7 +149,7 @@ namespace LV3
 #endif
 
 #ifndef LV3_ABLATION_RASTER
-	#define LV3_ABLATION_RASTER 1  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
+	#define LV3_ABLATION_RASTER 0  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
 #endif
 
 // 7. Statistiques de couverture du rasterizer (phase G, comptage 2b / 3).

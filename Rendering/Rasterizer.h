@@ -1,7 +1,8 @@
-#pragma once
+    #pragma once
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
+#include <bit>
 #include "../Maths/Vectorlib.h"
 #include "../Maths/MatrixLib.h"
 #include "FrameBuffer.h"
@@ -135,6 +136,124 @@ namespace LV3
 
     [[nodiscard]] Color FaceColor(int i) noexcept;
 
+    // ── Compteurs de couverture (chantier 3b) : UN enregistrement par triangle.
+    //    C1 : declare ICI (et non plus dans un espace anonyme du .cpp) car le noyau
+    //    template de Fragment.h enregistre aussi.
+#if LV3_RASTER_STATS
+    void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept;
+#define LV3_RASTER_RECORD(tested, tight, covered) ::LV3::RecordRasterStats((tested), (tight), (covered))
+#else
+    // Les arguments DISPARAISSENT : rien n'est evalue quand le commutateur vaut 0.
+#define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+#endif
+
+// ════════════════════════════════════════════════════════════
+//  C1 : PRÉPARATION ET BOUCLE PIXELS, SOURCE UNIQUE
+//  Le chemin générique (pointeur de fonction, TNR) et les noyaux
+//  spécialisés par shader (Fragment.h) passent par les MÊMES lignes.
+// ════════════════════════════════════════════════════════════
+
+// Tout ce que la boucle pixels lit, calculé UNE fois par triangle.
+    struct TriangleSetup
+    {
+        Vec2f    p0, p1, p2;       // ordre NORMALISÉ : aire positive
+        PixelBox bb;               // boîte serrée, rognée au viewport (= le scissor)
+        float    invArea;          // 1 / aire (positive)
+        bool     flipped;          // p1 <-> p2 échangés : w1 et w2 à remettre dans l'ordre d'origine
+        bool     tl0, tl1, tl2;    // règle top-left des arêtes (p1,p2), (p2,p0), (p0,p1)
+    };
+
+    // false = rien à dessiner (triangle dégénéré ou boîte vide). Même ordre de
+    // calcul que l'ancien RasterizeTriangle : aire, échange, boîte, top-left, 1/aire.
+    [[nodiscard]] LV3_FORCEINLINE bool SetupTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+        const Viewport& vp, TriangleSetup& s) noexcept
+    {
+        s.p0 = v0; s.p1 = v1; s.p2 = v2;
+        float area = EdgeFunction(s.p0, s.p1, s.p2);
+        if (area == 0.0f) return false;                       // triangle dégénéré
+
+        s.flipped = (area < 0.0f);                            // toujours vrai pour une face AVANT
+        if (s.flipped) { std::swap(s.p1, s.p2); area = -area; }
+
+        s.bb = TightPixelBox(s.p0, s.p1, s.p2, vp);           // source unique, partagée avec le rejet 3b
+        if (s.bb.Empty()) return false;
+
+        s.tl0 = IsTopLeft(s.p1, s.p2);
+        s.tl1 = IsTopLeft(s.p2, s.p0);
+        s.tl2 = IsTopLeft(s.p0, s.p1);
+        s.invArea = 1.0f / area;
+        return true;
+    }
+
+    // Règle top-left, choix fait HORS de la boucle :
+    //     w > 0 || (w == 0 && tl)   ≡   tl ? (w >= 0) : (w > 0)
+    // Équivalence EXACTE : -0.0 (== 0 et >= 0 tous deux vrais), NaN (tout faux des deux côtés).
+    [[nodiscard]] LV3_FORCEINLINE bool InsideEdge(float w, bool tl) noexcept
+    {
+        return tl ? (w >= 0.0f) : (w > 0.0f);
+    }
+
+    // Parcourt la boîte, appelle sink.BeginRow(y) une fois par ligne et
+    // sink.Pixel(x, bary) pour chaque pixel couvert. Rend le nombre de pixels couverts.
+    // Sink est résolu À LA COMPILATION : aucun appel indirect ici.
+    template<class Sink>
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredPixel(const TriangleSetup& s, Sink& sink)
+    {
+        uint32_t covered = 0;
+        for (int32_t y = s.bb.y0; y < s.bb.y1; ++y)
+        {
+            const float py = float(y) + 0.5f;
+            sink.BeginRow(y);                                 // pointeurs de ligne : 1 fois par ligne
+            for (int32_t x = s.bb.x0; x < s.bb.x1; ++x)
+            {
+                const float px = float(x) + 0.5f;
+
+                const float w0 = EdgeFunction(s.p1, s.p2, px, py);
+                const float w1 = EdgeFunction(s.p2, s.p0, px, py);
+                const float w2 = EdgeFunction(s.p0, s.p1, px, py);
+
+                // && et non & : sur un grand triangle la branche est prévisible,
+                // et la sortie au premier échec évite deux tests (mesuré, voir C1).
+                if (!(InsideEdge(w0, s.tl0) && InsideEdge(w1, s.tl1) && InsideEdge(w2, s.tl2))) continue;
+                ++covered;
+
+                // Si les sommets ont été échangés, w1 et w2 le sont aussi :
+                // on les remet dans l'ordre du triangle d'origine.
+                const BarycentricWeights bary = s.flipped
+                    ? BarycentricWeights{ w0 * s.invArea, w2 * s.invArea, w1 * s.invArea }
+                : BarycentricWeights{ w0 * s.invArea, w1 * s.invArea, w2 * s.invArea };
+
+                sink.Pixel(x, bary);
+            }
+        }
+        return covered;
+    }
+
+    // ── C0 : ablation par paliers (LV3_ABLATION_PIXELS), deplacee ICI en C1 :
+    //    le moteur passe par les noyaux de Fragment.h, plus par RasterizeTriangle.
+    #if LV3_ABLATION_PIXELS
+        // PUITS defini dans Rasterizer.cpp. volatile : l'ecriture ne peut pas etre supprimee.
+        // Forme "s = s + v" : l'affectation composee sur un volatile est depreciee en C++20.
+        extern volatile uint32_t g_ablationSink;
+
+        // Palier S : TOUT ce que la preparation produit est consomme. UNE ecriture par triangle.
+        LV3_FORCEINLINE void AblationConsumeSetup(const TriangleSetup& s) noexcept
+        {
+            g_ablationSink = g_ablationSink
+                + uint32_t(s.bb.x0) + uint32_t(s.bb.y0) + uint32_t(s.bb.x1) + uint32_t(s.bb.y1)
+                + (uint32_t(s.tl0) | (uint32_t(s.tl1) << 1) | (uint32_t(s.tl2) << 2) | (uint32_t(s.flipped) << 3))
+                + std::bit_cast<uint32_t>(s.invArea);
+        }
+
+        // Palier E : la boucle d'aretes complete, AUCUN fragment. Les barycentriques,
+        // jamais lues, disparaissent a l'optimisation ; le compte couvert va au puits.
+        struct AblationEdgeSink
+        {
+            LV3_FORCEINLINE void BeginRow(int32_t) noexcept {}
+            LV3_FORCEINLINE void Pixel(int32_t, const BarycentricWeights&) noexcept {}
+        };
+    #endif
+    
     // Rasterisation en espace écran, avec règle top-left.
     // /!\ prend un VIEWPORT, plus une largeur/hauteur : c'est lui le scissor.
     //     Sans ça, une vue déborde sur l'autre en écran splitté.

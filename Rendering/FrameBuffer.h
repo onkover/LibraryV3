@@ -52,19 +52,16 @@ namespace LV3
 
         inline void SetPixelUnchecked(int32_t x, int32_t y, Color color)
         {
-            uint8_t* row = reinterpret_cast<uint8_t*>(m_Pixels) + y * m_Pitch;
-            reinterpret_cast<uint32_t*>(row)[x] = std::bit_cast<uint32_t>(color);
+            Row(y)[x] = std::bit_cast<uint32_t>(color);
         }
 
-
-//        // SONDE 2a : noinline + debugbreak, lecture du desassemblage. A RETIRER.
-//        //__declspec(noinline) void Clear(Color color) noexcept
-//        {
-//            __debugbreak();
-//              ......
-//            }
-//        }
-
+        // C1 : debut de la ligne y, EN TENANT COMPTE DU PITCH (jamais y * largeur :
+        // SDL_LockTexture peut espacer les lignes). Calcule UNE fois par ligne.
+        [[nodiscard]] LV3_FORCEINLINE uint32_t* Row(int32_t y) const noexcept
+        {
+            LV3_ASSERT(m_Pixels != nullptr && y >= 0 && y < m_Height && "FrameBuffer::Row : ligne hors du tampon");
+            return reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(m_Pixels) + size_t(y) * size_t(m_Pitch));
+        }
 
         // Efface ligne par ligne EN UTILISANT LE PITCH.
         // Jamais un memset global : les lignes peuvent etre espacees.

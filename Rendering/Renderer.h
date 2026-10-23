@@ -45,20 +45,40 @@ namespace LV3
         // ── État de VUE (posé une fois par VUE) : région et mode ────────────────────────
         void SetViewport(const Viewport& vp) noexcept { m_vp = vp; }
 
+   //     void SetMode(ERenderMode m) noexcept
+   //     {
+   //         m_mode = m;
+   //         switch (m)                            // résolu UNE fois par VUE
+   //         {
+   //         case ERenderMode::Solid:             m_fragment = &ShadeFragment_Solid;       break;
+   //         case ERenderMode::Depth:             m_fragment = &ShadeFragment_Depth;       break;
+   //         case ERenderMode::BarycentricColors: m_fragment = &ShadeFragment_Barycentric; break;
+   //         case ERenderMode::LinearDepth:       m_fragment = &ShadeFragment_LinearDepth;   break;
+			//case ERenderMode::ShadeFragment_LinearDepth_WRONG:           m_fragment = &ShadeFragment_LinearDepth_WRONG; break; // TODO : shader de normales
+   //         default:                             m_fragment = nullptr;                    break;
+   //         }
+   //     }
+
         void SetMode(ERenderMode m) noexcept
         {
             m_mode = m;
             switch (m)                            // résolu UNE fois par VUE
             {
-            case ERenderMode::Solid:             m_fragment = &ShadeFragment_Solid;       break;
-            case ERenderMode::Depth:             m_fragment = &ShadeFragment_Depth;       break;
-            case ERenderMode::BarycentricColors: m_fragment = &ShadeFragment_Barycentric; break;
-            case ERenderMode::LinearDepth:       m_fragment = &ShadeFragment_LinearDepth;   break;
-			case ERenderMode::ShadeFragment_LinearDepth_WRONG:           m_fragment = &ShadeFragment_LinearDepth_WRONG; break; // TODO : shader de normales
-            default:                             m_fragment = nullptr;                    break;
+            case ERenderMode::Solid:
+                m_triangle = &RasterizeTriangleT<ShaderSolid>;            m_fragment = &ShadeFragment_Solid;       break;
+            case ERenderMode::Depth:
+                m_triangle = &RasterizeTriangleT<ShaderDepth>;            m_fragment = &ShadeFragment_Depth;       break;
+            case ERenderMode::BarycentricColors:
+                m_triangle = &RasterizeTriangleT<ShaderBarycentric>;      m_fragment = &ShadeFragment_Barycentric; break;
+            case ERenderMode::LinearDepth:
+                m_triangle = &RasterizeTriangleT<ShaderLinearDepth>;      m_fragment = &ShadeFragment_LinearDepth; break;
+            case ERenderMode::ShadeFragment_LinearDepth_WRONG:
+                m_triangle = &RasterizeTriangleT<ShaderLinearDepthWRONG>; m_fragment = &ShadeFragment_LinearDepth_WRONG; break;
+            default:                                // Wireframe (traité à part), Normals, UV : rien
+                m_triangle = nullptr;                                     m_fragment = nullptr;                    break;
             }
         }
-        
+
         void SetDepthDisplayRange(float rangeWorldUnits) noexcept
         {
             LV3_ASSERT(rangeWorldUnits > 0.0f);
@@ -80,8 +100,14 @@ namespace LV3
         void DrawPoint(const RasterVertex& p, Color color);
 
     private:
+//        FragmentContext  m_ctx{};
+//        FragmentCallback m_fragment = nullptr;
+
         FragmentContext  m_ctx{};
-        FragmentCallback m_fragment = nullptr;
+        TriangleKernel   m_triangle = nullptr;   // C1 : noyau par TRIANGLE, shader inliné dedans
+        FragmentCallback m_fragment = nullptr;   // un fragment isolé : DrawPoint
+
+
         Viewport     m_vp{};
         ERenderMode  m_mode = ERenderMode::Solid;
 

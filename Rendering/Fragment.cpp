@@ -4,90 +4,157 @@
 
 namespace LV3
 {
-    void ShadeFragment_Barycentric(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData)
+ //   void ShadeFragment_Barycentric(int32_t x, int32_t y, const BarycentricWeights& bary, void* userData)
+ //   {
+ //       // w0 est le poids de v0, pas de l'arête v0v1
+
+ //       auto* ctx = AsFragmentContext(userData);
+ //       const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;
+ //       if (!DepthTestAndSet(ctx, x, y, z)) return;
+
+ //       ctx->fb->SetPixelUnchecked(x, y, Color{
+ //           static_cast<uint8_t>(std::clamp(bary.w2, 0.f, 1.f) * 255.0f),   // b
+ //           static_cast<uint8_t>(std::clamp(bary.w1, 0.f, 1.f) * 255.0f),   // g
+ //           static_cast<uint8_t>(std::clamp(bary.w0, 0.f, 1.f) * 255.0f),   // r
+ //           255 });
+ //   }
+
+ //   void ShadeFragment_Solid(int32_t x, int32_t y,
+ //       const BarycentricWeights& b, void* userData)
+ //   {
+ //       auto* ctx = AsFragmentContext(userData);
+
+ //       // ── 1. PROFONDEUR : affine, aucune correction (cf. §1.1) ──
+ //       const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+
+ //       // ── 2. EARLY-Z : rejeter AVANT tout autre calcul ──
+ //       if (!DepthTestAndSet(ctx, x, y, z)) return;
+
+ //       // ── 3. Le dénominateur n'est calculé QUE si le fragment survit ──
+ //       // (couleur plate ici : rien à corriger. Structure en place pour la suite.)
+ //       ctx->fb->SetPixel(x, y, ctx->color);
+ //   }
+
+ //   /*
+ //   Fragment de DEBUG : 
+ //  
+	//Permet de diagnostiquer les erreurs de perspective dans le shader de profondeur linéaire.
+ //   * Bandes droites, continues, resserrées au loin         : 	✅ Chantier B correct
+ //   * Bandes qui plient en V sur la diagonale des quads 	:   ❌ interpolation affine — le dénominateur n'est pas appliqué
+ //   * Bandes régulièrement espacées jusqu'à l'horizon	    :   ❌ tu interpoles dist affinement au lieu de 1/dist
+ //   * Bandes qui sautent d'un triangle à l'autre	        :   ❌ invW mal rempli sur certains sommets
+	//* Écran uniforme                                        :   ❌ 	invW à zéro → dist = inf
+ //   */
+ //   void ShadeFragment_LinearDepth(int32_t x, int32_t y,
+ //       const BarycentricWeights& b, void* userData)
+ //   {
+ //       auto* ctx = AsFragmentContext(userData);
+
+ //       const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+ //       if (!DepthTestAndSet(ctx, x, y, z)) return;
+
+ //       // ── LA division perspective par pixel ──
+ //       const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
+ //       const float dist = 1.0f / den;                 // distance VRAIE à l'œil
+
+ //       // bandes de 1 unité — le motif plie visiblement si la correction manque
+ //       const uint8_t g = uint8_t((std::fmod(dist, 1.0f)) * 255.0f);
+ //       ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
+ //   }
+
+ //   /*
+	//Fragment de DEBUG : Affiche la profondeur linéaire dans une plage de debug, avec un mapping gamma pour l'affichage.
+ //   */
+ //   void ShadeFragment_Depth(int32_t x, int32_t y,
+ //       const BarycentricWeights& b, void* userData)
+ //   {
+ //       auto* ctx = AsFragmentContext(userData);
+
+ //       // 1. profondeur NDC — affine, pour le test de profondeur uniquement
+ //       const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+ //       if (!DepthTestAndSet(ctx, x, y, z)) return;
+
+ //       // 2. distance à l'œil — DIRECTE. w = d, et 1/w est linéaire en écran.
+ //       const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
+ //       const float dist = 1.0f / den;
+
+ //       // 3. normalisation d'AFFICHAGE — plage de debug, pas la lentille
+ //       const float t = Saturate(dist / ctx->depthDisplayRange);
+
+ //       // 4. gamma — inchangé
+ //       const uint8_t g = uint8_t(std::pow(1.0f - t, 1.0f / 2.2f) * 255.0f);
+ //       ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
+ //   }
+
+ //   /*
+	//Fragment de DEBUG : permet de compter combien de fragments sont générés par pixel, pour diagnostiquer la TNR top-left.
+ //   */
+ //   void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights&, void* userData)
+ //   {
+ //       auto* ctx = static_cast<CountContext*>(userData);
+ //       (*ctx->counts)[y * ctx->width + x]++;   // ici width suffit : c'est TON buffer, pas SDL
+ //   }
+
+
+ //   void ShadeFragment_LinearDepth_WRONG(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+ //   {
+ //       auto* ctx = AsFragmentContext(userData);
+
+ //       const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+ //       if (!DepthTestAndSet(ctx, x, y, z)) return;
+
+ //       // FAUX EXPRÈS : interpolation AFFINE de la distance,
+ //       // au lieu de 1 / (interpolation affine de 1/w)
+ //       const float dist = b.w0 * (1.0f / ctx->invW0)
+ //           + b.w1 * (1.0f / ctx->invW1)
+ //           + b.w2 * (1.0f / ctx->invW2);
+
+ //       const uint8_t g = uint8_t(std::fmod(dist, 1.0f) * 255.0f);
+ //       ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
+ //   }
+
+    namespace
     {
-        // w0 est le poids de v0, pas de l'arête v0v1
-
-        auto* ctx = AsFragmentContext(userData);
-        const float z = bary.w0 * ctx->z0 + bary.w1 * ctx->z1 + bary.w2 * ctx->z2;
-        if (!DepthTestAndSet(ctx, x, y, z)) return;
-
-        ctx->fb->SetPixelUnchecked(x, y, Color{
-            static_cast<uint8_t>(std::clamp(bary.w2, 0.f, 1.f) * 255.0f),   // b
-            static_cast<uint8_t>(std::clamp(bary.w1, 0.f, 1.f) * 255.0f),   // g
-            static_cast<uint8_t>(std::clamp(bary.w0, 0.f, 1.f) * 255.0f),   // r
-            255 });
+        // Chemin GÉNÉRIQUE (void*) : DrawPoint et les TNR.
+        // C1 : MÊME noyau Shade que la boucle spécialisée — une seule définition par shader.
+        template<class Shader>
+        LV3_FORCEINLINE void ShadeAt(int32_t x, int32_t y, const BarycentricWeights& b, void* userData) noexcept
+        {
+            auto* ctx = AsFragmentContext(userData);
+            [[maybe_unused]] const bool pass = Shader::Shade(*ctx, b, ctx->db->Row(y)[x], ctx->fb->Row(y)[x]);
+            #if LV3_RASTER_STATS
+                    ctx->depthPassed += pass ? 1u : 0u;   // C0 : vidé par le Renderer
+            #endif
+        }
     }
 
-    void ShadeFragment_Solid(int32_t x, int32_t y,
-        const BarycentricWeights& b, void* userData)
+    void ShadeFragment_Barycentric(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
     {
-        auto* ctx = AsFragmentContext(userData);
+        ShadeAt<ShaderBarycentric>(x, y, b, userData);
+    }
 
-        // ── 1. PROFONDEUR : affine, aucune correction (cf. §1.1) ──
-        const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
+    void ShadeFragment_Solid(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+    {
+        ShadeAt<ShaderSolid>(x, y, b, userData);
+    }
 
-        // ── 2. EARLY-Z : rejeter AVANT tout autre calcul ──
-        if (!DepthTestAndSet(ctx, x, y, z)) return;
+    void ShadeFragment_LinearDepth(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+    {
+        ShadeAt<ShaderLinearDepth>(x, y, b, userData);
+    }
 
-        // ── 3. Le dénominateur n'est calculé QUE si le fragment survit ──
-        // (couleur plate ici : rien à corriger. Structure en place pour la suite.)
-        ctx->fb->SetPixel(x, y, ctx->color);
+    void ShadeFragment_Depth(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+    {
+        ShadeAt<ShaderDepth>(x, y, b, userData);
+    }
+
+    void ShadeFragment_LinearDepth_WRONG(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
+    {
+        ShadeAt<ShaderLinearDepthWRONG>(x, y, b, userData);
     }
 
     /*
-    Fragment de DEBUG : 
-   
-	Permet de diagnostiquer les erreurs de perspective dans le shader de profondeur linéaire.
-    * Bandes droites, continues, resserrées au loin         : 	✅ Chantier B correct
-    * Bandes qui plient en V sur la diagonale des quads 	:   ❌ interpolation affine — le dénominateur n'est pas appliqué
-    * Bandes régulièrement espacées jusqu'à l'horizon	    :   ❌ tu interpoles dist affinement au lieu de 1/dist
-    * Bandes qui sautent d'un triangle à l'autre	        :   ❌ invW mal rempli sur certains sommets
-	* Écran uniforme                                        :   ❌ 	invW à zéro → dist = inf
-    */
-    void ShadeFragment_LinearDepth(int32_t x, int32_t y,
-        const BarycentricWeights& b, void* userData)
-    {
-        auto* ctx = AsFragmentContext(userData);
-
-        const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!DepthTestAndSet(ctx, x, y, z)) return;
-
-        // ── LA division perspective par pixel ──
-        const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
-        const float dist = 1.0f / den;                 // distance VRAIE à l'œil
-
-        // bandes de 1 unité — le motif plie visiblement si la correction manque
-        const uint8_t g = uint8_t((std::fmod(dist, 1.0f)) * 255.0f);
-        ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
-    }
-
-    /*
-	Fragment de DEBUG : Affiche la profondeur linéaire dans une plage de debug, avec un mapping gamma pour l'affichage.
-    */
-    void ShadeFragment_Depth(int32_t x, int32_t y,
-        const BarycentricWeights& b, void* userData)
-    {
-        auto* ctx = AsFragmentContext(userData);
-
-        // 1. profondeur NDC — affine, pour le test de profondeur uniquement
-        const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!DepthTestAndSet(ctx, x, y, z)) return;
-
-        // 2. distance à l'œil — DIRECTE. w = d, et 1/w est linéaire en écran.
-        const float den = b.w0 * ctx->invW0 + b.w1 * ctx->invW1 + b.w2 * ctx->invW2;
-        const float dist = 1.0f / den;
-
-        // 3. normalisation d'AFFICHAGE — plage de debug, pas la lentille
-        const float t = Saturate(dist / ctx->depthDisplayRange);
-
-        // 4. gamma — inchangé
-        const uint8_t g = uint8_t(std::pow(1.0f - t, 1.0f / 2.2f) * 255.0f);
-        ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
-    }
-
-    /*
-	Fragment de DEBUG : permet de compter combien de fragments sont générés par pixel, pour diagnostiquer la TNR top-left.
+    Fragment de DEBUG : permet de compter combien de fragments sont générés par pixel, pour diagnostiquer la TNR top-left.
     */
     void ShadeFragment_Count(int32_t x, int32_t y, const BarycentricWeights&, void* userData)
     {
@@ -95,22 +162,5 @@ namespace LV3
         (*ctx->counts)[y * ctx->width + x]++;   // ici width suffit : c'est TON buffer, pas SDL
     }
 
-
-    void ShadeFragment_LinearDepth_WRONG(int32_t x, int32_t y, const BarycentricWeights& b, void* userData)
-    {
-        auto* ctx = AsFragmentContext(userData);
-
-        const float z = b.w0 * ctx->z0 + b.w1 * ctx->z1 + b.w2 * ctx->z2;
-        if (!DepthTestAndSet(ctx, x, y, z)) return;
-
-        // FAUX EXPRÈS : interpolation AFFINE de la distance,
-        // au lieu de 1 / (interpolation affine de 1/w)
-        const float dist = b.w0 * (1.0f / ctx->invW0)
-            + b.w1 * (1.0f / ctx->invW1)
-            + b.w2 * (1.0f / ctx->invW2);
-
-        const uint8_t g = uint8_t(std::fmod(dist, 1.0f) * 255.0f);
-        ctx->fb->SetPixel(x, y, MakeColor(g, g, g));
-    }
 
 } // namespace LV3

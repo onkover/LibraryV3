@@ -6,6 +6,16 @@
 
 namespace LV3
 {
+    // C1 : SOURCE UNIQUE du test de profondeur (reverse-Z, GREATER).
+    // Utilise par TestAndSet (chemin generique) ET par les shaders C1 (Fragment.h).
+    [[nodiscard]] LV3_FORCEINLINE bool DepthTestAndSet(float& dst, float z) noexcept
+    {
+        if (z <= dst) return false;          // REVERSE-Z : on garde le PLUS GRAND
+        dst = z;
+        return true;
+    }
+
+
     // Z-buffer REVERSE-Z : 0 = far, 1 = near. On garde le PLUS GRAND.
     // Possede sa memoire, contrairement au FrameBuffer.
     class DepthBuffer
@@ -17,13 +27,6 @@ namespace LV3
             m_Data.assign(size_t(w) * size_t(h), 0.0f);
         }
 
-
-        // SONDE 2a : noinline + debugbreak, lecture du desassemblage. A RETIRER.
-        //__declspec(noinline) void Clear() noexcept
-        //{
-        // //   __debugbreak();
-        // ....
-        //}
 
         // Variante 0 : std::fill(float*, 0.0f) -> memset -> rep stosb, comme avant.
         // REVERSE-Z : 0 = far. Stores non temporels : voir ClearKernels.h.
@@ -37,10 +40,15 @@ namespace LV3
         // et impossible d'oublier l'ecriture apres un test reussi.
         [[nodiscard]] inline bool TestAndSet(int32_t x, int32_t y, float z) noexcept
         {
-            float& dst = m_Data[size_t(y) * size_t(m_Width) + size_t(x)];
-            if (z <= dst) return false;          // REVERSE-Z : test GREATER
-            dst = z;
-            return true;
+            return DepthTestAndSet(m_Data[size_t(y) * size_t(m_Width) + size_t(x)], z);
+        }
+
+        // C1 : debut de la ligne y. La boucle pixels le calcule UNE fois par ligne,
+        // puis indexe par x : plus de multiplication y * largeur par pixel.
+        [[nodiscard]] LV3_FORCEINLINE float* Row(int32_t y) noexcept
+        {
+            LV3_ASSERT(y >= 0 && y < m_Height && "DepthBuffer::Row : ligne hors du tampon");
+            return m_Data.data() + size_t(y) * size_t(m_Width);
         }
 
         int32_t Width()  const noexcept { return m_Width; }
