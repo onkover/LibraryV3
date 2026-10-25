@@ -209,3 +209,11 @@ namespace LV3
 #if LV3_ABLATION_PIXELS && (LV3_RASTER_STATS || LV3_ABLATION_RASTER)
 	#error "LV3_ABLATION_PIXELS est exclusif de LV3_RASTER_STATS et de LV3_ABLATION_RASTER"
 #endif
+
+// 11. Etage PIXELS vectorise (chantier C2). Pendant scalaire conserve, choisi a la compilation.
+//     1 = AVX2 par blocs de 8 pour les boites d'au moins kSimdMinBoxWidth pixels de large
+//     0 = boucle scalaire de C1 pour tous les triangles (comprendre, comparer, mesurer)
+//     Image, Z-buffer et compteurs identiques dans les deux cas (TNR Test_C2_Raster8).
+#ifndef LV3_SIMD_PIXELS
+	#define LV3_SIMD_PIXELS 1
+#endif

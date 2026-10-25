@@ -243,6 +243,7 @@
     <ClInclude Include="Rendering\FaceStage.h" />
     <ClInclude Include="Rendering\Fragment.h" />
     <ClInclude Include="Rendering\FrameBuffer.h" />
+    <ClInclude Include="Rendering\PixelStage8.h" />
     <ClInclude Include="Rendering\Rasterizer.h" />
     <ClInclude Include="Rendering\Renderer.h" />
     <ClInclude Include="Rendering\RenderTypes.h" />
@@ -303,7 +304,7 @@
     <ClCompile Include="Scene\DebugGizmos.cpp" />
     <ClCompile Include="Scene\Hierarchy.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />

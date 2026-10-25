@@ -30,3 +30,13 @@
 #else
 	#define LV3_FORCEINLINE inline
 #endif
+
+// --- Jamais inline (C2) : garde un chemin lourd HORS de la fonction appelante,
+//     pour que le prologue de celle-ci reste léger sur son chemin court. ---
+#if defined(_MSC_VER)
+	#define LV3_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+	#define LV3_NOINLINE __attribute__((noinline))
+#else
+	#define LV3_NOINLINE
+#endif

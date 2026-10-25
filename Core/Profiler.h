@@ -121,6 +121,12 @@ namespace LV3
 		//    Si BeginFrame etait appele deux fois par frame, la valeur doublerait : max le montrerait.
 		FbDbAlias4K,
 
+		// ── C2 (RASTER_STATS seulement) : chemin AVX2 de l'étage pixels.
+		//    TrisSimd8   : triangles passés par ForEachCoveredBlock8 (boîte >= kSimdMinBoxWidth).
+		//    LaneBlocks8 : blocs de 8 voies évalués. Remplissage = pixels testés / (8 × blocs).
+		TrisSimd8,
+		LaneBlocks8,
+
 		Count
 	};
 
@@ -158,7 +164,8 @@ namespace LV3
 		"LodLevel0", "LodLevel1", "LodLevel2", "LodLevel3",
 		"PointSplats",
 		"TrisObjRejected",
-		"PixelsDepthPassed", "FbDbAlias4K"
+		"PixelsDepthPassed", "FbDbAlias4K",
+		"TrisSimd8", "LaneBlocks8"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
