@@ -210,10 +210,35 @@ namespace LV3
 	#error "LV3_ABLATION_PIXELS est exclusif de LV3_RASTER_STATS et de LV3_ABLATION_RASTER"
 #endif
 
-// 11. Etage PIXELS vectorise (chantier C2). Pendant scalaire conserve, choisi a la compilation.
-//     1 = AVX2 par blocs de 8 pour les boites d'au moins kSimdMinBoxWidth pixels de large
-//     0 = boucle scalaire de C1 pour tous les triangles (comprendre, comparer, mesurer)
-//     Image, Z-buffer et compteurs identiques dans les deux cas (TNR Test_C2_Raster8).
-#ifndef LV3_SIMD_PIXELS
-	#define LV3_SIMD_PIXELS 1
+// 11. VECTORISATION : UN SEUL commutateur pour tout le moteur (B3, B4, B5, C2, C3).
+//     1 = chemins AVX2 ecrits a la main, partout :
+//           B3  etage sommets          ProjectPositions8 (SoA, 8 sommets par lot)
+//           B4  etage faces            EmitTriangleList8 / ClassifyFaces8 (8 faces par lot)
+//           B5  face arriere objet     ObjBackMask8 (dans EmitTriangleList8)
+//           C2  etage pixels           blocs de 8 pixels (boites >= kSimdMinBoxWidth)
+//           C3  boite d'un pixel       test du centre unique dans l'etage faces
+//     0 = pendant SCALAIRE partout : ProjectPositions, boucle de faces + EmitRasterTriangle,
+//         boucle de pixels de C1. C'est la REFERENCE : image, Z-buffer et compteurs communs
+//         identiques au bit pres (TNR B3..C3). Les compteurs propres au SIMD
+//         (TrisObjRejected, TrisSimd8, LaneBlocks8, TrisPix1) restent a 0.
+//     Declare dans l'en-tete CSV (simd=) : deux runs de simd differents ne se comparent pas.
+//     NB : 0 ne retire pas /arch:AVX2. Le compilateur emet toujours des instructions VEX
+//     scalaires (vmulss...) et peut auto-vectoriser une boucle simple ; le Clear (stores
+//     non temporels SSE2, primitive memoire) reste inchange.
+//     (2 = AVX-512, reserve.)
+#ifndef LV3_SIMD
+	#define LV3_SIMD 1
+#endif
+
+#if LV3_SIMD < 0 || LV3_SIMD > 1
+	#error "LV3_SIMD : 0 (scalaire partout) ou 1 (AVX2 partout)"
+#endif
+
+#if LV3_SIMD && !defined(__AVX2__)
+	#error "LV3_SIMD = 1 exige /arch:AVX2 (LV3.Common.props)"
+#endif
+
+// Anciens commutateurs par chantier : refuses, pour qu'aucune propriete de projet oubliee ne fabrique un etat mixte jamais teste.
+#if defined(LV3_SIMD_PIXELS) || defined(LV3_PIX1_FASTPATH)
+	#error "LV3_SIMD_PIXELS et LV3_PIX1_FASTPATH sont remplaces par LV3_SIMD (config.h, section 11)"
 #endif

@@ -27,8 +27,8 @@ namespace LV3
     //    voies pour 1 ou 2 pixels utiles coûte plus qu'il ne rapporte
     //    (V1 : TOUTES les boîtes font 1 pixel de large).
     //    Valeur de départ, à régler par mesure (compteurs TrisSimd8 / LaneBlocks8).
-    //    LV3_SIMD_PIXELS = 0 (config.h, section 11) : pendant scalaire pour TOUS les triangles.
-    #if LV3_SIMD_PIXELS
+    //    LV3_SIMD = 0 (config.h, section 11) : pendant scalaire pour TOUS les triangles.
+    #if LV3_SIMD        
         inline constexpr int32_t kSimdMinBoxWidth = 3;
     #else
         inline constexpr int32_t kSimdMinBoxWidth = INT32_MAX;

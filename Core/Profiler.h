@@ -127,6 +127,10 @@ namespace LV3
 		TrisSimd8,
 		LaneBlocks8,
 
+		// ── C3 (RASTER_STATS seulement) : triangles a boite 1 x 1 traites par l'etage faces,
+		//    sans appel du noyau. Sous-ensemble de TrisCov0 + TrisCov1.
+		TrisPix1,
+
 		Count
 	};
 
@@ -165,7 +169,8 @@ namespace LV3
 		"PointSplats",
 		"TrisObjRejected",
 		"PixelsDepthPassed", "FbDbAlias4K",
-		"TrisSimd8", "LaneBlocks8"
+		"TrisSimd8", "LaneBlocks8",
+		"TrisPix1"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

@@ -6,6 +6,7 @@
 #include "RenderTypes.h"
 #include "Fragment.h"   // FragmentContext, FragmentCallback
 #include "VertexStage.h" // RasterVertex
+#include "FaceStage.h"   // C3 : Pixel1Lanes8, kPix1Path
 
 namespace LV3
 {
@@ -99,10 +100,14 @@ namespace LV3
         // triangles (test de profondeur, mode de la vue) : Solid, Depth... a l'identique.
         void DrawPoint(const RasterVertex& p, Color color);
 
-    private:
-//        FragmentContext  m_ctx{};
-//        FragmentCallback m_fragment = nullptr;
+        // C3 : les survivantes d'UN lot de 8 faces, dans l'ordre CROISSANT des couloirs
+        // (meme ordre que la boucle B4 : profondeur identique en cas d'egalite de z).
+        //   bit de p1.pix1 a 1 : chemin « boite d'un pixel » (fragment direct ou rien)
+        //   sinon              : DrawTriangle, comme avant
+        // idx : les 24 indices du lot ; base : indice de la 1re face (couleur FaceColor).
+        void DrawBatch8(const RasterVertex* rv, const uint32_t* idx, uint32_t surv, const Pixel1Lanes8& p1, bool hasTint, Color tint, int32_t base);
 
+    private:
         FragmentContext  m_ctx{};
         TriangleKernel   m_triangle = nullptr;   // C1 : noyau par TRIANGLE, shader inliné dedans
         FragmentCallback m_fragment = nullptr;   // un fragment isolé : DrawPoint
@@ -110,6 +115,10 @@ namespace LV3
 
         Viewport     m_vp{};
         ERenderMode  m_mode = ERenderMode::Solid;
+
+        // C3 : une face a boite 1 x 1 (couloir k du lot). Pas de noyau, pas de SetupTriangle.
+        void DrawPixel1(const RasterVertex& a, const RasterVertex& b, const RasterVertex& c,
+            const Pixel1Lanes8& p1, uint32_t k, Color color);
 
         // C0b : (couleur - profondeur) mod 4096 -> EProfCounter::FbDbAlias4K. Vide sans LV3_PROFILE.
         static void ProbeAlias4K(const FrameBuffer& fb, const DepthBuffer& db) noexcept;

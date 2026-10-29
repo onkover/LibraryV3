@@ -291,7 +291,9 @@
     <ClCompile Include="Rendering\Clipper.cpp" />
     <ClCompile Include="Rendering\Fragment.cpp" />
     <ClCompile Include="Rendering\Rasterizer.cpp" />
-    <ClCompile Include="Rendering\Renderer.cpp" />
+    <ClCompile Include="Rendering\Renderer.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="Rendering\VertexStage.cpp">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
     </ClCompile>
@@ -304,7 +306,7 @@
     <ClCompile Include="Scene\DebugGizmos.cpp" />
     <ClCompile Include="Scene\Hierarchy.cpp" />
     <ClCompile Include="Scene\RenderSystem.cpp">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NoListing</AssemblerOutput>
     </ClCompile>
     <ClCompile Include="Scene\Serializer.cpp" />
     <ClCompile Include="Scene\System.cpp" />

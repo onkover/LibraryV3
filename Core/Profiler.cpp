@@ -218,6 +218,7 @@ namespace LV3
 //				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
 				<< ";ablation=" << AblationName() // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
+				<< ";simd=" << LV3_SIMD                  // 0 = scalaire partout, 1 = AVX2 (config.h, 11)
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE
@@ -278,6 +279,7 @@ namespace LV3
 //				<< ";ablation=" << (LV3_ABLATION_RASTER ? "raster" : "none") // M11 : la LIB ablate, la LIB declare
 				<< ";ablation=" << AblationName() // M11 : la LIB ablate, la LIB declare
 				<< ";rasterstats=" << LV3_RASTER_STATS   // valeur vue par la LIB, qui compte
+				<< ";simd=" << LV3_SIMD                  // 0 = scalaire partout, 1 = AVX2 (config.h, 11)
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE

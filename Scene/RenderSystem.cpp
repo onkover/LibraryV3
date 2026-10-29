@@ -132,6 +132,7 @@ namespace LV3
                             ProjectClip(c.clip, view.viewport), col);
     }
 
+#if LV3_SIMD   // B4 + B5 + C3 : retire en mode scalaire (aucune fonction morte, aucun avertissement)
 
     // ════════════════════════════════════════════════════════════
     //  CHANTIER B4 — etage FACES par lots de 8
@@ -206,9 +207,11 @@ namespace LV3
             }
 
             // ── 3. Les deux tests, 8 faces d'un coup ────────────────────────
-            const FaceMasks8 m = ClassifyFaces8(rv, idx, vp);
+            //    C3 : et, si kPix1Path, le test du centre unique des boites 1 x 1.
+            Pixel1Lanes8 p1;
+            const FaceMasks8 m = ClassifyFacesT8<kPix1Path>(rv, idx, vp, &p1);
 
-#if LV3_DEBUG
+            #if LV3_DEBUG
             // Filet Debug : CHAQUE lot est refait en scalaire et compare bit a bit.
             // Toute divergence vectoriel / scalaire leve une assertion sur la frame fautive.
             for (uint32_t k = 0; k < 8; ++k)
@@ -218,8 +221,24 @@ namespace LV3
                 const bool fr = !IsBackFacing(EdgeFunction(rv[t[0]], rv[t[1]], rv[t[2]]));
                 const bool sv = fr && !TightPixelBox(rv[t[0]], rv[t[1]], rv[t[2]], vp).Empty();
                 LV3_ASSERT(fr == bool((m.front >> k) & 1u) && sv == bool((m.survive >> k) & 1u));
+
+                // Filet C3 : chaque couloir survivant est refait par le CODE DU NOYAU
+                // (Pixel1Reference = SetupTriangle + ForEachCoveredPixel) et compare au bit.
+                if constexpr (kPix1Path)
+                {
+                    if (!sv) continue;
+                    const Pixel1Ref ref = Pixel1Reference(rv[t[0]], rv[t[1]], rv[t[2]], vp);
+                    LV3_ASSERT(ref.pix1 == bool((p1.pix1 >> k) & 1u));
+                    if (!ref.pix1) continue;
+                    LV3_ASSERT(ref.x == p1.x[k] && ref.y == p1.y[k]);
+                    LV3_ASSERT(ref.covered == bool((p1.covered >> k) & 1u));
+                    if (ref.covered)
+                        LV3_ASSERT(std::bit_cast<uint32_t>(ref.b.w0) == std::bit_cast<uint32_t>(p1.b0[k])
+                            && std::bit_cast<uint32_t>(ref.b.w1) == std::bit_cast<uint32_t>(p1.b1[k])
+                            && std::bit_cast<uint32_t>(ref.b.w2) == std::bit_cast<uint32_t>(p1.b2[k]));
+                }
             }
-#endif
+            #endif
 
             // ── 4. Compteurs : memes definitions que EmitRasterTriangle ─────
             //   TrisRasterized    = faces AVANT                  (apres backface)
@@ -233,21 +252,19 @@ namespace LV3
             LV3_PROF_COUNT(EProfCounter::TrisRasterized, uint64_t(std::popcount(front)));
             LV3_PROF_COUNT(EProfCounter::TrisEarlyRejected, uint64_t(std::popcount(front & ~surv)));
 
-            // ── 5. Compaction : on ne visite QUE les survivantes ────────────
-            // Exemple : surv = 0b00101010 -> k = 1, puis 3, puis 5 (ordre CROISSANT,
-            // donc meme ordre de DrawTriangle que l'ancienne boucle : depth identique).
-            while (surv)
-            {
-                const uint32_t k = uint32_t(std::countr_zero(surv)); // tzcnt : bit 1 le plus bas
-                surv &= surv - 1u;                                    // efface ce bit (blsr)
-
-                const uint32_t* t = idx + k * 3;   // k < n : jamais une face de bourrage
-                SubmitRasterTriangle(renderer, rv[t[0]], rv[t[1]], rv[t[2]],
-                    hasTint ? tint : FaceColor(int(base + k)));
-            }
+            // ── 5. Dessin des survivantes : UN appel par lot (C3) ────────────
+            // Ordre CROISSANT des couloirs, comme l'ancienne boucle : depth identique.
+            // Boite 1 x 1 : fragment direct ou rien ; sinon DrawTriangle (Renderer.cpp).
+            
+            // Sans kPix1Path, p1.pix1 reste a 0 (initialiseur) : toutes vont a DrawTriangle.
+            // Lot sans survivante (V1 : la majorite) : AUCUN appel. Comme l'ancienne boucle
+            // while (surv), qui ne coutait rien a vide. Asm C3 : sans ce test, chaque lot vide
+            // payait vzeroupper + appel + IsReady + 5 rechargements ymm au retour.
+            if (surv == 0) continue;
+            renderer.DrawBatch8(rv, idx, surv, p1, hasTint, tint, int32_t(base));
         }
     }
-
+#endif // LV3_SIMD : EmitTriangleList8
 
 
     void RenderView(Registry& registry, ResourceManager& rm, Renderer& renderer, const ViewData& view, ClipSpaceBuffer& clipBuf, RasterSpaceBuffer& rasterBuf) 
@@ -411,15 +428,20 @@ namespace LV3
                 //}
                 
                 {   // B0b : sous-zone de Render, l'etage SOMMETS seul
-                    // B3 : 8 sommets par lot depuis la SoA ; ecrit PaddedCount() >= nVerts sommets
-                    // (le bourrage n'est jamais indexe : les indices restent < nVerts).
                     LV3_PROF_SCOPE(EProfZone::RenderVerts);
-                    const PositionsSoA& soa = mesh->positionsSoA;
-                    LV3_ASSERT(soa.count == nVerts);   // cuite par RegisterMesh
-                    ProjectPositions8(mvp, view.viewport, soa.x.data(), soa.y.data(), soa.z.data(), soa.PaddedCount(), rasterBuf.Data());
+                    #if LV3_SIMD
+                        // B3 : 8 sommets par lot depuis la SoA ; ecrit PaddedCount() >= nVerts sommets
+                        // (le bourrage n'est jamais indexe : les indices restent < nVerts).
+                        const PositionsSoA& soa = mesh->positionsSoA;
+                        LV3_ASSERT(soa.count == nVerts);   // cuite par RegisterMesh
+                        ProjectPositions8(mvp, view.viewport, soa.x.data(), soa.y.data(), soa.z.data(), soa.PaddedCount(), rasterBuf.Data());
+                   #else
+                        // Pendant scalaire de B3 : un sommet a la fois depuis l'AoS (la SOURCE).
+                        ProjectPositions(mvp, view.viewport, mesh->vertexPositions.data(), nVerts, rasterBuf.Data());
+                    #endif
                 }
 
-                #if LV3_DEBUG
+#if LV3_DEBUG && LV3_SIMD
                     // Filet Debug B3 (HORS de la zone mesuree) : chaque sommet est recalcule en scalaire
                     // depuis l'AoS (la SOURCE) et compare octet par octet. Attrape aussi une SoA perimee
                     // (positions modifiees apres RegisterMesh sans nouvelle cuisson).
@@ -434,35 +456,40 @@ namespace LV3
 
                 // B4 : triangles hors Wireframe -> tests par lots de 8.
                 // Wireframe (pas de rejet 3b) et quads (eventail) : boucle scalaire inchangee.
-                if (vpf == 3 && view.mode != ERenderMode::Wireframe)
-                {
-                    //EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
-                    //    view.viewport, hasTint, tint);
-                    //continue;
-                    // B5 : l'oeil de la VUE dans le repere de l'OBJET, une fois par (instance, vue).
-                    const FacePlanesSoA& planes = mesh->facePlanesSoA;
-                    LV3_ASSERT(planes.count == nFaces);   // cuite par RegisterMesh
-                    const Vec4f eye = HomogeneousEye(mvp);
-                    const float tau = ObjBackThreshold(eye, planes.maxAbsD);
+                // LV3_SIMD = 0 : bloc retire, TOUTES les faces prennent la boucle scalaire
+                // ci-dessous (pendant scalaire de B4, B5 et C3).
+                 #if LV3_SIMD
 
-                    EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
-                        view.viewport, hasTint, tint, planes, eye, tau);
-
-                    #if LV3_DEBUG
-                        // Filet B5 (2) : toute face rejetee en objet est VRAIMENT arriere,
-                        // jugee par l'aire exacte en double (ni l'ecran float, ni l'objet float).
-                        for (size_t f = 0; f < nFaces; ++f)
+                        if (vpf == 3 && view.mode != ERenderMode::Wireframe)
                         {
-                            const float s = ((planes.nx[f] * eye.x + planes.ny[f] * eye.y)
-                                + planes.nz[f] * eye.z) + planes.d[f] * eye.w;
-                            if (!(s < -tau)) continue;
-                            const uint32_t* t = &mesh->indices[f * 3];
-                            LV3_ASSERT(ExactRasterArea(mvp, view.viewport, mesh->vertexPositions[t[0]],
-                                mesh->vertexPositions[t[1]], mesh->vertexPositions[t[2]]) > -1e-9);
+                            //EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
+                            //    view.viewport, hasTint, tint);
+                            //continue;
+                            // B5 : l'oeil de la VUE dans le repere de l'OBJET, une fois par (instance, vue).
+                            const FacePlanesSoA& planes = mesh->facePlanesSoA;
+                            LV3_ASSERT(planes.count == nFaces);   // cuite par RegisterMesh
+                            const Vec4f eye = HomogeneousEye(mvp);
+                            const float tau = ObjBackThreshold(eye, planes.maxAbsD);
+
+                            EmitTriangleList8(renderer, rv, mesh->indices.data(), nFaces, nVerts,
+                                view.viewport, hasTint, tint, planes, eye, tau);
+
+                            #if LV3_DEBUG
+                                // Filet B5 (2) : toute face rejetee en objet est VRAIMENT arriere,
+                                // jugee par l'aire exacte en double (ni l'ecran float, ni l'objet float).
+                                for (size_t f = 0; f < nFaces; ++f)
+                                {
+                                    const float s = ((planes.nx[f] * eye.x + planes.ny[f] * eye.y)
+                                        + planes.nz[f] * eye.z) + planes.d[f] * eye.w;
+                                    if (!(s < -tau)) continue;
+                                    const uint32_t* t = &mesh->indices[f * 3];
+                                    LV3_ASSERT(ExactRasterArea(mvp, view.viewport, mesh->vertexPositions[t[0]],
+                                        mesh->vertexPositions[t[1]], mesh->vertexPositions[t[2]]) > -1e-9);
+                                }
+                            #endif
+                            continue;
                         }
-                    #endif
-                    continue;
-                }
+                #endif
 
                 for (size_t f = 0; f < nFaces; ++f)
                 {

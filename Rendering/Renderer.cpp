@@ -132,4 +132,58 @@ namespace LV3
             m_ctx.depthPassed = 0;
         #endif
     }
+
+    // ════════════════════════════════════════════════════════════
+    //  C3 : LOT DE 8 FACES SURVIVANTES
+    // ════════════════════════════════════════════════════════════
+    void Renderer::DrawPixel1(const RasterVertex& a, const RasterVertex& b, const RasterVertex& c,
+        const Pixel1Lanes8& p1, uint32_t k, Color color)
+    {
+        // Comptage : le meme enregistrement que le noyau pour une boite de 1 pixel.
+        [[maybe_unused]] const bool covered = ((p1.covered >> k) & 1u) != 0;
+        LV3_RASTER_RECORD(1u, 1u, covered ? 1u : 0u);
+#if LV3_RASTER_STATS
+        LV3_PROF_COUNT(EProfCounter::TrisPix1, 1);
+#endif
+        if (!covered) return;                       // V1 : 66 % des triangles s'arretent ICI
+
+        // Le fragment, par le MEME shader que le noyau (Shade() du mode, via m_fragment).
+        m_ctx.color = color;
+        m_ctx.z0 = a.z;  m_ctx.z1 = b.z;  m_ctx.z2 = c.z;
+        m_ctx.invW0 = a.invW;  m_ctx.invW1 = b.invW;  m_ctx.invW2 = c.invW;
+        m_fragment(p1.x[k], p1.y[k], BarycentricWeights{ p1.b0[k], p1.b1[k], p1.b2[k] }, &m_ctx);
+        LV3_FLUSH_DEPTH_PASSED(m_ctx);
+    }
+
+    void Renderer::DrawBatch8(const RasterVertex* rv, const uint32_t* idx, uint32_t surv,
+        const Pixel1Lanes8& p1, bool hasTint, Color tint, int32_t base)
+    {
+        // ⚠ ABLATION M7 (chantier 2) : le dessin est debranche, comme SubmitRasterTriangle.
+        #if LV3_ABLATION_RASTER
+                (void)rv; (void)idx; (void)surv; (void)p1; (void)hasTint; (void)tint; (void)base;
+                return;
+        #else
+            if (!IsReady()) return;
+            // Le chemin C3 n'existe que la ou DrawTriangle appellerait le noyau.
+            // Wireframe et modes sans shader : tout passe par DrawTriangle, comme avant.
+            const uint32_t pix1 = (m_mode != ERenderMode::Wireframe && m_triangle) ? p1.pix1 : 0u;
+
+            while (surv)
+            {
+                const uint32_t k = uint32_t(std::countr_zero(surv));   // couloir le plus bas
+                surv &= surv - 1u;
+                const uint32_t* t = idx + k * 3;
+                const RasterVertex& a = rv[t[0]];
+                const RasterVertex& b = rv[t[1]];
+                const RasterVertex& c = rv[t[2]];
+                const Color col = hasTint ? tint : FaceColor(base + int32_t(k));
+
+                if ((pix1 >> k) & 1u)
+                    DrawPixel1(a, b, c, p1, k, col);
+                else
+                    DrawTriangle(RasterTriangle{ { a.x, a.y }, { b.x, b.y }, { c.x, c.y },
+                                                 a.z, b.z, c.z, a.invW, b.invW, c.invW }, col);
+            }
+        #endif
+    }
 }

@@ -30,6 +30,7 @@
 #include "VertexStage.h"  // RasterVertex { x, y, z, invW } : 16 octets, AoS
 #include "Viewport.h"
 #include <cmath>         // B5 : std::sqrt, std::fabs (ObjBackThreshold)
+#include "PixelStage8.h"  // C3 : EdgeFunction8, InsideEdge8 ; et via Rasterizer.h : SetupTriangle
 
 namespace LV3
 {
@@ -91,12 +92,49 @@ namespace LV3
     }
 
     // ════════════════════════════════════════════════════════════
+    //  C3 — CHEMIN « BOITE D'UN PIXEL »
+    //  Une face survivante dont la boite serree fait 1 x 1 pixel n'a qu'UN centre
+    //  a tester. ClassifyFacesT8<true> fait ce test pour les 8 faces du lot, avec
+    //  EXACTEMENT les operations du noyau (SetupTriangle + ForEachCoveredPixel) :
+    //  echange p1 <-> p2, trois aretes, regle top-left, barycentriques.
+    //  Le dessin (fragment direct, ou rien) est fait par Renderer::DrawBatch8.
+    // ════════════════════════════════════════════════════════════
+
+    // Chemin AVX2 : suit LV3_SIMD (config.h, section 11), comme B3, B4, B5 et C2.
+    // Desactive sous ablation des pixels : les paliers S et E mesurent le NOYAU.
+    inline constexpr bool kPix1Path = (LV3_SIMD != 0) && (LV3_ABLATION_PIXELS == 0);
+
+    // Resultat C3 d'un lot. Bit k / couloir k <-> face k du lot.
+    struct Pixel1Lanes8
+    {
+        uint32_t pix1 = 0;     // bit k : face a boite 1 x 1 et aire < 0 (ordonnee) -> chemin C3
+        uint32_t covered = 0;     // bit k (sous-ensemble de pix1) : l'unique centre est couvert
+        alignas(32) int32_t x[8];                 // le pixel de la boite (valide si bit pix1)
+        alignas(32) int32_t y[8];
+        alignas(32) float   b0[8], b1[8], b2[8];  // barycentriques, ordre d'ORIGINE (valides si bit covered)
+    };
+
+    // IsTopLeft voie par voie. Copie de Rasterizer.cpp :
+    //   edge = b - a ; isTop = (edge.y == 0 && edge.x < 0) ; isLeft = (edge.y > 0)
+    // Comparaisons _OQ : fausses pour NaN, comme en C++.
+    [[nodiscard]] LV3_FORCEINLINE __m256 IsTopLeft8(__m256 ax, __m256 ay, __m256 bx, __m256 by) noexcept
+    {
+        const __m256 zero = _mm256_setzero_ps();
+        const __m256 ex = _mm256_sub_ps(bx, ax), ey = _mm256_sub_ps(by, ay);
+        const __m256 isTop = _mm256_and_ps(_mm256_cmp_ps(ey, zero, _CMP_EQ_OQ), _mm256_cmp_ps(ex, zero, _CMP_LT_OQ));
+        const __m256 isLeft = _mm256_cmp_ps(ey, zero, _CMP_GT_OQ);
+        return _mm256_or_ps(isTop, isLeft);
+    }
+
+
+    // ════════════════════════════════════════════════════════════
     //  ClassifyFaces8 — les deux tests pour 8 triangles
     //  idx : 24 indices (3 par face, face j en idx[j*3 .. j*3+2])
     //  rv  : sommets projetes, alignes sur 16 octets (_mm_load_ps)
     // ════════════════════════════════════════════════════════════
-    [[nodiscard]] LV3_FORCEINLINE FaceMasks8 ClassifyFaces8(const RasterVertex* rv,
-        const uint32_t* idx, const Viewport& vp) noexcept
+    //  C3 : kPix1 = true remplit aussi p1 (chemin « boite d'un pixel »).
+    template<bool kPix1>
+    [[nodiscard]] LV3_FORCEINLINE FaceMasks8 ClassifyFacesT8(const RasterVertex* rv, const uint32_t* idx, const Viewport& vp, Pixel1Lanes8* p1) noexcept
     {
         // ── ETAPE 1 : six registres verticaux, couloir j = face j ──────────
         __m256 ax, ay, bx, by, cx, cy;
@@ -170,9 +208,100 @@ namespace LV3
         // ── ETAPE 8 : 8 COULOIRS -> 8 BITS ─────────────────────────────────
         // movemask_ps : bit j = bit de signe du couloir j (0xFFFFFFFF -> 1, 0 -> 0).
         // castsi256_ps : simple reinterpretation int -> float, AUCUNE instruction emise.
+    //    const uint32_t f = uint32_t(_mm256_movemask_ps(front));
+    //    const uint32_t s = f & uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(nonEmpty)));
+    //    return { f, s };
+    //}
         const uint32_t f = uint32_t(_mm256_movemask_ps(front));
         const uint32_t s = f & uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(nonEmpty)));
+
+        // ── ETAPE 9 (C3) : boite d'UN pixel -> test du centre unique ───────
+        if constexpr (kPix1)
+        {
+            // 9a. Qui prend le chemin C3 ? survivante, boite 1 x 1, ET aire < 0 ordonnee.
+            //     Aire < 0 : SetupTriangle echange alors p1 et p2 a coup sur (face avant).
+            //     NaN : _CMP_LT_OQ faux -> la face garde le chemin du noyau, qui sait la traiter.
+            const __m256i one1 = _mm256_and_si256(
+                _mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),          // x1 == x0 + 1
+                _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));         // y1 == y0 + 1
+            const __m256 neg = _mm256_cmp_ps(area, _mm256_setzero_ps(), _CMP_LT_OQ);
+            const uint32_t pix = s & uint32_t(_mm256_movemask_ps(
+                _mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
+            p1->pix1 = pix;
+            p1->covered = 0;
+            if (pix != 0)                               // V2 : la plupart des lots n'en ont aucune
+            {
+                _mm256_store_si256(reinterpret_cast<__m256i*>(p1->x), x0);
+                _mm256_store_si256(reinterpret_cast<__m256i*>(p1->y), y0);
+
+                // 9b. Centre du pixel : float(x0) + 0.5f, comme ForEachCoveredPixel.
+                const __m256 px = _mm256_add_ps(_mm256_cvtepi32_ps(x0), half);
+                const __m256 py = _mm256_add_ps(_mm256_cvtepi32_ps(y0), half);
+
+                // 9c. APRES ECHANGE : p0 = a, p1 = c, p2 = b. Aretes dans l'ordre du noyau :
+                //     w0 = E(p1, p2) = E(c, b)   w1 = E(p2, p0) = E(b, a)   w2 = E(p0, p1) = E(a, c)
+                const __m256 w0 = EdgeFunction8(cx, cy, bx, by, px, py);
+                const __m256 w1 = EdgeFunction8(bx, by, ax, ay, px, py);
+                const __m256 w2 = EdgeFunction8(ax, ay, cx, cy, px, py);
+
+                // 9d. Regle top-left des memes aretes : tl0 = TL(c, b), tl1 = TL(b, a), tl2 = TL(a, c).
+                const __m256 cov = _mm256_and_ps(
+                    _mm256_and_ps(InsideEdge8(w0, IsTopLeft8(cx, cy, bx, by)),
+                        InsideEdge8(w1, IsTopLeft8(bx, by, ax, ay))),
+                    InsideEdge8(w2, IsTopLeft8(ax, ay, cx, cy)));
+                p1->covered = pix & uint32_t(_mm256_movemask_ps(cov));
+
+                // 9e. Barycentriques : invArea = 1 / (-area), puis echange defait :
+                //     { w0 * inv, w2 * inv, w1 * inv }. -area par inversion du bit de signe : exact.
+                //     Une vraie division (vdivps), jamais rcp.
+                const __m256 negArea = _mm256_xor_ps(area, _mm256_set1_ps(-0.0f));
+                const __m256 inv = _mm256_div_ps(_mm256_set1_ps(1.0f), negArea);
+                _mm256_store_ps(p1->b0, _mm256_mul_ps(w0, inv));
+                _mm256_store_ps(p1->b1, _mm256_mul_ps(w2, inv));
+                _mm256_store_ps(p1->b2, _mm256_mul_ps(w1, inv));
+            }
+        }
+        else
+        {
+            (void)p1;
+        }
         return { f, s };
+    }
+
+    // B4 inchange pour les appelants : sans le chemin C3.
+    [[nodiscard]] LV3_FORCEINLINE FaceMasks8 ClassifyFaces8(const RasterVertex* rv,
+        const uint32_t* idx, const Viewport& vp) noexcept
+    {
+        return ClassifyFacesT8<false>(rv, idx, vp, nullptr);
+    }
+
+    // ── C3 : REFERENCE SCALAIRE d'une face (filets Debug et TNR). Elle n'est faite que du
+    //    code du noyau : SetupTriangle puis ForEachCoveredPixel. Aucune formule recopiee.
+    struct Pixel1Ref
+    {
+        bool               pix1 = false;    // la face prendrait le chemin C3
+        bool               covered = false; // son centre est couvert
+        int32_t            x = 0, y = 0;    // le pixel
+        BarycentricWeights b{};             // barycentriques du noyau (valides si covered)
+    };
+
+    [[nodiscard]] inline Pixel1Ref Pixel1Reference(const RasterVertex& a, const RasterVertex& b,
+        const RasterVertex& c, const Viewport& vp) noexcept
+    {
+        Pixel1Ref r;
+        if (!(EdgeFunction(a, b, c) < 0.0f)) return r;           // meme critere que 9a
+        TriangleSetup s;
+        if (!SetupTriangle({ a.x, a.y }, { b.x, b.y }, { c.x, c.y }, vp, s)) return r;
+        if (s.bb.x1 - s.bb.x0 != 1 || s.bb.y1 - s.bb.y0 != 1) return r;
+        r.pix1 = true; r.x = s.bb.x0; r.y = s.bb.y0;
+        struct Sink
+        {
+            Pixel1Ref& r;
+            void BeginRow(int32_t) noexcept {}
+            void Pixel(int32_t, const BarycentricWeights& w) noexcept { r.covered = true; r.b = w; }
+        } sink{ r };
+        (void)ForEachCoveredPixel(s, sink);
+        return r;
     }
 
     // ════════════════════════════════════════════════════════════
