@@ -148,8 +148,10 @@ namespace LV3
 	#define LV3_ASSERT(...) ((void)sizeof(!(__VA_ARGS__)))
 #endif
 
+// 0 = normal	
+// 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
 #ifndef LV3_ABLATION_RASTER
-	#define LV3_ABLATION_RASTER 0  // 1 = DrawTriangle debranche (mesure M7 UNIQUEMENT)
+	#define LV3_ABLATION_RASTER 0
 #endif
 
 // 7. Statistiques de couverture du rasterizer (phase G, comptage 2b / 3).
