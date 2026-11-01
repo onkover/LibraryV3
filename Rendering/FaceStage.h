@@ -104,6 +104,11 @@ namespace LV3
     // Desactive sous ablation des pixels : les paliers S et E mesurent le NOYAU.
     inline constexpr bool kPix1Path = (LV3_SIMD != 0) && (LV3_ABLATION_PIXELS == 0);
 
+    // D-a1 : rayon (en pixels, autour du centre) sous lequel les calculs flottants de C3
+    // sont EXACTS sur des sommets accrochés au 1/256 : 8 px = 2^3 -> 3 + 8 = 11 bits par
+    // écart au centre, 12 bits par écart entre sommets ; produits <= 24 bits.
+    inline constexpr float kPix1NearPx = 8.0f;
+
     // Resultat C3 d'un lot. Bit k / couloir k <-> face k du lot.
     struct Pixel1Lanes8
     {
@@ -225,8 +230,28 @@ namespace LV3
                 _mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),          // x1 == x0 + 1
                 _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));         // y1 == y0 + 1
             const __m256 neg = _mm256_cmp_ps(area, _mm256_setzero_ps(), _CMP_LT_OQ);
-            const uint32_t pix = s & uint32_t(_mm256_movemask_ps(
-                _mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
+
+            #if LV3_RASTER_FIXED
+                // 9a'. D-a1 : C3 doit décider EXACTEMENT comme le noyau entier. Sur des sommets
+                //      accrochés (1/256 px), un écart de moins de 8 px tient sur 11 bits significatifs :
+                //      tout produit de C3 (aire, 3 arêtes au centre) tient sur 24 bits -> float EXACT,
+                //      donc identique à l'entier. Au-delà (grand triangle rogné à une boîte 1 x 1
+                //      par la vue), l'arrondi redevient possible : ce couloir retourne au noyau.
+                //      _CMP_LT_OQ : NaN -> faux -> noyau.
+                const __m256 cpx = _mm256_add_ps(_mm256_cvtepi32_ps(x0), half);   // centre du pixel
+                const __m256 cpy = _mm256_add_ps(_mm256_cvtepi32_ps(y0), half);
+                const __m256 absMask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
+                const __m256 lim = _mm256_set1_ps(kPix1NearPx);
+                const auto Near = [&](__m256 v, __m256 c)
+                    { return _mm256_cmp_ps(_mm256_and_ps(_mm256_sub_ps(v, c), absMask), lim, _CMP_LT_OQ); };
+                const __m256 nearAll = _mm256_and_ps(
+                    _mm256_and_ps(_mm256_and_ps(Near(ax, cpx), Near(ay, cpy)), _mm256_and_ps(Near(bx, cpx), Near(by, cpy))),
+                    _mm256_and_ps(Near(cx, cpx), Near(cy, cpy)));
+                const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), _mm256_and_ps(neg, nearAll))));
+            #else
+                const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
+            #endif
+
             p1->pix1 = pix;
             p1->covered = 0;
             if (pix != 0)                               // V2 : la plupart des lots n'en ont aucune
@@ -285,23 +310,50 @@ namespace LV3
         BarycentricWeights b{};             // barycentriques du noyau (valides si covered)
     };
 
-    [[nodiscard]] inline Pixel1Ref Pixel1Reference(const RasterVertex& a, const RasterVertex& b,
-        const RasterVertex& c, const Viewport& vp) noexcept
+    [[nodiscard]] inline Pixel1Ref Pixel1Reference(const RasterVertex& a, const RasterVertex& b, const RasterVertex& c, const Viewport& vp) noexcept
     {
         Pixel1Ref r;
-        if (!(EdgeFunction(a, b, c) < 0.0f)) return r;           // meme critere que 9a
-        TriangleSetup s;
-        if (!SetupTriangle({ a.x, a.y }, { b.x, b.y }, { c.x, c.y }, vp, s)) return r;
-        if (s.bb.x1 - s.bb.x0 != 1 || s.bb.y1 - s.bb.y0 != 1) return r;
-        r.pix1 = true; r.x = s.bb.x0; r.y = s.bb.y0;
-        struct Sink
-        {
-            Pixel1Ref& r;
-            void BeginRow(int32_t) noexcept {}
-            void Pixel(int32_t, const BarycentricWeights& w) noexcept { r.covered = true; r.b = w; }
-        } sink{ r };
-        (void)ForEachCoveredPixel(s, sink);
-        return r;
+
+        #if LV3_RASTER_FIXED
+            // D-a1 : la reference est le noyau EN VIRGULE FIXE (SetupTriangleFx + ForEachCoveredPixelFx).
+            if (!(EdgeFunction(a, b, c) < 0.0f)) return r;           // meme critere que 9a
+            if (!InFixedGuard({ a.x, a.y }, { b.x, b.y }, { c.x, c.y })) return r;
+            TriangleSetup s;
+            EdgeSetupFx   fx;
+            if (!SetupTriangleFx({ a.x, a.y }, { b.x, b.y }, { c.x, c.y }, vp, s, fx)) return r;
+            if (s.bb.x1 - s.bb.x0 != 1 || s.bb.y1 - s.bb.y0 != 1) return r;
+            const float px = float(s.bb.x0) + 0.5f, py = float(s.bb.y0) + 0.5f;
+            const auto Near = [](float v, float ctr) { return std::fabs(v - ctr) < kPix1NearPx; };   // meme critere que 9a'
+            if (!(Near(a.x, px) && Near(a.y, py) && Near(b.x, px) && Near(b.y, py) && Near(c.x, px) && Near(c.y, py)))
+                return r;
+            r.pix1 = true; r.x = s.bb.x0; r.y = s.bb.y0;
+            struct SinkFx
+            {
+                Pixel1Ref& r;
+                void BeginRow(int32_t) noexcept {}
+                void Pixel(int32_t, const BarycentricWeights& w) noexcept { r.covered = true; r.b = w; }
+            } sinkFx{ r };
+
+            (void)ForEachCoveredPixelFx(s, fx, sinkFx);
+
+            return r;
+        #else
+            if (!(EdgeFunction(a, b, c) < 0.0f)) return r;           // meme critere que 9a
+            TriangleSetup s;
+            if (!SetupTriangle({ a.x, a.y }, { b.x, b.y }, { c.x, c.y }, vp, s)) return r;
+            if (s.bb.x1 - s.bb.x0 != 1 || s.bb.y1 - s.bb.y0 != 1) return r;
+            r.pix1 = true; r.x = s.bb.x0; r.y = s.bb.y0;
+            struct Sink
+            {
+                Pixel1Ref& r;
+                void BeginRow(int32_t) noexcept {}
+                void Pixel(int32_t, const BarycentricWeights& w) noexcept { r.covered = true; r.b = w; }
+            } sink{ r };
+
+            (void)ForEachCoveredPixel(s, sink);
+
+            return r;
+        #endif
     }
 
     // ════════════════════════════════════════════════════════════

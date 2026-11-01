@@ -254,6 +254,20 @@ namespace LV3
     // C1 : plus d'ablation ici, le moteur n'emprunte plus ce chemin (voir RasterizeTriangleT).
     void RasterizeTriangle(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentCallback onFragment, void* userData)
     {
+        #if LV3_RASTER_FIXED
+            // D-a1 : même aiguillage que RasterizeTriangleT (garde -> virgule fixe, sinon C2).
+            if (InFixedGuard(v0, v1, v2))
+            {
+                TriangleSetup s;
+                EdgeSetupFx   fx;
+                if (!SetupTriangleFx(v0, v1, v2, vp, s, fx)) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
+                CallbackSink sink{ onFragment, userData };
+                [[maybe_unused]] const uint32_t covered = ForEachCoveredPixelFx(s, fx, sink);
+                LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
+                return;
+            }
+        #endif
+
         TriangleSetup s;
         if (!SetupTriangle(v0, v1, v2, vp, s))
         {

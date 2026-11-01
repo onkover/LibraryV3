@@ -12,9 +12,44 @@
 // ============================================================
 #include "../Core/Compiler.h"
 #include "../Maths/Vectorlib.h"
+#include <immintrin.h>      // D-a1 (Giesen méthod) : _mm_round_ss (accrochage sous-pixel)
+
 
 namespace LV3
 {
+    // ════════════════════════════════════════════════════════════
+    //  D-a1 : GRILLE SOUS-PIXEL (virgule fixe, 8 bits de fraction)
+    //  Un sommet raster vit sur la grille des 1/256 de pixel. Ses coordonnées
+    //  restent des float, mais des float qui SONT des entiers / 256 : la
+    //  conversion en virgule fixe (x * 256) est alors exacte, partout.
+    // ════════════════════════════════════════════════════════════
+    inline constexpr int32_t kSubpixelBits = 8;                         // 1/256 de pixel (Larrabee)
+    inline constexpr float   kSubpixelScale = 256.0f;                   // 2^8
+    inline constexpr float   kSubpixelInv = 1.0f / 256.0f;              // 2^-8 : exact
+    inline constexpr float   kSubpixelArea = 1.0f / 65536.0f;           // 2^-16 : unité d'une aire en virgule fixe
+
+    // GARDE : au-delà de 2^20 pixels (1 048 576), un sommet ne passe pas en virgule fixe.
+    // En deçà : |X| < 2^28, différences < 2^29, produits < 2^58 : la préparation int64 ne
+    // peut pas déborder (marge x 32). Au-delà, le triangle garde le chemin flottant C2
+    // (compteur TrisFixedGuard). Aucune scène de banc ne l'atteint : il faudrait un sommet
+    // à 270 m de l'axe de visée, posé sur le plan near (0,1 m).
+	inline constexpr float   kFixedGuardPx = 1048576.0f;    // limite de la conversion float -> int32_t * 256 (D-a1), soit  2^20 pixels 
+
+    // v -> multiple de 1/256 le plus proche (au pair en cas d'égalité), EN FLOAT.
+    //   v * 256  : exact (puissance de 2)
+    //   round    : entier le plus proche, mode EXPLICITE (indépendant de MXCSR)
+    //   * 1/256  : exact
+    // Idempotent : Snap(Snap(v)) == Snap(v). NaN reste NaN, l'infini reste l'infini.
+    // Au-delà de |v| = 2^15, tout float est déjà un multiple de 1/256 : Snap ne change rien.
+    [[nodiscard]] LV3_FORCEINLINE float SnapToSubpixel(float v) noexcept
+    {
+        const __m128 s = _mm_mul_ss(_mm_set_ss(v), _mm_set_ss(kSubpixelScale));
+        const __m128 r = _mm_round_ss(s, s, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC); // // round to nearest, and suppress exceptions
+        return _mm_cvtss_f32(_mm_mul_ss(r, _mm_set_ss(kSubpixelInv)));
+    }
+
+    // ***********************************************************
+
     struct Viewport
     {
         int x = 0, y = 0;

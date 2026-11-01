@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <bit>
+#include <climits>     // D-a1 : INT32_MIN / INT32_MAX
+#include <immintrin.h> // D-a1 : ToFixed (_mm_cvtss_si32), _mm_getcsr
 #include "../Maths/Vectorlib.h"
 #include "../Maths/MatrixLib.h"
 #include "FrameBuffer.h"
@@ -139,21 +141,21 @@ namespace LV3
     // ── Compteurs de couverture (chantier 3b) : UN enregistrement par triangle.
     //    C1 : declare ICI (et non plus dans un espace anonyme du .cpp) car le noyau
     //    template de Fragment.h enregistre aussi.
-#if LV3_RASTER_STATS
-    void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept;
-#define LV3_RASTER_RECORD(tested, tight, covered) ::LV3::RecordRasterStats((tested), (tight), (covered))
-#else
-    // Les arguments DISPARAISSENT : rien n'est evalue quand le commutateur vaut 0.
-#define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
-#endif
+    #if LV3_RASTER_STATS
+        void RecordRasterStats(uint32_t tested, uint32_t tight, uint32_t covered) noexcept;
+    #define LV3_RASTER_RECORD(tested, tight, covered) ::LV3::RecordRasterStats((tested), (tight), (covered))
+    #else
+        // Les arguments DISPARAISSENT : rien n'est evalue quand le commutateur vaut 0.
+    #define LV3_RASTER_RECORD(tested, tight, covered) ((void)0)
+    #endif
 
-// ════════════════════════════════════════════════════════════
-//  C1 : PRÉPARATION ET BOUCLE PIXELS, SOURCE UNIQUE
-//  Le chemin générique (pointeur de fonction, TNR) et les noyaux
-//  spécialisés par shader (Fragment.h) passent par les MÊMES lignes.
-// ════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════
+    //  C1 : PRÉPARATION ET BOUCLE PIXELS, SOURCE UNIQUE
+    //  Le chemin générique (pointeur de fonction, TNR) et les noyaux
+    //  spécialisés par shader (Fragment.h) passent par les MÊMES lignes.
+    // ════════════════════════════════════════════════════════════
 
-// Tout ce que la boucle pixels lit, calculé UNE fois par triangle.
+    // Tout ce que la boucle pixels lit, calculé UNE fois par triangle.
     struct TriangleSetup
     {
         Vec2f    p0, p1, p2;       // ordre NORMALISÉ : aire positive
@@ -196,6 +198,7 @@ namespace LV3
     // Parcourt la boîte, appelle sink.BeginRow(y) une fois par ligne et
     // sink.Pixel(x, bary) pour chaque pixel couvert. Rend le nombre de pixels couverts.
     // Sink est résolu À LA COMPILATION : aucun appel indirect ici.
+    // Giesen method : repli hors garde, LV3_RASTER_FIXED = 0
     template<class Sink>
     [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredPixel(const TriangleSetup& s, Sink& sink)
     {
@@ -229,6 +232,210 @@ namespace LV3
         return covered;
     }
 
+  // ════════════════════════════════════════════════════════════
+  //  D-a1 : ARÊTES EN VIRGULE FIXE, AVANCÉES PAR ADDITIONS (Giesen method)
+  //
+  //  Unités : un sommet X = x * 256 (entier, 1/256 px). Un centre de pixel
+  //  (x + 1/2) vaut 256 x + 128. La fonction d'arête de C2,
+  //      E(a, b, P) = (Xa - Px)(Yb - Py) - (Ya - Py)(Xb - Px)        (unité 2^-16 px²)
+  //  se développe en
+  //      E = A' P.x + B' P.y + (Xa Yb - Ya Xb),   A' = Ya - Yb,  B' = Xb - Xa
+  //  Aux centres : E(x, y) = 256 (A' x + B' y) + K,  K = 128 (A' + B') + Xa Yb - Ya Xb.
+  //
+  //  Règle top-left en entiers : couvert  <=>  E + bias >= 0,  bias = tl ? 0 : -1.
+  //  On retire les 8 bits sous-pixel de la partie qui varie (cours Lot D, B3) :
+  //      K + bias = 256 q + r,  0 <= r < 256  (q = (K + bias) >> 8, décalage ARITHMÉTIQUE)
+  //      E'(x, y) = A' x + B' y + q          et       couvert  <=>  E' >= 0   (EXACT)
+  //  Un pixel à droite : E' += A'. Une ligne plus bas : E' += B'. Rien d'autre.
+  // ════════════════════════════════════════════════════════════
+
+  // Ce que les boucles en virgule fixe lisent, en plus de TriangleSetup.
+  // Arêtes dans l'ordre de C1 : 0 = (p1, p2), 1 = (p2, p0), 2 = (p0, p1).
+    struct EdgeSetupFx
+    {
+        int64_t e[3];      // E' au premier pixel de la boîte (bb.x0, bb.y0)
+        int64_t a[3];      // pas d'UN pixel vers la droite (A' = Ya - Yb)
+        int64_t b[3];      // pas d'UNE ligne vers le bas   (B' = Xb - Xa)
+        bool    wide;      // true : E' sort de int32 sur la boîte étendue -> voies AVX2 de 64 bits
+        // (rempli par PrepareLanesFx, juste avant les voies AVX2)
+    };
+
+    // Les deux largeurs de voie AVX2. Auto = choix de la préparation (fx.wide).
+    // Force64 n'existe que pour la TNR : int32 et int64 doivent donner les MÊMES pixels.
+    enum class EFixedLanes : uint8_t { Auto, Force64 };
+
+    // Les 3 sommets sont-ils dans la garde ? NaN -> false (comparaison ordonnée).
+    [[nodiscard]] LV3_FORCEINLINE bool InFixedGuard(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2) noexcept
+    {
+        return std::fabs(v0.x) < kFixedGuardPx && std::fabs(v0.y) < kFixedGuardPx
+            && std::fabs(v1.x) < kFixedGuardPx && std::fabs(v1.y) < kFixedGuardPx
+            && std::fabs(v2.x) < kFixedGuardPx && std::fabs(v2.y) < kFixedGuardPx;
+    }
+    
+    // float pixel -> entier en 1/256 de pixel : UNE instruction, vcvtss2si, qui arrondit selon
+    // MXCSR (au plus proche, au pair : le défaut, que LV3 ne change jamais). C'est l'arrondi
+    // de SnapToSubpixel. Sur un sommet déjà accroché (étage sommets), x * 256 est un entier :
+    // la conversion est EXACTE, quel que soit le mode.
+    // Précondition : |v| < kFixedGuardPx  =>  |résultat| < 2^28, tient dans int32.
+    [[nodiscard]] LV3_FORCEINLINE int32_t ToFixed(float v) noexcept
+    {
+        return _mm_cvtss_si32(_mm_set_ss(v * kSubpixelScale));
+    }
+
+    // ── Préparation en virgule fixe. Remplit s (comme SetupTriangle) ET fx.
+    //    false = rien à dessiner : aire ENTIÈRE nulle, ou boîte vide.
+    //    Précondition : InFixedGuard(v0, v1, v2).
+    //    Bornes : |X| < 2^28  ->  différences < 2^29  ->  produits < 2^58 : int64 sans débordement.
+    //    fx.wide n'est PAS calculé ici : seul le chemin AVX2 en a besoin (PrepareLanesFx).
+    [[nodiscard]] LV3_FORCEINLINE bool SetupTriangleFx(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
+        const Viewport& vp, TriangleSetup& s, EdgeSetupFx& fx) noexcept
+    {
+        // 1. ACCROCHAGE : sommets en 1/256 de pixel.
+        LV3_ASSERT((_mm_getcsr() & 0x6000u) == 0u && "MXCSR : arrondi au plus proche exige (ToFixed)");
+        const int64_t X0 = ToFixed(v0.x), Y0 = ToFixed(v0.y);
+        int64_t       X1 = ToFixed(v1.x), Y1 = ToFixed(v1.y);
+        int64_t       X2 = ToFixed(v2.x), Y2 = ToFixed(v2.y);
+
+        // 2. AIRE EXACTE (deux fois l'aire, unité 2^-16 px²). Forme de EdgeFunction(a, b, c).
+        //    Le SIGNE décide de l'échange : plus aucun arrondi ne peut le retourner.
+        int64_t area = (X0 - X2) * (Y1 - Y2) - (Y0 - Y2) * (X1 - X2);
+        if (area == 0) return false;                          // dégénéré EN ENTIERS
+        
+        s.flipped = (area < 0);                               // toujours vrai pour une face AVANT
+        // Sommets float pour les barycentriques : ceux REÇUS. Dans le moteur ils sont déjà
+        // accrochés (ProjectClip, ProjectPositions8), donc v == X / 256 au bit près.
+        s.p0 = v0; s.p1 = v1; s.p2 = v2;
+        if (s.flipped)
+        { 
+            std::swap(X1, X2); 
+            std::swap(Y1, Y2); 
+            std::swap(s.p1, s.p2);
+            area = -area; 
+        }
+
+        // 3. BOÎTE DES CENTRES, en entiers. Centre du pixel x = 256 x + 128.
+        //    premier x : 256 x + 128 >= minX  <=>  x0 = (minX + 127) >> 8
+        //    dernier x : 256 x + 128 <= maxX  <=>  x1 = ((maxX - 128) >> 8) + 1   (exclusif)
+        //    Sur des sommets accrochés, c'est EXACTEMENT TightPixelBox (rejet 3b, étage faces).
+        //    Min / Max PAR VALEUR : std::min rend une RÉFÉRENCE, et le compilateur en fait des
+        //    sauts sur adresses (mesuré : 6 branches imprévisibles). Par valeur : cmov.
+        const auto Min = [](int64_t a, int64_t b) noexcept { return b < a ? b : a; };
+        const auto Max = [](int64_t a, int64_t b) noexcept { return a < b ? b : a; };
+        const int64_t minX = Min(X0, Min(X1, X2)), maxX = Max(X0, Max(X1, X2));
+        const int64_t minY = Min(Y0, Min(Y1, Y2)), maxY = Max(Y0, Max(Y1, Y2));
+        PixelBox bb{ int32_t((minX + 127) >> kSubpixelBits), 
+                     int32_t((minY + 127) >> kSubpixelBits),
+                     int32_t((maxX - 128) >> kSubpixelBits) + 1,
+                     int32_t((maxY - 128) >> kSubpixelBits) + 1 };
+
+        vp.ClampBox(bb.x0, bb.y0, bb.x1, bb.y1);
+        if (bb.Empty()) return false;
+        s.bb = bb;
+
+        // 4. 1 / aire, en px² : float(area) arrondi UNE fois, * 2^-16 exact, puis une vraie division.
+        s.invArea = 1.0f / (float(area) * kSubpixelArea);
+
+        // 5. LES TROIS ARÊTES, ordre de C1 : (p1, p2), (p2, p0), (p0, p1).
+        //    Centre du premier pixel de la boîte : P = (256 x0 + 128, 256 y0 + 128).
+        const int64_t px = (int64_t(bb.x0) << kSubpixelBits) + 128;
+        const int64_t py = (int64_t(bb.y0) << kSubpixelBits) + 128;
+        const auto Edge = [&](int64_t xa, int64_t ya, int64_t xb, int64_t yb, int k) noexcept -> bool
+        {
+            const int64_t A = ya - yb;                        // pas d'un pixel en x
+            const int64_t B = xb - xa;                        // pas d'une ligne en y
+            // Top-left, en entiers : arête b - a = (B, -A). Même règle que IsTopLeft :
+            //   haute = (dy == 0 && dx < 0) ; gauche = (dy > 0)
+            const bool tl = (A == 0 && B < 0) || (A < 0);
+            // E au centre P : la forme ANTISYMÉTRIQUE de C2, en entiers (exacte).
+            const int64_t E = (xa - px) * (yb - py) - (ya - py) * (xb - px);
+            // E' = plancher((E + bias) / 256) : >> ARITHMÉTIQUE (C++20), JAMAIS / 256 (contre-exemple).
+            fx.e[k] = (E + (tl ? 0 : -1)) >> kSubpixelBits;
+            fx.a[k] = A;
+            fx.b[k] = B;
+            return tl;
+        };
+
+        s.tl0 = Edge(X1, Y1, X2, Y2, 0);
+        s.tl1 = Edge(X2, Y2, X0, Y0, 1);
+        s.tl2 = Edge(X0, Y0, X1, Y1, 2);
+        fx.wide = false;
+
+        return true;
+    }
+
+    // Garantir qu’aucune voie int32 ne déborde. 
+    // ── Avant les voies AVX2 seulement : acceptation triviale et choix de la largeur.
+    //    Boîte ÉTENDUE : les voies lisent jusqu'à x1 + 6, le dernier pas de bloc mène à
+    //    x1 + 14, le dernier pas de ligne à y1. 
+    //    Si E' tient dans int32 aux 4 coins de [x0, x1 + 15] x [y0, y1], il y tient partout (E' est affine).
+    //    On n'évalue que deux coins par arête : celui de REJET (minimum) et celui d'ACCEPTATION (maximum),
+    //    choisis par les signes de A' et B' (cours Lot D, A5 / A6).
+    LV3_FORCEINLINE void PrepareLanesFx(const TriangleSetup& s, EdgeSetupFx& fx) noexcept
+    {
+        const int64_t dxe = int64_t(s.bb.x1) + 15 - s.bb.x0;
+        const int64_t dye = int64_t(s.bb.y1) - s.bb.y0;
+        bool wide = false;
+   
+        for (int k = 0; k < 3; ++k)
+        {
+            const int64_t ax = fx.a[k] * dxe, by = fx.b[k] * dye;
+            const int64_t lo = fx.e[k] + (ax < 0 ? ax : 0) + (by < 0 ? by : 0);    // coin de rejet
+            const int64_t hi = fx.e[k] + (ax > 0 ? ax : 0) + (by > 0 ? by : 0);    // coin d'acceptation
+        
+            // ACCEPTATION TRIVIALE : l'arête ne coupe pas la boîte, tous ses pixels sont de son
+            // bon côté. Remplacée par la constante 0 (>= 0 : dedans). Sans cela, une longue arête
+            // lointaine (sommet clippé au near) forcerait les voies 64 bits. Sans branche (cmov).
+            const bool accept = (lo >= 0);
+            fx.e[k] = accept ? 0 : fx.e[k];
+            fx.a[k] = accept ? 0 : fx.a[k];
+            fx.b[k] = accept ? 0 : fx.b[k];
+            wide |= !accept & ((lo < INT32_MIN) | (hi > INT32_MAX));
+        }
+
+        fx.wide = wide;
+    }
+
+
+   // ── Pendant SCALAIRE (LV3_SIMD = 0, boîtes étroites, TNR). Toujours en int64 :
+   //    une addition int64 coûte une addition int32 en x64, et rien ne peut déborder.
+   //    Couverture : (e0 | e1 | e2) >= 0  <=>  les trois >= 0 (le OU porte les bits de signe).
+   //    Barycentriques : la formule FLOTTANTE DIRECTE de C1, et seulement sur les pixels couverts.
+    template<class Sink>
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredPixelFx(const TriangleSetup& s, const EdgeSetupFx& fx, Sink& sink)
+    {
+        uint32_t covered = 0;
+        const int64_t a0 = fx.a[0], a1 = fx.a[1], a2 = fx.a[2];
+        const int64_t b0 = fx.b[0], b1 = fx.b[1], b2 = fx.b[2];
+        int64_t r0 = fx.e[0], r1 = fx.e[1], r2 = fx.e[2];     // E' au début de la ligne
+
+        for (int32_t y = s.bb.y0; y < s.bb.y1; ++y)
+        {
+            const float py = float(y) + 0.5f;
+            sink.BeginRow(y);
+            int64_t e0 = r0, e1 = r1, e2 = r2;
+
+            for (int32_t x = s.bb.x0; x < s.bb.x1; ++x)
+            {
+                if ((e0 | e1 | e2) >= 0)                      // couvert : décision ENTIÈRE, exacte
+                {
+                    ++covered;
+                    const float px = float(x) + 0.5f;
+                    const float w0 = EdgeFunction(s.p1, s.p2, px, py);
+                    const float w1 = EdgeFunction(s.p2, s.p0, px, py);
+                    const float w2 = EdgeFunction(s.p0, s.p1, px, py);
+                    const BarycentricWeights bary = s.flipped
+                                ? BarycentricWeights{ w0 * s.invArea, w2 * s.invArea, w1 * s.invArea }
+                                : BarycentricWeights{ w0 * s.invArea, w1 * s.invArea, w2 * s.invArea };
+                    sink.Pixel(x, bary);
+                }
+                e0 += a0; e1 += a1; e2 += a2;                 // un pixel à droite : 3 additions
+            }
+            r0 += b0; r1 += b1; r2 += b2;                     // une ligne plus bas : 3 additions
+        }
+        return covered;
+    }
+
+	// ════════════════════════════════════════════════════════════
     // ── C0 : ablation par paliers (LV3_ABLATION_PIXELS), deplacee ICI en C1 :
     //    le moteur passe par les noyaux de Fragment.h, plus par RasterizeTriangle.
     #if LV3_ABLATION_PIXELS
@@ -244,6 +451,16 @@ namespace LV3
                 + (uint32_t(s.tl0) | (uint32_t(s.tl1) << 1) | (uint32_t(s.tl2) << 2) | (uint32_t(s.flipped) << 3))
                 + std::bit_cast<uint32_t>(s.invArea);
         }
+
+        // D-a1, palier S : la preparation en virgule fixe est consommee aussi (6 entiers par arete).
+        LV3_FORCEINLINE void AblationConsumeSetupFx(const TriangleSetup& s, const EdgeSetupFx& fx) noexcept
+        {
+            AblationConsumeSetup(s);
+            uint64_t h = 0;
+            for (int k = 0; k < 3; ++k) h += uint64_t(fx.e[k]) ^ uint64_t(fx.a[k]) ^ uint64_t(fx.b[k]);
+            g_ablationSink = g_ablationSink + uint32_t(h ^ (h >> 32));
+        }
+
 
         // Palier E : la boucle d'aretes complete, AUCUN fragment. Les barycentriques,
         // jamais lues, disparaissent a l'optimisation ; le compte couvert va au puits.

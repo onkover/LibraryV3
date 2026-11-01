@@ -60,11 +60,24 @@ namespace LV3
     // EmitClipTriangle (par COIN, apres clipping) : une seule formule,
     // donc une image identique au bit pres entre les deux chemins.
     // Precondition : c.w > 0.
+    //[[nodiscard]] LV3_FORCEINLINE RasterVertex ProjectClip(const Vec4f& c, const Viewport& vp) noexcept
+    //{
+    //    const float invW = 1.0f / c.w;
+    //    const Vec3f r = vp.ToRaster({ c.x * invW, c.y * invW, c.z * invW });
+    //    return { r.x, r.y, r.z, invW };
+    //}
     [[nodiscard]] LV3_FORCEINLINE RasterVertex ProjectClip(const Vec4f& c, const Viewport& vp) noexcept
     {
         const float invW = 1.0f / c.w;
         const Vec3f r = vp.ToRaster({ c.x * invW, c.y * invW, c.z * invW });
-        return { r.x, r.y, r.z, invW };
+        #if LV3_RASTER_FIXED
+            // D-a1 : x et y sur la grille des 1/256 de pixel, ICI et nulle part ailleurs.
+            // Toute decision prise ensuite sur ce sommet (aire B4, boite 3b, centre C3,
+            // noyau) voit la MEME position : un sommet, un accrochage.
+            return { SnapToSubpixel(r.x), SnapToSubpixel(r.y), r.z, invW };
+        #else
+            return { r.x, r.y, r.z, invW };
+        #endif
     }
 
     // Tampon de sortie projete, meme politique que ClipSpaceBuffer :

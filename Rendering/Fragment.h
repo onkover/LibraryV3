@@ -271,38 +271,7 @@ namespace LV3
         }
     };
 
-    //// ── LE NOYAU C1 : une instance par shader, choisie UNE fois par vue (Renderer::SetMode).
-    ////    Un seul appel indirect par TRIANGLE (au lieu d'un par pixel couvert).
-    ////    ctx non const : seul le compteur C0 depthPassed y est écrit (RASTER_STATS),
-    ////    vidé ensuite par LV3_FLUSH_DEPTH_PASSED dans DrawTriangle, comme en C0.
-    //template<class Shader>
-    //void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,
-    //    const Viewport& vp, FragmentContext& ctx) noexcept
-    //{
-    //    TriangleSetup s;
-    //    if (!SetupTriangle(v0, v1, v2, vp, s)) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
-
-    //    // Ce que SetPixel testait 4 fois par pixel, vérifié UNE fois par triangle, en Debug.
-    //    LV3_ASSERT(ctx.fb != nullptr && ctx.db != nullptr && "RasterizeTriangleT : cibles non posees (BeginFrame ?)");
-    //    LV3_ASSERT(s.bb.x0 >= 0 && s.bb.y0 >= 0 &&
-    //        s.bb.x1 <= ctx.fb->Width() && s.bb.y1 <= ctx.fb->Height() &&
-    //        "RasterizeTriangleT : boite hors du framebuffer (viewport plus grand que la cible ?)");
-
-    //    #if LV3_ABLATION_PIXELS == 1
-    //            AblationConsumeSetup(s);                                   // palier S : aucun pixel
-    //    #elif LV3_ABLATION_PIXELS == 2
-    //            AblationEdgeSink edges;                                    // palier E : arêtes, aucun fragment
-    //            g_ablationSink = g_ablationSink + ForEachCoveredPixel(s, edges);
-    //    #else
-    //            ShaderSink<Shader> sink{ ctx };                            // COPIE du contexte (voir ShaderSink)
-    //            [[maybe_unused]] const uint32_t covered = ForEachCoveredPixel(s, sink);
-    //    #if LV3_RASTER_STATS
-    //            ctx.depthPassed += sink.depthPassed;
-    //    #endif
-    //            LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
-    //    #endif
-    //}
-    
+   
     // ── C2 : puits du chemin AVX2. Reçoit un BLOC de 8 pixels d'une ligne.
     //    Shader avec Shade8 (ShaderSolid) : 8 voies d'un coup, chargements et écritures masqués.
     //    Shader sans Shade8 (shaders de debug : fmod, pow, division) : repli voie par voie
@@ -373,15 +342,111 @@ namespace LV3
         return covered;
     }
 
+    //// ── LE NOYAU C1 : une instance par shader, choisie UNE fois par vue (Renderer::SetMode).
+    ////    Un seul appel indirect par TRIANGLE (au lieu d'un par pixel couvert).
+    ////    ctx non const : seul le compteur C0 depthPassed y est écrit (RASTER_STATS),
+    ////    vidé ensuite par LV3_FLUSH_DEPTH_PASSED dans DrawTriangle, comme en C0.
+    ////    C2 : kMinSimdWidth choisit le chemin PAR TRIANGLE, d'après la largeur de sa boîte.
+    ////    Défaut kSimdMinBoxWidth ; les TNR forcent kScalarOnly (= C1) ou kSimdAlways.
+    //template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth>
+    //void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,const Viewport& vp, FragmentContext& ctx) noexcept
+    //{
+
+
+    // ── D-a1 : le chemin AVX2 en virgule fixe, hors ligne pour la même raison que C2.
+    //    kWide choisit la largeur des voies À LA COMPILATION : deux instances par shader.
+    //    PrepareLanesFx est faite ICI : les triangles étroits (boucle scalaire) ne la paient pas.
+    //    kForce64 : TNR uniquement (les voies 64 bits doivent donner les mêmes pixels).
+    template<class Shader, bool kForce64>
+    LV3_NOINLINE uint32_t RasterizeBlocks8Fx(const TriangleSetup& s, EdgeSetupFx fx, FragmentContext& ctx) noexcept
+    {
+        PrepareLanesFx(s, fx);                                             // fx : COPIE locale, modifiée
+        ShaderSink8<Shader> sink(ctx);                                     // COPIE + diffusions
+        const uint32_t covered = (kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, sink)
+            : ForEachCoveredBlock8Fx32(s, fx, sink);
+        #if LV3_RASTER_STATS
+            ctx.depthPassed += sink.depthPassed;
+        #endif
+
+        return covered;
+    }
+
+    // ── D-a1 : le noyau en virgule fixe. MÊME structure que le noyau C2 (ablation,
+    //    aiguillage par largeur de boîte, enregistrement), seules la préparation et
+    //    les boucles changent. kLanes = Force64 : TNR uniquement (int32 == int64).
+    template<class Shader, int32_t kMinSimdWidth, EFixedLanes kLanes>
+    LV3_FORCEINLINE void RasterizeTriangleFx(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
+    {
+        TriangleSetup s;
+        EdgeSetupFx   fx;
+        if (!SetupTriangleFx(v0, v1, v2, vp, s, fx)) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
+
+        LV3_ASSERT(ctx.fb != nullptr && ctx.db != nullptr && "RasterizeTriangleFx : cibles non posees (BeginFrame ?)");
+        LV3_ASSERT(s.bb.x0 >= 0 && s.bb.y0 >= 0 &&
+            s.bb.x1 <= ctx.fb->Width() && s.bb.y1 <= ctx.fb->Height() &&
+            "RasterizeTriangleFx : boite hors du framebuffer (viewport plus grand que la cible ?)");
+
+        constexpr bool kForce64 = (kLanes == EFixedLanes::Force64);
+   
+        #if LV3_ABLATION_PIXELS == 1
+            AblationConsumeSetupFx(s, fx);                             // palier S : aucun pixel
+        #elif LV3_ABLATION_PIXELS == 2
+            // palier E : couverture seule. Les arêtes FLOTTANTES ne servent plus qu'aux
+            // barycentriques : jamais lues par ce puits, elles disparaissent à l'optimisation.
+            // PrepareLanesFx compte dans E (comme dans le moteur : elle précède les voies).
+            if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)
+            {
+                PrepareLanesFx(s, fx);
+                AblationEdgeSink8 edges;
+                g_ablationSink = g_ablationSink + ((kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, edges)
+                    : ForEachCoveredBlock8Fx32(s, fx, edges));
+            }
+            else
+            {
+                AblationEdgeSink edges;
+                g_ablationSink = g_ablationSink + ForEachCoveredPixelFx(s, fx, edges);
+            }
+        #else
+            uint32_t covered;
+            if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)                    // boîte assez large : AVX2
+            {
+                covered = RasterizeBlocks8Fx<Shader, kForce64>(s, fx, ctx);    // hors ligne : prologue inchangé
+            }
+            else                                                       // boîte étroite : scalaire int64
+            {
+                ShaderSink<Shader> sink{ ctx };
+                covered = ForEachCoveredPixelFx(s, fx, sink);
+                #if LV3_RASTER_STATS
+                    ctx.depthPassed += sink.depthPassed;
+                #endif
+             }
+            LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
+            (void)covered;
+        #endif
+    }
+
     // ── LE NOYAU C1 : une instance par shader, choisie UNE fois par vue (Renderer::SetMode).
     //    Un seul appel indirect par TRIANGLE (au lieu d'un par pixel couvert).
     //    ctx non const : seul le compteur C0 depthPassed y est écrit (RASTER_STATS),
     //    vidé ensuite par LV3_FLUSH_DEPTH_PASSED dans DrawTriangle, comme en C0.
     //    C2 : kMinSimdWidth choisit le chemin PAR TRIANGLE, d'après la largeur de sa boîte.
     //    Défaut kSimdMinBoxWidth ; les TNR forcent kScalarOnly (= C1) ou kSimdAlways.
-    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth>
-    void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2,const Viewport& vp, FragmentContext& ctx) noexcept
+    //    D-a1 : sous LV3_RASTER_FIXED, tout triangle dans la garde prend RasterizeTriangleFx ;
+    //    le corps flottant ci-dessous ne sert plus qu'aux sommets hors garde (TrisFixedGuard).
+    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth, EFixedLanes kLanes = EFixedLanes::Auto>
+    void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
     {
+        #if LV3_RASTER_FIXED
+                if (InFixedGuard(v0, v1, v2))
+                {
+                    RasterizeTriangleFx<Shader, kMinSimdWidth, kLanes>(v0, v1, v2, vp, ctx);
+                    return;
+                }
+            #if LV3_RASTER_STATS
+                    LV3_PROF_COUNT(EProfCounter::TrisFixedGuard, 1);           // repli flottant C2
+            #endif
+        #endif
+
         TriangleSetup s;
         if (!SetupTriangle(v0, v1, v2, vp, s)) { LV3_RASTER_RECORD(0u, 0u, 0u); return; }
 

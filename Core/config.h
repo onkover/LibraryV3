@@ -240,7 +240,28 @@ namespace LV3
 	#error "LV3_SIMD = 1 exige /arch:AVX2 (LV3.Common.props)"
 #endif
 
-// Anciens commutateurs par chantier : refuses, pour qu'aucune propriete de projet oubliee ne fabrique un etat mixte jamais teste.
-#if defined(LV3_SIMD_PIXELS) || defined(LV3_PIX1_FASTPATH)
-	#error "LV3_SIMD_PIXELS et LV3_PIX1_FASTPATH sont remplaces par LV3_SIMD (config.h, section 11)"
+
+// 12. ARETES EN VIRGULE FIXE(jalon D, voie D - a1 : Giesen).Commutateur de MESURE A / B.
+//     1 = D-a1 : sommets raster accroches sur la grille des 1/256 de pixel (ProjectClip,
+//         ProjectPositions8), couverture par fonctions d'arete ENTIERES avancees par
+//         additions (scalaire int64 ; AVX2 8 x int32, ou 8 x int64 si la boite l'exige).
+//         Barycentriques : MEME formule flottante directe que C2 (aucun incremental float).
+//     0 = C2 : aretes flottantes evaluees directement, sommets non accroches (reference).
+//     L'image change (accrochage) : 0 et 1 ont chacun LEURS references TNR.
+//     Declare dans l'en-tete CSV (fixed=) : deux runs de fixed differents ne se comparent
+//     qu'en A/B, jamais comme deux mesures d'un meme binaire.
+#ifndef LV3_RASTER_FIXED
+	#define LV3_RASTER_FIXED 1
 #endif
+
+#if LV3_RASTER_FIXED < 0 || LV3_RASTER_FIXED > 1
+	#error "LV3_RASTER_FIXED : 0 (aretes flottantes C2) ou 1 (virgule fixe D-a1)"
+#endif
+
+
+
+// OLD ????
+//// Anciens commutateurs par chantier : refuses, pour qu'aucune propriete de projet oubliee ne fabrique un etat mixte jamais teste.
+//#if defined(LV3_SIMD_PIXELS) || defined(LV3_PIX1_FASTPATH)
+//	#error "LV3_SIMD_PIXELS et LV3_PIX1_FASTPATH sont remplaces par LV3_SIMD (config.h, section 11)"
+//#endif

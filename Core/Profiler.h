@@ -131,6 +131,14 @@ namespace LV3
 		//    sans appel du noyau. Sous-ensemble de TrisCov0 + TrisCov1.
 		TrisPix1,
 
+		// ── D-a1 (RASTER_STATS seulement) : aretes en virgule fixe.
+		//    TrisFixedWide  : triangles passes par les voies AVX2 de 64 bits (E' hors de int32).
+		//                     Sous-ensemble de TrisSimd8.
+		//    TrisFixedGuard : triangles a sommet hors de la garde (|x| ou |y| >= 2^20 px),
+		//                     rendus par le chemin flottant C2. Predit : 0 sur toutes les scenes.
+		TrisFixedWide,
+		TrisFixedGuard,
+
 		Count
 	};
 
@@ -170,7 +178,8 @@ namespace LV3
 		"TrisObjRejected",
 		"PixelsDepthPassed", "FbDbAlias4K",
 		"TrisSimd8", "LaneBlocks8",
-		"TrisPix1"
+		"TrisPix1",
+		"TrisFixedWide", "TrisFixedGuard"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");
