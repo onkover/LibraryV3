@@ -104,11 +104,6 @@ namespace LV3
     // Desactive sous ablation des pixels : les paliers S et E mesurent le NOYAU.
     inline constexpr bool kPix1Path = (LV3_SIMD != 0) && (LV3_ABLATION_PIXELS == 0);
 
-    // D-a1 : rayon (en pixels, autour du centre) sous lequel les calculs flottants de C3
-    // sont EXACTS sur des sommets accrochés au 1/256 : 8 px = 2^3 -> 3 + 8 = 11 bits par
-    // écart au centre, 12 bits par écart entre sommets ; produits <= 24 bits.
-    inline constexpr float kPix1NearPx = 8.0f;
-
     // Resultat C3 d'un lot. Bit k / couloir k <-> face k du lot.
     struct Pixel1Lanes8
     {
@@ -193,9 +188,23 @@ namespace LV3
         __m256i y0 = _mm256_cvttps_epi32(_mm256_round_ps(_mm256_sub_ps(minY, half), kCeil));
         __m256i x1 = _mm256_add_epi32(                                              // ... + 1
             _mm256_cvttps_epi32(_mm256_round_ps(_mm256_sub_ps(maxX, half), kFloor)), one);
+
         __m256i y1 = _mm256_add_epi32(
             _mm256_cvttps_epi32(_mm256_round_ps(_mm256_sub_ps(maxY, half), kFloor)), one);
 
+        #if LV3_RASTER_FIXED
+            // ── ETAPE 5b (D-a1, C3) : boite 1 x 1 AVANT le rognage a la vue ─────
+            // Une boite non rognee de 1 x 1 contient UN seul centre par axe : l'etendue du
+            // triangle y est < 2 px, donc chaque sommet est a moins de 2 px du centre. Sur la
+            // grille 1/256, tous les calculs flottants de C3 y sont EXACTS (produits <= 24 bits).
+            // Une boite que seul le rognage ramene a 1 x 1 (grand triangle au bord de la vue)
+            // n'a pas cette garantie : elle va au noyau. Meme cout que l'ancien test (calcule
+            // ici au lieu d'apres le rognage), aucune operation de plus par lot.
+            __m256i one1u = _mm256_setzero_si256();
+            if constexpr (kPix1)
+                one1u = _mm256_and_si256(_mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),     // x1 == x0 + 1
+                    _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));    // y1 == y0 + 1
+        #endif
         // ── ETAPE 6 : CLAMP — copie de Viewport::ClampBox, en entiers (exact) ──
         //   if (x0 < vp.x)         x0 = vp.x;          == max(x0, vp.x)
         //   if (x1 > vp.x + width) x1 = vp.x + width;  == min(x1, vp.x + width)
@@ -226,33 +235,54 @@ namespace LV3
             // 9a. Qui prend le chemin C3 ? survivante, boite 1 x 1, ET aire < 0 ordonnee.
             //     Aire < 0 : SetupTriangle echange alors p1 et p2 a coup sur (face avant).
             //     NaN : _CMP_LT_OQ faux -> la face garde le chemin du noyau, qui sait la traiter.
-            const __m256i one1 = _mm256_and_si256(
-                _mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),          // x1 == x0 + 1
-                _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));         // y1 == y0 + 1
-            const __m256 neg = _mm256_cmp_ps(area, _mm256_setzero_ps(), _CMP_LT_OQ);
+            
+            
+            
+            
+            //const __m256i one1 = _mm256_and_si256(
+            //    _mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),          // x1 == x0 + 1
+            //    _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));         // y1 == y0 + 1
+            //const __m256 neg = _mm256_cmp_ps(area, _mm256_setzero_ps(), _CMP_LT_OQ);
+
+            //#if LV3_RASTER_FIXED
+            //    // 9a'. D-a1 : C3 doit décider EXACTEMENT comme le noyau entier. Sur des sommets
+            //    //      accrochés (1/256 px), un écart de moins de 8 px tient sur 11 bits significatifs :
+            //    //      tout produit de C3 (aire, 3 arêtes au centre) tient sur 24 bits -> float EXACT,
+            //    //      donc identique à l'entier. Au-delà (grand triangle rogné à une boîte 1 x 1
+            //    //      par la vue), l'arrondi redevient possible : ce couloir retourne au noyau.
+            //    //      _CMP_LT_OQ : NaN -> faux -> noyau.
+            //    const __m256 cpx = _mm256_add_ps(_mm256_cvtepi32_ps(x0), half);   // centre du pixel
+            //    const __m256 cpy = _mm256_add_ps(_mm256_cvtepi32_ps(y0), half);
+            //    const __m256 absMask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
+            //    const __m256 lim = _mm256_set1_ps(kPix1NearPx);
+            //    const auto Near = [&](__m256 v, __m256 c)
+            //        { return _mm256_cmp_ps(_mm256_and_ps(_mm256_sub_ps(v, c), absMask), lim, _CMP_LT_OQ); };
+            //    const __m256 nearAll = _mm256_and_ps(
+            //        _mm256_and_ps(_mm256_and_ps(Near(ax, cpx), Near(ay, cpy)), _mm256_and_ps(Near(bx, cpx), Near(by, cpy))),
+            //        _mm256_and_ps(Near(cx, cpx), Near(cy, cpy)));
+            //    const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), _mm256_and_ps(neg, nearAll))));
+            //#else
+            //    const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
+            //#endif
+
+            //p1->pix1 = pix;
 
             #if LV3_RASTER_FIXED
-                // 9a'. D-a1 : C3 doit décider EXACTEMENT comme le noyau entier. Sur des sommets
-                //      accrochés (1/256 px), un écart de moins de 8 px tient sur 11 bits significatifs :
-                //      tout produit de C3 (aire, 3 arêtes au centre) tient sur 24 bits -> float EXACT,
-                //      donc identique à l'entier. Au-delà (grand triangle rogné à une boîte 1 x 1
-                //      par la vue), l'arrondi redevient possible : ce couloir retourne au noyau.
-                //      _CMP_LT_OQ : NaN -> faux -> noyau.
-                const __m256 cpx = _mm256_add_ps(_mm256_cvtepi32_ps(x0), half);   // centre du pixel
-                const __m256 cpy = _mm256_add_ps(_mm256_cvtepi32_ps(y0), half);
-                const __m256 absMask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
-                const __m256 lim = _mm256_set1_ps(kPix1NearPx);
-                const auto Near = [&](__m256 v, __m256 c)
-                    { return _mm256_cmp_ps(_mm256_and_ps(_mm256_sub_ps(v, c), absMask), lim, _CMP_LT_OQ); };
-                const __m256 nearAll = _mm256_and_ps(
-                    _mm256_and_ps(_mm256_and_ps(Near(ax, cpx), Near(ay, cpy)), _mm256_and_ps(Near(bx, cpx), Near(by, cpy))),
-                    _mm256_and_ps(Near(cx, cpx), Near(cy, cpy)));
-                const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), _mm256_and_ps(neg, nearAll))));
+                // 9a'. D-a1 : la boite NON ROGNEE 1 x 1 (etape 5b) garantit l'exactitude du
+                //      flottant de C3 : C3 decide EXACTEMENT comme le noyau entier.
+                            const __m256i one1 = one1u;
             #else
-                const uint32_t pix = s & uint32_t(_mm256_movemask_ps(_mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
+                const __m256i one1 = _mm256_and_si256(
+                    _mm256_cmpeq_epi32(x1, _mm256_add_epi32(x0, one)),          // x1 == x0 + 1
+                    _mm256_cmpeq_epi32(y1, _mm256_add_epi32(y0, one)));         // y1 == y0 + 1
             #endif
 
+            const __m256 neg = _mm256_cmp_ps(area, _mm256_setzero_ps(), _CMP_LT_OQ);
+            const uint32_t pix = s & uint32_t(_mm256_movemask_ps(
+                _mm256_and_ps(_mm256_castsi256_ps(one1), neg)));
             p1->pix1 = pix;
+
+
             p1->covered = 0;
             if (pix != 0)                               // V2 : la plupart des lots n'en ont aucune
             {
@@ -322,10 +352,19 @@ namespace LV3
             EdgeSetupFx   fx;
             if (!SetupTriangleFx({ a.x, a.y }, { b.x, b.y }, { c.x, c.y }, vp, s, fx)) return r;
             if (s.bb.x1 - s.bb.x0 != 1 || s.bb.y1 - s.bb.y0 != 1) return r;
-            const float px = float(s.bb.x0) + 0.5f, py = float(s.bb.y0) + 0.5f;
-            const auto Near = [](float v, float ctr) { return std::fabs(v - ctr) < kPix1NearPx; };   // meme critere que 9a'
-            if (!(Near(a.x, px) && Near(a.y, py) && Near(b.x, px) && Near(b.y, py) && Near(c.x, px) && Near(c.y, py)))
-                return r;
+
+            //const float px = float(s.bb.x0) + 0.5f, py = float(s.bb.y0) + 0.5f;
+            //const auto Near = [](float v, float ctr) { return std::fabs(v - ctr) < kPix1NearPx; };   // meme critere que 9a'
+            //if (!(Near(a.x, px) && Near(a.y, py) && Near(b.x, px) && Near(b.y, py) && Near(c.x, px) && Near(c.y, py)))
+            //    return r;
+            
+            // Meme critere que l'etape 5b : la boite NON ROGNEE fait 1 x 1 (formule de TightPixelBox, sans ClampBox).
+            const float minX = std::min(a.x, std::min(b.x, c.x)), maxX = std::max(a.x, std::max(b.x, c.x));
+            const float minY = std::min(a.y, std::min(b.y, c.y)), maxY = std::max(a.y, std::max(b.y, c.y));
+            if (int32_t(std::floor(maxX - 0.5f)) + 1 - int32_t(std::ceil(minX - 0.5f)) != 1 ||
+                int32_t(std::floor(maxY - 0.5f)) + 1 - int32_t(std::ceil(minY - 0.5f)) != 1)
+                return r;                                             // boite rognee a 1 x 1 seulement : au noyau
+
             r.pix1 = true; r.x = s.bb.x0; r.y = s.bb.y0;
             struct SinkFx
             {

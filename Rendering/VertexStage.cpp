@@ -76,8 +76,13 @@ namespace LV3
       
         // Giesen method - rojectPositions8 : le pendant AVX2 (B3, meshes Inside). Même arrondi explicite que le scalaire : la TNR B3 reste bit à bit.
         #if LV3_RASTER_FIXED
-            const __m256 k256 = _mm256_set1_ps(kSubpixelScale);       // D-a1 : 256 dans les 8 couloirs
-            const __m256 kInv256 = _mm256_set1_ps(kSubpixelInv);      //        1/256
+            // Viewport pré-multiplié par 256 : xr256 sort directement en 1/256 px.
+            // Bit-exact : ×2^8 ne touche que l'exposant, il commute avec chaque arrondi float.
+            const __m256 vpx256 = _mm256_set1_ps(static_cast<float>(vp.x) * kSubpixelScale);
+            const __m256 vpy256 = _mm256_set1_ps(static_cast<float>(vp.y) * kSubpixelScale);
+            const __m256 vpw256 = _mm256_set1_ps(static_cast<float>(vp.width) * kSubpixelScale);
+            const __m256 vph256 = _mm256_set1_ps(static_cast<float>(vp.height) * kSubpixelScale);
+            const __m256 kInv256 = _mm256_set1_ps(kSubpixelInv);     // ×1/256 : retour en pixels
         #endif
 
         for (size_t i = 0; i < paddedCount; i += 8)
@@ -117,18 +122,31 @@ namespace LV3
             // ── 5. ToRaster, copie de Viewport::ToRaster (a+b = b+a et a*b = b*a sont exacts) :
             //   xr = vp.x + (xn*0.5 + 0.5) * width
             //   yr = vp.y + (0.5 - yn*0.5) * height       <- le flip Y
-            const __m256 xr0 = _mm256_add_ps(vpx, _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(xn, half), half), vpw));
-            const __m256 yr0 = _mm256_add_ps(vpy, _mm256_mul_ps(_mm256_sub_ps(half, _mm256_mul_ps(yn, half)), vph));
-            
-			// Giesen method
+   //         const __m256 xr0 = _mm256_add_ps(vpx, _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(xn, half), half), vpw));
+   //         const __m256 yr0 = _mm256_add_ps(vpy, _mm256_mul_ps(_mm256_sub_ps(half, _mm256_mul_ps(yn, half)), vph));
+   //         
+			//// Giesen method
+   //         #if LV3_RASTER_FIXED
+   //             // ── 5b. D-a1 : accrochage sous-pixel, copie de SnapToSubpixel (Viewport.h).
+   //             //   xr*256 (exact) -> entier le plus proche, mode EXPLICITE -> *1/256 (exact)
+   //             //   _MM_FROUND_TO_NEAREST_INT : le MEME arrondi que _mm_round_ss du scalaire.
+   //             const __m256 xr = _mm256_mul_ps(_mm256_round_ps(_mm256_mul_ps(xr0, k256), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256); // round to nearest, and suppress exceptions
+   //             const __m256 yr = _mm256_mul_ps(_mm256_round_ps(_mm256_mul_ps(yr0, k256), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256); // round to nearest, and suppress exceptions
+   //         #else
+   //             const __m256 xr = xr0, yr = yr0;
+   //         #endif
+
+            // Giesen method
             #if LV3_RASTER_FIXED
-                // ── 5b. D-a1 : accrochage sous-pixel, copie de SnapToSubpixel (Viewport.h).
-                //   xr*256 (exact) -> entier le plus proche, mode EXPLICITE -> *1/256 (exact)
-                //   _MM_FROUND_TO_NEAREST_INT : le MEME arrondi que _mm_round_ss du scalaire.
-                const __m256 xr = _mm256_mul_ps(_mm256_round_ps(_mm256_mul_ps(xr0, k256), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256); // round to nearest, and suppress exceptions
-                const __m256 yr = _mm256_mul_ps(_mm256_round_ps(_mm256_mul_ps(yr0, k256), _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256); // round to nearest, and suppress exceptions
+                // 5 : position écran directement en unités de 1/256 px (viewport pré-multiplié).
+                const __m256 xr256 = _mm256_add_ps(vpx256, _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(xn, half), half), vpw256));
+                const __m256 yr256 = _mm256_add_ps(vpy256, _mm256_mul_ps(_mm256_sub_ps(half, _mm256_mul_ps(yn, half)), vph256));
+                // 5b : accrochage = arrondi au plus proche (explicite, indépendant de MXCSR), puis retour en px.
+                const __m256 xr = _mm256_mul_ps(_mm256_round_ps(xr256, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256);
+                const __m256 yr = _mm256_mul_ps(_mm256_round_ps(yr256, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC), kInv256);
             #else
-                const __m256 xr = xr0, yr = yr0;
+                const __m256 xr = _mm256_add_ps(vpx, _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(xn, half), half), vpw));
+                const __m256 yr = _mm256_add_ps(vpy, _mm256_mul_ps(_mm256_sub_ps(half, _mm256_mul_ps(yn, half)), vph));
             #endif
 
             // ── 6. TRANSPOSITION 4x8 -> 8 RasterVertex { x, y, z, invW } (AoS, 16 o)
