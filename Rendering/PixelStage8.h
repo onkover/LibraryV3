@@ -173,37 +173,43 @@ namespace LV3
     //  et seulement dans les blocs qui ont au moins un pixel couvert.
     // ════════════════════════════════════════════════════════════
 
-    // Barycentriques d'un bloc : la formule DIRECTE de C2 (EdgeFunction8 * 1/aire),
-    // sur les sommets accrochés de s. Partagée par les deux largeurs de voie.
-    struct BaryInputs8
+       // Constantes des barycentriques, diffusées UNE fois par triangle.
+    struct BaryFx8
     {
-        __m256 p0x, p0y, p1x, p1y, p2x, p2y, inv, half;
-        __m256i lane;
-        bool flipped;
+        __m256 o0, o1, o2;      // c / 256 de chaque arête (exact)
+        __m256 inv;             // 256 / aire (exact à partir de s.invArea)
     };
 
-    [[nodiscard]] LV3_FORCEINLINE BaryInputs8 MakeBaryInputs8(const TriangleSetup& s) noexcept
+    [[nodiscard]] LV3_FORCEINLINE BaryFx8 MakeBaryFx8(const EdgeSetupFx& fx) noexcept
     {
-        return { _mm256_set1_ps(s.p0.x), _mm256_set1_ps(s.p0.y),
-                 _mm256_set1_ps(s.p1.x), _mm256_set1_ps(s.p1.y),
-                 _mm256_set1_ps(s.p2.x), _mm256_set1_ps(s.p2.y),
-                 _mm256_set1_ps(s.invArea), _mm256_set1_ps(0.5f),
-                 _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7), s.flipped };
+        return { _mm256_set1_ps(fx.ofs[0]), _mm256_set1_ps(fx.ofs[1]), _mm256_set1_ps(fx.ofs[2]),
+                 _mm256_set1_ps(fx.invQ) };
     }
 
-    LV3_FORCEINLINE void BlockBary8(const BaryInputs8& bi, int32_t x, __m256 py,
-        __m256& b0, __m256& b1, __m256& b2) noexcept
+    // BaryFromFixed (Rasterizer.h) voie par voie, sur 8 E' en int32.
+    //   cvtepi32_ps : arrondi au plus proche (MXCSR), comme float(int64) du scalaire :
+    //                 pour une même valeur entière, le MÊME float.
+    //   add puis mul : deux arrondis, même ordre que le scalaire. JAMAIS de fmadd (contre-exemple B3).
+    [[nodiscard]] LV3_FORCEINLINE __m256 BaryFromFixed8(__m256i e, __m256 ofs, __m256 inv) noexcept
     {
-        // Centres x+i+0.5 : même calcul que C2 (cvtepi32 exact, puis + 0.5).
-        const __m256 px = _mm256_add_ps(_mm256_cvtepi32_ps(_mm256_add_epi32(_mm256_set1_epi32(x), bi.lane)), bi.half);
-        const __m256 w0 = EdgeFunction8(bi.p1x, bi.p1y, bi.p2x, bi.p2y, px, py);
-        const __m256 w1 = EdgeFunction8(bi.p2x, bi.p2y, bi.p0x, bi.p0y, px, py);
-        const __m256 w2 = EdgeFunction8(bi.p0x, bi.p0y, bi.p1x, bi.p1y, px, py);
-        b0 = _mm256_mul_ps(w0, bi.inv);
-        b1 = _mm256_mul_ps(bi.flipped ? w2 : w1, bi.inv);
-        b2 = _mm256_mul_ps(bi.flipped ? w1 : w2, bi.inv);
+        return _mm256_mul_ps(_mm256_add_ps(_mm256_cvtepi32_ps(e), ofs), inv);
     }
 
+    // int64 -> float, 4 voies + 4 voies -> 8 float. AVX2 n'a PAS de vcvtqq2ps (AVX-512DQ).
+    //   1. int64 -> double EXACT par le « nombre magique » 1,5 * 2^52 (valable pour |v| < 2^51) :
+    //        bits(1,5 * 2^52) + v  =  bits(1,5 * 2^52 + v)   (v s'ajoute à la mantisse)
+    //        puis - 1,5 * 2^52  ->  v, exactement.
+    //      Bornes D-a1 : |E'| < 2^58 / 2^8 = 2^50 : la précondition tient toujours.
+    //   2. double -> float : UN arrondi au plus proche.
+    //   Arrondi(exact(v)) = arrondi(v) : MÊME float que float(int64) du scalaire (cvtsi2ss).
+    [[nodiscard]] LV3_FORCEINLINE __m256 Int64x8ToFloat(__m256i lo, __m256i hi) noexcept
+    {
+        const __m256i magicI = _mm256_set1_epi64x(0x4338000000000000LL);      // bits de 1,5 * 2^52
+        const __m256d magicD = _mm256_set1_pd(6755399441055744.0);             // 1,5 * 2^52
+        const __m256d dlo = _mm256_sub_pd(_mm256_castsi256_pd(_mm256_add_epi64(lo, magicI)), magicD);
+        const __m256d dhi = _mm256_sub_pd(_mm256_castsi256_pd(_mm256_add_epi64(hi, magicI)), magicD);
+        return _mm256_set_m128(_mm256_cvtpd_ps(dhi), _mm256_cvtpd_ps(dlo));   // [voies 0..3 | voies 4..7]
+    }
 
 
     // ── VOIES 32 BITS : voies 32 bits : 8 pixels, 4 OU, 1 movemask 
@@ -214,10 +220,11 @@ namespace LV3
     {
         const int32_t bx0 = s.bb.x0, bx1 = s.bb.x1;           // C2b : locales, jamais relues en mémoire
         const int32_t by0 = s.bb.y0, by1 = s.bb.y1;
-        const BaryInputs8 bi = MakeBaryInputs8(s);
+        const bool    flipped = s.flipped;
+        const BaryFx8 bf = MakeBaryFx8(fx);
 
         // ── Une fois par triangle. Les conversions int64 -> int32 sont EXACTES :
-        //    la préparation a prouvé que E', 7 A' et 8 A' tiennent sur la boîte étendue.
+        //    la préparation a prouvé que E' tient sur la boîte étendue.
         const __m256i lane = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
         const __m256i a0 = _mm256_set1_epi32(int32_t(fx.a[0]));
         const __m256i a1 = _mm256_set1_epi32(int32_t(fx.a[1]));
@@ -230,7 +237,6 @@ namespace LV3
         const __m256i step2 = _mm256_slli_epi32(a2, 3);
 
         // 4e « arête » : la BOÎTE. eb = (x1 - 1) - (x + i) >= 0  <=>  la voie est dans la boîte.
-        // Elle entre dans le même OU que les trois autres : plus de comparaison de boîte.
         const __m256i boxRow = _mm256_sub_epi32(_mm256_set1_epi32(bx1 - 1 - bx0), lane);
         const __m256i boxStep = _mm256_set1_epi32(-8);
         const __m256i minus1 = _mm256_set1_epi32(-1);
@@ -241,12 +247,11 @@ namespace LV3
         uint32_t covered = 0;
 
         #if LV3_RASTER_STATS
-            uint32_t blocks = 0;
+             uint32_t blocks = 0;
         #endif
 
         for (int32_t y = by0; y < by1; ++y)
         {
-            const __m256 py = _mm256_set1_ps(float(y) + 0.5f);
             sink.BeginRow(y);
 
             // Début de ligne : E' du pixel x0, plus le décalage de chaque voie.
@@ -261,24 +266,31 @@ namespace LV3
                 const __m256i any = _mm256_or_si256(_mm256_or_si256(e0, e1), _mm256_or_si256(e2, eb));
                 const uint32_t bits = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(any))) & 0xFFu;
 
-                // ── AVANCER : 8 pixels à droite. AVANT le continue : un bloc vide avance aussi.
+                #if LV3_RASTER_STATS
+                    ++blocks;
+                #endif
+                if (bits != 0)
+                {
+                    covered += uint32_t(_mm_popcnt_u32(bits));
+
+                    // Masque de voie complet (0xFFFFFFFF / 0) : any > -1  <=>  any >= 0.
+                    const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
+
+                    // ── D-a1b : BARYCENTRIQUES depuis e0, e1, e2 (AVANT l'avance).
+                    //    Voies non couvertes : valeurs quelconques, jamais écrites (cover).
+                    const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
+                    const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
+                    const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
+                    sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);   // échange défait
+                }
+
+                // ── AVANCER : 8 pixels à droite. APRÈS la lecture des barycentriques.
+                //    Débordement int32 possible APRÈS la dernière voie utile : vpaddd est modulaire
+                //    (aucun comportement indéfini en SIMD), et ces voies sont masquées par eb.
                 e0 = _mm256_add_epi32(e0, step0);
                 e1 = _mm256_add_epi32(e1, step1);
                 e2 = _mm256_add_epi32(e2, step2);
                 eb = _mm256_add_epi32(eb, boxStep);
-
-                #if LV3_RASTER_STATS
-                    ++blocks;
-                #endif
-                if (bits == 0) continue;                      // bloc vide : 4 OU, 1 movemask, 4 additions
-                covered += uint32_t(_mm_popcnt_u32(bits));
-
-                // Masque de voie complet (0xFFFFFFFF / 0) : any > -1  <=>  any >= 0.
-                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
-
-                __m256 b0, b1, b2;
-                BlockBary8(bi, x, py, b0, b1, b2);
-                sink.Block(x, cover, bits, b0, b1, b2);
             }
             r0 += rb0; r1 += rb1; r2 += rb2;                  // une ligne plus bas : 3 additions scalaires
         }
@@ -298,7 +310,8 @@ namespace LV3
     {
         const int32_t bx0 = s.bb.x0, bx1 = s.bb.x1;
         const int32_t by0 = s.bb.y0, by1 = s.bb.y1;
-        const BaryInputs8 bi = MakeBaryInputs8(s);
+        const bool    flipped = s.flipped;
+        const BaryFx8 bf = MakeBaryFx8(fx);
 
         // Décalages par voie, calculés en scalaire int64 : [0 A' 2A' 3A'] et [4A' 5A' 6A' 7A'].
         const int64_t A0 = fx.a[0], A1 = fx.a[1], A2 = fx.a[2];
@@ -313,13 +326,12 @@ namespace LV3
         int64_t r0 = fx.e[0], r1 = fx.e[1], r2 = fx.e[2];
 
         uint32_t covered = 0;
-        #if LV3_RASTER_STATS
-            uint32_t blocks = 0;
-        #endif
+            #if LV3_RASTER_STATS
+                uint32_t blocks = 0;
+            #endif
 
         for (int32_t y = by0; y < by1; ++y)
         {
-            const __m256 py = _mm256_set1_ps(float(y) + 0.5f);
             sink.BeginRow(y);
 
             __m256i e0l = _mm256_add_epi64(_mm256_set1_epi64x(r0), lo0), e0h = _mm256_add_epi64(_mm256_set1_epi64x(r0), hi0);
@@ -339,23 +351,27 @@ namespace LV3
                 const uint32_t box = n >= 8 ? 0xFFu : ((1u << n) - 1u);
                 const uint32_t bits = ~neg & box;
 
+                #if LV3_RASTER_STATS
+                      ++blocks;
+                #endif
+                if (bits != 0)
+                {
+                    covered += uint32_t(_mm_popcnt_u32(bits));
+
+                    // bits -> masque de voie : (bits & bit_i) == bit_i.
+                    const __m256i bv = _mm256_and_si256(_mm256_set1_epi32(int32_t(bits)), laneBit);
+                    const __m256 cover = _mm256_castsi256_ps(_mm256_cmpeq_epi32(bv, laneBit));
+
+                    // D-a1b : mêmes barycentriques que la voie 32 bits, conversion int64 en deux temps.
+                    const __m256 w0 = _mm256_mul_ps(_mm256_add_ps(Int64x8ToFloat(e0l, e0h), bf.o0), bf.inv);
+                    const __m256 w1 = _mm256_mul_ps(_mm256_add_ps(Int64x8ToFloat(e1l, e1h), bf.o1), bf.inv);
+                    const __m256 w2 = _mm256_mul_ps(_mm256_add_ps(Int64x8ToFloat(e2l, e2h), bf.o2), bf.inv);
+                    sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+                }
+
                 e0l = _mm256_add_epi64(e0l, st0); e0h = _mm256_add_epi64(e0h, st0);
                 e1l = _mm256_add_epi64(e1l, st1); e1h = _mm256_add_epi64(e1h, st1);
                 e2l = _mm256_add_epi64(e2l, st2); e2h = _mm256_add_epi64(e2h, st2);
-
-                #if LV3_RASTER_STATS
-                    ++blocks;
-                #endif
-                if (bits == 0) continue;
-                covered += uint32_t(_mm_popcnt_u32(bits));
-
-                // bits -> masque de voie : (bits & bit_i) == bit_i.
-                const __m256i bv = _mm256_and_si256(_mm256_set1_epi32(int32_t(bits)), laneBit);
-                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpeq_epi32(bv, laneBit));
-
-                __m256 b0, b1, b2;
-                BlockBary8(bi, x, py, b0, b1, b2);
-                sink.Block(x, cover, bits, b0, b1, b2);
             }
             r0 += fx.b[0]; r1 += fx.b[1]; r2 += fx.b[2];
         }

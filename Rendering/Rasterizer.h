@@ -256,9 +256,25 @@ namespace LV3
         int64_t e[3];      // E' au premier pixel de la boîte (bb.x0, bb.y0)
         int64_t a[3];      // pas d'UN pixel vers la droite (A' = Ya - Yb)
         int64_t b[3];      // pas d'UNE ligne vers le bas   (B' = Xb - Xa)
+
+        // D-a1b : ce que le décalage >> 8 a retiré, pour retrouver E EXACT depuis E' :
+        //     E = 256 E' + c,   c = r - bias  dans [0, 256]   ->   E / 256 = E' + ofs,  ofs = c / 256
+        float   ofs[3];    // c / 256 : EXACT (c entier <= 256, 2^-8 puissance de 2)
+        float   invQ;      // 256 / aire = s.invArea * 2^-8 : EXACT (division par une puissance de 2)
         bool    wide;      // true : E' sort de int32 sur la boîte étendue -> voies AVX2 de 64 bits
         // (rempli par PrepareLanesFx, juste avant les voies AVX2)
     };
+
+    // D-a1b : barycentrique d'UNE arête tirée de son E' ENTIER.
+    //     b = E / aire = (E' + c/256) * (256 / aire)
+    //  float(e) : conversion entier -> float ARRONDIE AU PLUS PROCHE (cvtsi2ss), exacte si |e| < 2^24.
+    //  + ofs     : exacte si |E| < 2^24 (E / 256 a 8 bits de fraction), sinon UN arrondi.
+    //  * invQ    : UN arrondi.
+    //  Pendant AVX2 : BaryFromFixed8 (PixelStage8.h), mêmes opérations, même ordre : bits identiques.
+    [[nodiscard]] LV3_FORCEINLINE float BaryFromFixed(int64_t e, float ofs, float invQ) noexcept
+    {
+        return (float(e) + ofs) * invQ;
+    }
 
     // Les deux largeurs de voie AVX2. Auto = choix de la préparation (fx.wide).
     // Force64 n'existe que pour la TNR : int32 et int64 doivent donner les MÊMES pixels.
@@ -333,27 +349,34 @@ namespace LV3
         s.bb = bb;
 
         // 4. 1 / aire, en px² : float(area) arrondi UNE fois, * 2^-16 exact, puis une vraie division.
+        //    D-a1b : invQ = 256 / aire, l'échelle des E' : * 2^-8, exact (puissance de 2).
         s.invArea = 1.0f / (float(area) * kSubpixelArea);
+        fx.invQ = s.invArea * kSubpixelInv;
 
         // 5. LES TROIS ARÊTES, ordre de C1 : (p1, p2), (p2, p0), (p0, p1).
         //    Centre du premier pixel de la boîte : P = (256 x0 + 128, 256 y0 + 128).
         const int64_t px = (int64_t(bb.x0) << kSubpixelBits) + 128;
         const int64_t py = (int64_t(bb.y0) << kSubpixelBits) + 128;
         const auto Edge = [&](int64_t xa, int64_t ya, int64_t xb, int64_t yb, int k) noexcept -> bool
-        {
-            const int64_t A = ya - yb;                        // pas d'un pixel en x
-            const int64_t B = xb - xa;                        // pas d'une ligne en y
-            // Top-left, en entiers : arête b - a = (B, -A). Même règle que IsTopLeft :
-            //   haute = (dy == 0 && dx < 0) ; gauche = (dy > 0)
-            const bool tl = (A == 0 && B < 0) || (A < 0);
-            // E au centre P : la forme ANTISYMÉTRIQUE de C2, en entiers (exacte).
-            const int64_t E = (xa - px) * (yb - py) - (ya - py) * (xb - px);
-            // E' = plancher((E + bias) / 256) : >> ARITHMÉTIQUE (C++20), JAMAIS / 256 (contre-exemple).
-            fx.e[k] = (E + (tl ? 0 : -1)) >> kSubpixelBits;
-            fx.a[k] = A;
-            fx.b[k] = B;
-            return tl;
-        };
+            {
+                const int64_t A = ya - yb;                        // pas d'un pixel en x
+                const int64_t B = xb - xa;                        // pas d'une ligne en y
+                // Top-left, en entiers : arête b - a = (B, -A). Même règle que IsTopLeft :
+                //   haute = (dy == 0 && dx < 0) ; gauche = (dy > 0)
+                const bool tl = (A == 0 && B < 0) || (A < 0);
+                // E au centre P : la forme ANTISYMÉTRIQUE de C2, en entiers (exacte).
+                const int64_t E = (xa - px) * (yb - py) - (ya - py) * (xb - px);
+                // E' = plancher((E + bias) / 256) : >> ARITHMÉTIQUE (C++20), JAMAIS / 256 (contre-exemple).
+                const int64_t bias = tl ? 0 : -1;
+                const int64_t eb = E + bias;                      // = 256 E' + r,  0 <= r < 256
+                fx.e[k] = eb >> kSubpixelBits;
+                // D-a1b : le reste r (8 bits bas, & 255 : exact en complément à deux, négatifs compris).
+                //   E = 256 E' + r - bias  ->  c = r - bias = r + (tl ? 0 : 1), dans [0, 256].
+                fx.ofs[k] = float(int32_t(eb & 255) - int32_t(bias)) * kSubpixelInv;
+                fx.a[k] = A;
+                fx.b[k] = B;
+                return tl;
+            };
 
         s.tl0 = Edge(X1, Y1, X2, Y2, 0);
         s.tl1 = Edge(X2, Y2, X0, Y0, 1);
@@ -375,21 +398,19 @@ namespace LV3
         const int64_t dxe = int64_t(s.bb.x1) + 15 - s.bb.x0;
         const int64_t dye = int64_t(s.bb.y1) - s.bb.y0;
         bool wide = false;
-   
+
         for (int k = 0; k < 3; ++k)
         {
             const int64_t ax = fx.a[k] * dxe, by = fx.b[k] * dye;
             const int64_t lo = fx.e[k] + (ax < 0 ? ax : 0) + (by < 0 ? by : 0);    // coin de rejet
             const int64_t hi = fx.e[k] + (ax > 0 ? ax : 0) + (by > 0 ? by : 0);    // coin d'acceptation
-        
-            // ACCEPTATION TRIVIALE : l'arête ne coupe pas la boîte, tous ses pixels sont de son
-            // bon côté. Remplacée par la constante 0 (>= 0 : dedans). Sans cela, une longue arête
-            // lointaine (sommet clippé au near) forcerait les voies 64 bits. Sans branche (cmov).
-            const bool accept = (lo >= 0);
-            fx.e[k] = accept ? 0 : fx.e[k];
-            fx.a[k] = accept ? 0 : fx.a[k];
-            fx.b[k] = accept ? 0 : fx.b[k];
-            wide |= !accept & ((lo < INT32_MIN) | (hi > INT32_MAX));
+
+            // D-a1b : PLUS d'acceptation triviale (arête remplacée par 0). Les voies portent
+            // désormais les barycentriques : une arête mise à 0 donnerait b = ofs * invQ, faux
+            // (contre-exemple 1). Une arête acceptée a lo >= 0 : ses vraies valeurs passent le
+            // test de couverture sans le changer. Seul reste le choix de la largeur, sur les
+            // VRAIES valeurs (scène V3 : 7 triangles en 64 bits sur 36 262 en AVX2).
+            wide |= (lo < INT32_MIN) | (hi > INT32_MAX);
         }
 
         fx.wide = wide;
@@ -407,10 +428,11 @@ namespace LV3
         const int64_t a0 = fx.a[0], a1 = fx.a[1], a2 = fx.a[2];
         const int64_t b0 = fx.b[0], b1 = fx.b[1], b2 = fx.b[2];
         int64_t r0 = fx.e[0], r1 = fx.e[1], r2 = fx.e[2];     // E' au début de la ligne
+        const float o0 = fx.ofs[0], o1 = fx.ofs[1], o2 = fx.ofs[2], inv = fx.invQ;
+        const bool  flipped = s.flipped;
 
         for (int32_t y = s.bb.y0; y < s.bb.y1; ++y)
         {
-            const float py = float(y) + 0.5f;
             sink.BeginRow(y);
             int64_t e0 = r0, e1 = r1, e2 = r2;
 
@@ -419,13 +441,15 @@ namespace LV3
                 if ((e0 | e1 | e2) >= 0)                      // couvert : décision ENTIÈRE, exacte
                 {
                     ++covered;
-                    const float px = float(x) + 0.5f;
-                    const float w0 = EdgeFunction(s.p1, s.p2, px, py);
-                    const float w1 = EdgeFunction(s.p2, s.p0, px, py);
-                    const float w2 = EdgeFunction(s.p0, s.p1, px, py);
-                    const BarycentricWeights bary = s.flipped
-                                ? BarycentricWeights{ w0 * s.invArea, w2 * s.invArea, w1 * s.invArea }
-                                : BarycentricWeights{ w0 * s.invArea, w1 * s.invArea, w2 * s.invArea };
+                    // D-a1b : barycentriques tirées des MÊMES entiers que la décision.
+                    // Avant (D-a1) : 3 EdgeFunction flottantes (21 opérations) refaites ici.
+                    const float w0 = BaryFromFixed(e0, o0, inv);
+                    const float w1 = BaryFromFixed(e1, o1, inv);
+                    const float w2 = BaryFromFixed(e2, o2, inv);
+                    // Échange défait : w1 et w2 dans l'ordre du triangle d'origine.
+                    const BarycentricWeights bary = flipped
+                        ? BarycentricWeights{ w0, w2, w1 }
+                        : BarycentricWeights{ w0, w1, w2 };
                     sink.Pixel(x, bary);
                 }
                 e0 += a0; e1 += a1; e2 += a2;                 // un pixel à droite : 3 additions
@@ -456,8 +480,9 @@ namespace LV3
         LV3_FORCEINLINE void AblationConsumeSetupFx(const TriangleSetup& s, const EdgeSetupFx& fx) noexcept
         {
             AblationConsumeSetup(s);
-            uint64_t h = 0;
-            for (int k = 0; k < 3; ++k) h += uint64_t(fx.e[k]) ^ uint64_t(fx.a[k]) ^ uint64_t(fx.b[k]);
+            uint64_t h = std::bit_cast<uint32_t>(fx.invQ);
+            for (int k = 0; k < 3; ++k)
+                h += (uint64_t(fx.e[k]) ^ uint64_t(fx.a[k]) ^ uint64_t(fx.b[k])) + std::bit_cast<uint32_t>(fx.ofs[k]);
             g_ablationSink = g_ablationSink + uint32_t(h ^ (h >> 32));
         }
 
