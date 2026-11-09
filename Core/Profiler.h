@@ -139,12 +139,25 @@ namespace LV3
 		TrisFixedWide,
 		TrisFixedGuard,
 
+		// ── D-a1c (RASTER_STATS seulement) : classes de LARGEUR de boite des triangles
+		//    dessines par le NOYAU (C3 exclu : ses boites 1 x 1 ne l'appellent pas).
+		//    La largeur choisit le chemin (scalaire < kSimdMinBoxWidth <= AVX2) et le nombre de blocs par ligne.
+		//    Invariant : Σ TrisBoxW* == triangles dont la preparation a reussi dans le noyau.
+		//    ORDRE CONTIGU OBLIGATOIRE : RecordBoxClass indexe par (TrisBoxW1 + classe).
+		TrisBoxW1, TrisBoxW2, TrisBoxW3to4, TrisBoxW5to8, TrisBoxW9to16, TrisBoxW17plus,
+		//    TrisSmallFloat : triangles AVX2 rendus par les blocs flottants de C2 (W* > 0).
+		//                     Sous-ensemble de TrisSimd8 ; 0 si LV3_RASTER_SMALL_FLOAT = 0.
+		TrisSmallFloat,
+
 		Count
 	};
 
+	static_assert(uint8_t(EProfCounter::TrisBoxW17plus) == uint8_t(EProfCounter::TrisBoxW1) + 5,
+		"D-a1c : TrisBoxW1 .. TrisBoxW17plus doivent rester contigus (RecordBoxClass indexe par classe)");
+
 	static_assert(uint8_t(EProfCounter::InstPx16plus) == uint8_t(EProfCounter::InstPx0to1) + 3
 		&& uint8_t(EProfCounter::FacesPx16plus) == uint8_t(EProfCounter::FacesPx0to1) + 3,
-	static_assert(uint8_t(EProfCounter::InstPx16plus) == uint8_t(EProfCounter::InstPx0to1) + 3;
+		"RenderSystem indexe les tranches par base + b : ordre contigu obligatoire");
 
 	inline constexpr size_t kProfZoneCount = static_cast<size_t>(EProfZone::Count);
 	// Zones PRINCIPALES : [0, kProfMainZoneCount). Seules elles entrent dans RESTE.
@@ -179,7 +192,9 @@ namespace LV3
 		"PixelsDepthPassed", "FbDbAlias4K",
 		"TrisSimd8", "LaneBlocks8",
 		"TrisPix1",
-		"TrisFixedWide", "TrisFixedGuard"
+		"TrisFixedWide", "TrisFixedGuard",
+		"TrisBoxW1", "TrisBoxW2", "TrisBoxW3to4", "TrisBoxW5to8", "TrisBoxW9to16", "TrisBoxW17plus",
+		"TrisSmallFloat"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

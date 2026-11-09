@@ -325,6 +325,19 @@ namespace LV3
         }
     };
 
+    // ── D-a1c : classe de LARGEUR de boîte d'un triangle dessiné par le noyau (RASTER_STATS).
+    //    Classes : 1 | 2 | 3-4 | 5-8 | 9-16 | 17+. Sans RASTER_STATS, l'argument disparaît.
+    #if LV3_RASTER_STATS
+        LV3_FORCEINLINE void RecordBoxClass(int32_t w) noexcept
+        {
+            const uint32_t k = w <= 1 ? 0u : w == 2 ? 1u : w <= 4 ? 2u : w <= 8 ? 3u : w <= 16 ? 4u : 5u;
+            LV3_PROF_COUNT(EProfCounter(uint32_t(EProfCounter::TrisBoxW1) + k), 1);
+        }
+        #define LV3_RASTER_BOXCLASS(w) ::LV3::RecordBoxClass(w)
+    #else
+        #define LV3_RASTER_BOXCLASS(w) ((void)0)
+    #endif
+
     // ── C2 : le chemin AVX2 d'un triangle, dans SA PROPRE fonction (jamais inline).
     //    Pourquoi : le prologue d'une fonction sauvegarde TOUS les registres xmm6-15
     //    qu'elle utilise, quel que soit le chemin pris (ABI Windows x64). Inliné dans
@@ -371,10 +384,11 @@ namespace LV3
         return covered;
     }
 
-    // ── D-a1 : le noyau en virgule fixe. MÊME structure que le noyau C2 (ablation,
-    //    aiguillage par largeur de boîte, enregistrement), seules la préparation et
-    //    les boucles changent. kLanes = Force64 : TNR uniquement (int32 == int64).
-    template<class Shader, int32_t kMinSimdWidth, EFixedLanes kLanes>
+    //    D-a1c : kSmallPx = W* (pixels). Un triangle AVX2 PETIT (IsSmallFloatTri) prend les blocs
+    //    flottants de C2 sur le TriangleSetup de la préparation entière : identique au bit à celui de
+    //    SetupTriangle pour un petit triangle (sommets, échange, boîte, top-left, 1/aire exacts).
+    //    Force64 (TNR des voies 64 bits) coupe l'aiguillage : chaque triangle doit y passer par Fx64.
+    template<class Shader, int32_t kMinSimdWidth, EFixedLanes kLanes, int32_t kSmallPx>
     LV3_FORCEINLINE void RasterizeTriangleFx(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
     {
         TriangleSetup s;
@@ -387,7 +401,8 @@ namespace LV3
             "RasterizeTriangleFx : boite hors du framebuffer (viewport plus grand que la cible ?)");
 
         constexpr bool kForce64 = (kLanes == EFixedLanes::Force64);
-   
+        constexpr int32_t kSmall = kForce64 ? 0 : kSmallPx;
+
         #if LV3_ABLATION_PIXELS == 1
             AblationConsumeSetupFx(s, fx);                             // palier S : aucun pixel
         #elif LV3_ABLATION_PIXELS == 2
@@ -396,10 +411,17 @@ namespace LV3
             // PrepareLanesFx compte dans E (comme dans le moteur : elle précède les voies).
             if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)
             {
-                PrepareLanesFx(s, fx);
                 AblationEdgeSink8 edges;
-                g_ablationSink = g_ablationSink + ((kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, edges)
-                    : ForEachCoveredBlock8Fx32(s, fx, edges));
+                if (IsSmallFloatTri<kSmall>(fx))                        // D-a1c : MÊME aiguillage que le moteur
+                {
+                    g_ablationSink = g_ablationSink + ForEachCoveredBlock8(s, edges);
+                }
+                else
+                {
+                    PrepareLanesFx(s, fx);
+                    g_ablationSink = g_ablationSink + ((kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, edges)
+                        : ForEachCoveredBlock8Fx32(s, fx, edges));
+                }
             }
             else
             {
@@ -408,10 +430,25 @@ namespace LV3
             }
         #else
             uint32_t covered;
+            LV3_RASTER_BOXCLASS(s.bb.x1 - s.bb.x0);                    // D-a1c : classe de largeur (RASTER_STATS)
             if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)                    // boîte assez large : AVX2
+            {
+                if (IsSmallFloatTri<kSmall>(fx))                       // D-a1c : petit -> blocs flottants C2
+                {
+                    // Les blocs flottants lisent s.p0..p2, les sommets REÇUS : ils doivent être sur la
+                    // grille (contrat de l'étage sommets), sinon pixels différents de Giesen (contre-exemple 4).
+                    LV3_ASSERT(IsOnSubpixelGrid(s.p0) && IsOnSubpixelGrid(s.p1) && IsOnSubpixelGrid(s.p2)
+                        && "D-a1c : sommets non accroches au 1/256 px (contrat de l'etage sommets)");
+                    covered = RasterizeBlocks8<Shader>(s, ctx);        // hors ligne, comme en C2
+                #if LV3_RASTER_STATS
+                    LV3_PROF_COUNT(EProfCounter::TrisSmallFloat, 1);
+                #endif
+            }
+            else
             {
                 covered = RasterizeBlocks8Fx<Shader, kForce64>(s, fx, ctx);    // hors ligne : prologue inchangé
             }
+        }
             else                                                       // boîte étroite : scalaire int64
             {
                 ShaderSink<Shader> sink{ ctx };
@@ -433,15 +470,18 @@ namespace LV3
     //    Défaut kSimdMinBoxWidth ; les TNR forcent kScalarOnly (= C1) ou kSimdAlways.
     //    D-a1 : sous LV3_RASTER_FIXED, tout triangle dans la garde prend RasterizeTriangleFx ;
     //    le corps flottant ci-dessous ne sert plus qu'aux sommets hors garde (TrisFixedGuard).
-    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth, EFixedLanes kLanes = EFixedLanes::Auto>
+   //    D-a1c : kSmallPx = W* (défaut kSmallFloatPx, config.h section 13) ; les TNR forcent
+    //    kSmallFloatOff (Giesen pour tous, la référence) ou une valeur > 16 (contre-exemple).
+    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth, EFixedLanes kLanes = EFixedLanes::Auto,
+        int32_t kSmallPx = kSmallFloatPx>
     void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
     {
         #if LV3_RASTER_FIXED
-                if (InFixedGuard(v0, v1, v2))
-                {
-                    RasterizeTriangleFx<Shader, kMinSimdWidth, kLanes>(v0, v1, v2, vp, ctx);
-                    return;
-                }
+            if (InFixedGuard(v0, v1, v2))
+            {
+                RasterizeTriangleFx<Shader, kMinSimdWidth, kLanes, kSmallPx>(v0, v1, v2, vp, ctx);
+               return;
+            }
             #if LV3_RASTER_STATS
                     LV3_PROF_COUNT(EProfCounter::TrisFixedGuard, 1);           // repli flottant C2
             #endif
@@ -471,8 +511,10 @@ namespace LV3
                 g_ablationSink = g_ablationSink + ForEachCoveredPixel(s, edges);
             }
         #else
-            uint32_t covered;
-            if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)                    // C2 : boîte assez large
+        uint32_t covered;
+            LV3_RASTER_BOXCLASS(s.bb.x1 - s.bb.x0);                    // D-a1c : classe de largeur (RASTER_STATS)
+            
+            if (s.bb.x1 - s.bb.x0 >= kMinSimdWidth)
             {
                 covered = RasterizeBlocks8<Shader>(s, ctx);            // hors ligne : prologue du noyau inchangé
             }
@@ -480,10 +522,12 @@ namespace LV3
             {
                 ShaderSink<Shader> sink{ ctx };                        // COPIE du contexte (voir ShaderSink)
                 covered = ForEachCoveredPixel(s, sink);
+            
             #if LV3_RASTER_STATS
-                        ctx.depthPassed += sink.depthPassed;
+                ctx.depthPassed += sink.depthPassed;
             #endif
             }
+            
             LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
             (void)covered;
         #endif

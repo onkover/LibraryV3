@@ -38,6 +38,19 @@ namespace LV3
     inline constexpr int32_t kScalarOnly = INT32_MAX;   // force le chemin C1 (scalaire)
     inline constexpr int32_t kSimdAlways = 0;           // force le chemin C2 (AVX2), même pour 1 pixel
 
+    // ── D-a1c : W* effectif (pixels). Un triangle AVX2 dont l'étendue non rognée est < W*
+    //    en x ET en y prend les blocs FLOTTANTS de C2. 0 : Giesen pour tous (D-a1b).
+    //    Sans virgule fixe (LV3_RASTER_FIXED = 0), tout est déjà flottant : sans objet.
+    //    Plafond 16 px : vérifié par config.h (exactitude, Lot D-a1c étape 2).
+    #if LV3_RASTER_FIXED
+        inline constexpr int32_t kSmallFloatPx = LV3_RASTER_SMALL_FLOAT;
+    #else
+        inline constexpr int32_t kSmallFloatPx = 0;
+    #endif
+        inline constexpr int32_t kSmallFloatOff = 0;        // valeur de TEST : Giesen pour tous (référence TNR)
+
+
+
     // bool -> masque de voie : vrai = 0xFFFFFFFF sur les 8 voies, faux = 0.
     [[nodiscard]] LV3_FORCEINLINE __m256 BoolMask8(bool b) noexcept
     {

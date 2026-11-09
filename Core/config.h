@@ -259,9 +259,19 @@ namespace LV3
 #endif
 
 
+// 13. PETITS TRIANGLES SUR LES BLOCS FLOTTANTS (jalon D, lot D-a1c). Commutateur de MESURE A / B.
+//     Valeur = W* en pixels ; 0 = desactive (Giesen pour tous les triangles, comme D-a1b).
+//     Sous LV3_RASTER_FIXED = 1, un triangle qui prend le chemin AVX2 (boite >= kSimdMinBoxWidth)
+//     ET dont l'etendue NON ROGNEE des sommets est < W* en x ET en y est dessine par les blocs
+//     flottants de C2 (RasterizeBlocks8) au lieu des blocs Giesen (RasterizeBlocks8Fx).
+//     La preparation reste ENTIERE (SetupTriangleFx) : seule la boucle de blocs change.
+//     Image IDENTIQUE au bit pres (couleur ET profondeur) tant que W* <= 16 : sur la grille 1/256,
+//     sous 16 px, les produits des aretes tiennent sur 24 bits (preuve : Lot D-a1c, etape 2).
+//     Aucune reference TNR ne change. Declare dans l'en-tete CSV (smallfp=).
+#ifndef LV3_RASTER_SMALL_FLOAT
+	#define LV3_RASTER_SMALL_FLOAT 8
+#endif
 
-// OLD ????
-//// Anciens commutateurs par chantier : refuses, pour qu'aucune propriete de projet oubliee ne fabrique un etat mixte jamais teste.
-//#if defined(LV3_SIMD_PIXELS) || defined(LV3_PIX1_FASTPATH)
-//	#error "LV3_SIMD_PIXELS et LV3_PIX1_FASTPATH sont remplaces par LV3_SIMD (config.h, section 11)"
-//#endif
+#if LV3_RASTER_SMALL_FLOAT < 0 || LV3_RASTER_SMALL_FLOAT > 16
+	#error "LV3_RASTER_SMALL_FLOAT : 0 (desactive) a 16 px. Au-dela, le flottant n'est plus exact (lot D-a1c)"
+#endif

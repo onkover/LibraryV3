@@ -13,6 +13,7 @@
 #include "../Core/Compiler.h"
 #include "../Maths/Vectorlib.h"
 #include <immintrin.h>      // D-a1 (Giesen méthod) : _mm_round_ss (accrochage sous-pixel)
+#include <cmath>            // D-a1d : std::fabs (domaine du nombre magique)
 
 
 namespace LV3
@@ -33,18 +34,44 @@ namespace LV3
     // peut pas déborder (marge x 32). Au-delà, le triangle garde le chemin flottant C2
     // (compteur TrisFixedGuard). Aucune scène de banc ne l'atteint : il faudrait un sommet
     // à 270 m de l'axe de visée, posé sur le plan near (0,1 m).
-	inline constexpr float   kFixedGuardPx = 1048576.0f;    // limite de la conversion float -> int32_t * 256 (D-a1), soit  2^20 pixels 
+    inline constexpr float   kFixedGuardPx = 1048576.0f;    // limite de la conversion float -> int32_t * 256 (D-a1), soit  2^20 pixels
+
+    // ════════════════════════════════════════════════════════════
+    //  D-a1d : ACCROCHAGE PAR NOMBRE MAGIQUE
+    //  Pour |v| < 2^14, v + 1,5 x 2^15 tombe dans [2^15, 2^16) : dans cet intervalle, deux float
+    //  voisins sont espaces de 2^(15-23) = 2^-8 = 1/256 px. L'ADDITION arrondit donc v au multiple
+    //  de 1/256 le plus proche (au pair : mode MXCSR par defaut) ; la SOUSTRACTION est exacte.
+    //  2 additions au lieu de mul + round (2 uops) + mul.
+    // ════════════════════════════════════════════════════════════
+    inline constexpr float kSnapMagic = 49152.0f;           // 1,5 x 2^15
+    inline constexpr float kSnapMagicRange = 16384.0f;      // 2^14 : domaine |v| < 2^14 (borne exclue)
+
+    // /fp:fast (ou -ffast-math) aurait le droit de simplifier (v + M) - M en v : l'accrochage
+    // disparaitrait sans bruit. LV3 compile en /fp:precise (LV3.Common.props) : on le verrouille.
+    #if defined(_M_FP_FAST) || defined(__FAST_MATH__)
+       #error "D-a1d : /fp:fast interdit, (v + kSnapMagic) - kSnapMagic serait simplifie en v"
+    #endif
 
     // v -> multiple de 1/256 le plus proche (au pair en cas d'égalité), EN FLOAT.
-    //   v * 256  : exact (puissance de 2)
-    //   round    : entier le plus proche, mode EXPLICITE (indépendant de MXCSR)
-    //   * 1/256  : exact
-    // Idempotent : Snap(Snap(v)) == Snap(v). NaN reste NaN, l'infini reste l'infini.
+    //   |v| < 2^14 : nombre magique, MEME formule que ProjectPositions8 (etape 5b) ;
+    //                scalaire et AVX2 rendent le meme float au bit pres, +0 compris.
+    //   sinon      : v * 256 (exact) -> round explicite -> * 1/256 (exact). Chemin clippe
+    //                seulement (sommets hors ecran, jusqu'a la garde 2^20 px).
+    // Ne rend JAMAIS -0 : un negatif minuscule (-1/512 <= v <= -0) donne +0 (ToFixed : 0 dans les deux cas).
+    // Idempotent. NaN reste NaN (comparaison fausse -> branche round). Exige MXCSR au plus proche.
     // Au-delà de |v| = 2^15, tout float est déjà un multiple de 1/256 : Snap ne change rien.
     [[nodiscard]] LV3_FORCEINLINE float SnapToSubpixel(float v) noexcept
     {
+        if (std::fabs(v) < kSnapMagicRange)
+        {
+            //   v            =  123.4567032   (float, ulp 2^-17)
+            //   v + 49152    =  49275.45703125  <- la somme ne peut garder que des multiples de 1/256 : ARRONDI
+            //   ... - 49152  =  123.45703125    <- EXACT : le resultat tient en 22 bits significatifs
+            const __m128 m = _mm_set_ss(kSnapMagic);
+            return _mm_cvtss_f32(_mm_sub_ss(_mm_add_ss(_mm_set_ss(v), m), m));   // arrondi, puis exact
+        }
         const __m128 s = _mm_mul_ss(_mm_set_ss(v), _mm_set_ss(kSubpixelScale));
-        const __m128 r = _mm_round_ss(s, s, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC); // // round to nearest, and suppress exceptions
+        const __m128 r = _mm_round_ss(s, s, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
         return _mm_cvtss_f32(_mm_mul_ss(r, _mm_set_ss(kSubpixelInv)));
     }
 

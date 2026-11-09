@@ -261,8 +261,11 @@ namespace LV3
         //     E = 256 E' + c,   c = r - bias  dans [0, 256]   ->   E / 256 = E' + ofs,  ofs = c / 256
         float   ofs[3];    // c / 256 : EXACT (c entier <= 256, 2^-8 puissance de 2)
         float   invQ;      // 256 / aire = s.invArea * 2^-8 : EXACT (division par une puissance de 2)
-        bool    wide;      // true : E' sort de int32 sur la boîte étendue -> voies AVX2 de 64 bits
-        // (rempli par PrepareLanesFx, juste avant les voies AVX2)
+
+        // D-a1c : étendue NON ROGNÉE des sommets accrochés, en 1/256 px (max - min). Décide si le
+        // flottant de C2 est exact (< 16 px) et assez rapide (< W*). |X| < 2^28 : tient dans int32.
+        int32_t spanX, spanY;
+        bool    wide;      // true : E' sort de int32 sur la boîte étendue -> voies AVX2 de 64 bits       
     };
 
     // D-a1b : barycentrique d'UNE arête tirée de son E' ENTIER.
@@ -276,8 +279,30 @@ namespace LV3
         return (float(e) + ofs) * invQ;
     }
 
-    // Les deux largeurs de voie AVX2. Auto = choix de la préparation (fx.wide).
-    // Force64 n'existe que pour la TNR : int32 et int64 doivent donner les MÊMES pixels.
+    // ── D-a1c : le triangle est-il PETIT au sens du lot ? Étendue non rognée < W* en x ET en y.
+    //    kSmallPx <= 16 : les blocs flottants de C2 donnent alors EXACTEMENT les pixels, les
+    //    barycentriques et les profondeurs de Giesen (Lot D-a1c, étape 2). kSmallPx > 16 n'existe
+    //    que dans la TNR, pour PROUVER qu'elle voit une différence (contre-exemple).
+    //    kSmallPx = 0 : toujours faux, la condition disparaît à la compilation.
+    template<int32_t kSmallPx>
+    [[nodiscard]] LV3_FORCEINLINE bool IsSmallFloatTri(const EdgeSetupFx& fx) noexcept
+    {
+        if constexpr (kSmallPx <= 0) { (void)fx; return false; }
+        else
+        {
+            constexpr int32_t lim = kSmallPx << kSubpixelBits;    // W* en 1/256 px
+            return (fx.spanX < lim) & (fx.spanY < lim);           // & : sans branche (les deux sont calculés)
+        }
+    }
+
+    // Debug (assertion D-a1c) : le sommet est-il sur la grille des 1/256 px ? Snap idempotent.
+    [[nodiscard]] LV3_FORCEINLINE bool IsOnSubpixelGrid(const Vec2f& p) noexcept
+    {
+        return SnapToSubpixel(p.x) == p.x && SnapToSubpixel(p.y) == p.y;
+    }
+
+    // Les deux largeurs de voie AVX2. Auto = choix de la préparation (fx.wide).    
+    //   // Force64 n'existe que pour la TNR : int32 et int64 doivent donner les MÊMES pixels.
     enum class EFixedLanes : uint8_t { Auto, Force64 };
 
     // Les 3 sommets sont-ils dans la garde ? NaN -> false (comparaison ordonnée).
@@ -339,6 +364,10 @@ namespace LV3
         const auto Max = [](int64_t a, int64_t b) noexcept { return a < b ? b : a; };
         const int64_t minX = Min(X0, Min(X1, X2)), maxX = Max(X0, Max(X1, X2));
         const int64_t minY = Min(Y0, Min(Y1, Y2)), maxY = Max(Y0, Max(Y1, Y2));
+
+        fx.spanX = int32_t(maxX - minX);                      // D-a1c : 2 soustractions, valeurs déjà là
+        fx.spanY = int32_t(maxY - minY);
+
         PixelBox bb{ int32_t((minX + 127) >> kSubpixelBits), 
                      int32_t((minY + 127) >> kSubpixelBits),
                      int32_t((maxX - 128) >> kSubpixelBits) + 1,
