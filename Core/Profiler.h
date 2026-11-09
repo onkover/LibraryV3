@@ -144,7 +144,7 @@ namespace LV3
 
 	static_assert(uint8_t(EProfCounter::InstPx16plus) == uint8_t(EProfCounter::InstPx0to1) + 3
 		&& uint8_t(EProfCounter::FacesPx16plus) == uint8_t(EProfCounter::FacesPx0to1) + 3,
-		"RenderSystem indexe les tranches par base + b : ordre contigu obligatoire");
+	static_assert(uint8_t(EProfCounter::InstPx16plus) == uint8_t(EProfCounter::InstPx0to1) + 3;
 
 	inline constexpr size_t kProfZoneCount = static_cast<size_t>(EProfZone::Count);
 	// Zones PRINCIPALES : [0, kProfMainZoneCount). Seules elles entrent dans RESTE.
