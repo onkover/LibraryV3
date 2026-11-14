@@ -83,6 +83,8 @@ namespace LV3
         [[nodiscard]] int32_t Width()  const { return m_Width; }
         [[nodiscard]] int32_t Height() const { return m_Height; }
         [[nodiscard]] void* frameBuffer() const { return m_Pixels; }
+        [[nodiscard]] int32_t PitchBytes() const { return m_Pitch; }   // D-a2 : pas d'une ligne (ShaderSink8::NextRow)
+
 
 
     private:

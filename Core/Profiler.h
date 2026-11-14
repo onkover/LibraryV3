@@ -149,6 +149,16 @@ namespace LV3
 		//                     Sous-ensemble de TrisSimd8 ; 0 si LV3_RASTER_SMALL_FLOAT = 0.
 		TrisSmallFloat,
 
+		// ── D-a2 (RASTER_STATS seulement) : hierarchie de tuiles 8 x 8 (LV3_RASTER_TILES > 0).
+		//    TrisTiled      : triangles parcourus par tuiles. Sous-ensemble de TrisSimd8.
+		//    Tiles8Rejected : tuiles de la boite rejetees d'un coup (une arete dont le max < 0).
+		//    Tiles8Full     : tuiles pleines (les trois minimums >= 0, entierement dans la boite).
+		//    Tiles8Partial  : tuiles descendues bloc par bloc.
+		//    BlocksFull8    : blocs ecrits SANS test (8 par tuile pleine). Hors de LaneBlocks8, qui ne
+		//                     compte plus que les blocs TESTES. Invariant par triangle tuile :
+		//                     Tiles8Rejected + Tiles8Full + Tiles8Partial = tuiles de la grille dans la boite.
+		TrisTiled, Tiles8Rejected, Tiles8Full, Tiles8Partial, BlocksFull8,
+
 		Count
 	};
 
@@ -194,7 +204,8 @@ namespace LV3
 		"TrisPix1",
 		"TrisFixedWide", "TrisFixedGuard",
 		"TrisBoxW1", "TrisBoxW2", "TrisBoxW3to4", "TrisBoxW5to8", "TrisBoxW9to16", "TrisBoxW17plus",
-		"TrisSmallFloat"
+		"TrisSmallFloat",
+		"TrisTiled", "Tiles8Rejected", "Tiles8Full", "Tiles8Partial", "BlocksFull8"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

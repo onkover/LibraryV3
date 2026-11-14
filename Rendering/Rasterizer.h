@@ -445,6 +445,136 @@ namespace LV3
         fx.wide = wide;
     }
 
+    // ════════════════════════════════════════════════════════════
+    //  D-a2 : HIÉRARCHIE D'ABRASH POSÉE SUR GIESEN (tuiles de 8 x 8 pixels)
+    //
+    //  La boîte est couverte par une grille de tuiles ALIGNÉES sur le framebuffer
+    //  (x et y multiples de 8). Pour chaque tuile et chaque arête, E' est affine :
+    //  ses extrêmes sur les 64 centres sont atteints à deux coins opposés.
+    //      coin de REJET        : le MAXIMUM de E' sur la tuile.  max < 0  -> aucun pixel ne passe l'arête
+    //      coin d'ACCEPTATION   : le MINIMUM de E' sur la tuile.  min >= 0 -> les 64 pixels passent l'arête
+    //  Décalages depuis le coin haut-gauche (pixel (tx, ty)) :
+    //      max = E'(tx, ty) + max(0, 7A') + max(0, 7B')       min = E'(tx, ty) + min(0, 7A') + min(0, 7B')
+    //  Le test est EXACT (et non conservatif) : les coins sont des centres de pixels de la tuile.
+    //  NB : en LV3, « couvert » <=> E' >= 0 (intérieur POSITIF), l'inverse de l'article d'Abrash
+    //  (intérieur négatif) : les deux coins sont échangés par rapport à son texte, pas la méthode.
+    // La taille de tuile et les deux décalages de coin. Tout le cœur mathématique de la méthode tient dans TileRejectOfs / TileAcceptOfs.
+    // ════════════════════════════════════════════════════════════
+
+    inline constexpr int32_t kTileBits = 3;                   // tuiles de 2^3 = 8 pixels de côté
+    inline constexpr int32_t kTileSize = 1 << kTileBits;     // 8 : un bloc AVX2 de large, 8 lignes de haut
+
+    // Décalages des deux coins d'une tuile pour UNE arête (pas a, b en E').
+    //   max(0, 7a) + max(0, 7b) : on ne prend un pas que s'il fait MONTER E' (coin de rejet)
+    //   min(0, 7a) + min(0, 7b) : on ne prend un pas que s'il fait DESCENDRE E' (coin d'acceptation)
+    [[nodiscard]] LV3_FORCEINLINE int64_t TileRejectOfs(int64_t a, int64_t b) noexcept
+    {
+        const int64_t k = kTileSize - 1;
+        return (a > 0 ? a * k : 0) + (b > 0 ? b * k : 0);
+    }
+    [[nodiscard]] LV3_FORCEINLINE int64_t TileAcceptOfs(int64_t a, int64_t b) noexcept
+    {
+        const int64_t k = kTileSize - 1;
+        return (a < 0 ? a * k : 0) + (b < 0 ? b * k : 0);
+    }
+
+
+    // ── La hiérarchie tient-elle en int32 ? Même preuve que PrepareLanesFx (E' affine : ses
+    //    extrêmes sur un rectangle sont à deux coins, choisis par les signes de A' et B'), sur le
+    //    domaine des tuiles : la grille part de (x0, y0), ses coins vont jusqu'à x1 + 6 et y1 + 6.
+    //    On vérifie [x0, x1 + 7] x [y0, y1 + 7]. Les voies de tuiles HORS de la boîte peuvent
+    //    déborder : vpaddd est modulaire, et elles sont écartées (inBox) avant toute décision.
+	//    La preuve qu'aucune voie utile ne sort de int32 sur le domaine des tuiles ; sinon repli sur les blocs Giesen.
+    [[nodiscard]] LV3_FORCEINLINE bool TilesFitInt32(const TriangleSetup& s, const EdgeSetupFx& fx) noexcept
+    {
+        const int64_t dxe = int64_t(s.bb.x1) + kTileSize - 1 - s.bb.x0;
+        const int64_t dye = int64_t(s.bb.y1) + kTileSize - 1 - s.bb.y0;
+        bool fits = true;
+        for (int k = 0; k < 3; ++k)
+        {
+            const int64_t ax = fx.a[k] * dxe, by = fx.b[k] * dye;
+            const int64_t lo = fx.e[k] + (ax < 0 ? ax : 0) + (by < 0 ? by : 0);     // coin d'acceptation du domaine
+            const int64_t hi = fx.e[k] + (ax > 0 ? ax : 0) + (by > 0 ? by : 0);     // coin de rejet du domaine
+            fits &= (lo >= INT32_MIN) & (hi <= INT32_MAX);
+        }
+        return fits;
+    }
+
+    // ── Le triangle est-il assez GRAND pour la hiérarchie ? Boîte (rognée) >= T* dans les deux axes.
+    //    kTilePx = 0 : toujours faux, la hiérarchie disparaît à la compilation.
+    //  Le critère « grand triangle » : boîte rognée >= T* dans les deux axes. Disparaît à la compilation si T* = 0.
+    template<int32_t kTilePx>
+    [[nodiscard]] LV3_FORCEINLINE bool IsTiledTri(const TriangleSetup& s) noexcept
+    {
+        if constexpr (kTilePx <= 0) { (void)s; return false; }
+        else return ((s.bb.x1 - s.bb.x0) >= kTilePx) & ((s.bb.y1 - s.bb.y0) >= kTilePx);
+    }
+
+
+    // ── Pendant SCALAIRE de la hiérarchie (LV3_SIMD = 0, TNR). Mêmes tuiles, mêmes coins,
+    //    mêmes E' que la voie AVX2 ; dans une tuile partielle, le test pixel de ForEachCoveredPixelFx ;
+    //    dans une tuile pleine, AUCUN test. Ordre de visite : tuile par tuile (et non ligne par ligne).
+    //    Le résultat (pixels, barycentriques, profondeurs) est identique : un pixel est écrit au plus
+    //    une fois par triangle, l'ordre de visite à l'intérieur d'un triangle ne change aucun bit.
+	//    Mêmes tuiles, mêmes coins, mêmes E' que la voie AVX2 ; test par pixel dans les tuiles partielles, aucun test dans les tuiles pleines.
+    template<class Sink>
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredPixelFxTiled(const TriangleSetup& s, const EdgeSetupFx& fx, Sink& sink)
+    {
+        const int32_t bx0 = s.bb.x0, bx1 = s.bb.x1, by0 = s.bb.y0, by1 = s.bb.y1;
+        const int64_t a0 = fx.a[0], a1 = fx.a[1], a2 = fx.a[2];
+        const int64_t b0 = fx.b[0], b1 = fx.b[1], b2 = fx.b[2];
+        const int64_t rj0 = TileRejectOfs(a0, b0), rj1 = TileRejectOfs(a1, b1), rj2 = TileRejectOfs(a2, b2);
+        const int64_t ac0 = TileAcceptOfs(a0, b0), ac1 = TileAcceptOfs(a1, b1), ac2 = TileAcceptOfs(a2, b2);
+        const float o0 = fx.ofs[0], o1 = fx.ofs[1], o2 = fx.ofs[2], inv = fx.invQ;
+        const bool  flipped = s.flipped;
+
+        // E' au coin haut-gauche de la rangée de tuiles : la grille part du pixel (x0, y0) de la boîte.
+        int64_t t0 = fx.e[0], t1 = fx.e[1], t2 = fx.e[2];
+
+        uint32_t covered = 0;
+        for (int32_t ty = by0; ty < by1; ty += kTileSize)
+        {
+            const int32_t ry1 = ty + kTileSize > by1 ? by1 : ty + kTileSize;   // dernière rangée : peut être courte
+            int64_t c0 = t0, c1 = t1, c2 = t2;                // E' au coin haut-gauche de la tuile
+            for (int32_t tx = bx0; tx < bx1; tx += kTileSize)
+            {
+                // REJET : une seule arête dont le maximum est < 0 suffit (OU des signes).
+                if (((c0 + rj0) | (c1 + rj1) | (c2 + rj2)) < 0) { c0 += a0 * kTileSize; c1 += a1 * kTileSize; c2 += a2 * kTileSize; continue; }
+                // ACCEPTATION : les trois minimums >= 0, ET la tuile entière dans la boîte (bord rogné).
+                const int32_t rx1 = tx + kTileSize > bx1 ? bx1 : tx + kTileSize;
+                const bool full = ((c0 + ac0) | (c1 + ac1) | (c2 + ac2)) >= 0
+                    && rx1 == tx + kTileSize && ry1 == ty + kTileSize;
+                sink.BeginRow(ty);                                // pointeurs de ligne : une fois par tuile
+                for (int32_t y = ty; y < ry1; ++y, sink.NextRow())
+                {
+                    int64_t e0 = c0 + b0 * (y - ty);
+                    int64_t e1 = c1 + b1 * (y - ty);
+                    int64_t e2 = c2 + b2 * (y - ty);
+                    for (int32_t x = tx; x < rx1; ++x)
+                    {
+                        if (full || (e0 | e1 | e2) >= 0)          // tuile pleine : aucun test
+                        {
+                            ++covered;
+                            const float w0 = BaryFromFixed(e0, o0, inv);
+                            const float w1 = BaryFromFixed(e1, o1, inv);
+                            const float w2 = BaryFromFixed(e2, o2, inv);
+                            const BarycentricWeights bary = flipped
+                                ? BarycentricWeights{ w0, w2, w1 }
+                            : BarycentricWeights{ w0, w1, w2 };
+                            sink.Pixel(x, bary);
+                        }
+                        e0 += a0; e1 += a1; e2 += a2;
+                    }
+                }
+                c0 += a0 * kTileSize; c1 += a1 * kTileSize; c2 += a2 * kTileSize;   // tuile suivante
+            }
+            t0 += b0 * kTileSize; t1 += b1 * kTileSize; t2 += b2 * kTileSize;       // rangée de tuiles suivante
+        }
+        return covered;
+    }
+
+
+
 
    // ── Pendant SCALAIRE (LV3_SIMD = 0, boîtes étroites, TNR). Toujours en int64 :
    //    une addition int64 coûte une addition int32 en x64, et rien ne peut déborder.
@@ -521,6 +651,7 @@ namespace LV3
         struct AblationEdgeSink
         {
             LV3_FORCEINLINE void BeginRow(int32_t) noexcept {}
+            LV3_FORCEINLINE void NextRow() noexcept {}                                   // D-a2
             LV3_FORCEINLINE void Pixel(int32_t, const BarycentricWeights&) noexcept {}
         };
     #endif
@@ -534,4 +665,5 @@ namespace LV3
 
     void DrawLineClipped(FrameBuffer& fb, const Viewport& vp,
         const Vec3f& a, const Vec3f& b, Color c) noexcept;
+
 }

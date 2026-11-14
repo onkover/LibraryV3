@@ -173,6 +173,19 @@ namespace LV3
             _mm256_maskstore_epi32(reinterpret_cast<int*>(pixel), _mm256_castps_si256(pass), u.color);
             return uint32_t(_mm256_movemask_ps(pass));
         }
+      
+        // D-a2 : bloc PLEIN (tuile acceptée). Les 8 voies sont dans le triangle ET dans la boîte :
+        // lecture ordinaire de la profondeur, comparaison identique (NLE_UQ, NaN compris), écritures
+        // masquées par le seul résultat du test Z. Même mémoire finale que Shade8(..., cover = tout).
+        static LV3_FORCEINLINE uint32_t Shade8Full(const Uniforms8& u, __m256 b0, __m256 b1, __m256 b2, float* depth, uint32_t* pixel) noexcept
+        {
+            const __m256 z = InterpolateDepth8(u, b0, b1, b2);
+            const __m256 dst = _mm256_loadu_ps(depth);                          // 8 voies valides : lecture simple
+            const __m256 pass = _mm256_cmp_ps(z, dst, _CMP_NLE_UQ);             // même prédicat que DepthTestAndSet8
+            _mm256_maskstore_ps(depth, _mm256_castps_si256(pass), z);
+            _mm256_maskstore_epi32(reinterpret_cast<int*>(pixel), _mm256_castps_si256(pass), u.color);
+            return uint32_t(_mm256_movemask_ps(pass));
+        }
     };
 
 
@@ -262,6 +275,14 @@ namespace LV3
             depthRow = ctx.db->Row(y);
             colorRow = ctx.fb->Row(y);
         }
+
+        // D-a2 : ligne suivante SANS recalcul (la hiérarchie revisite les lignes tuile par tuile).
+        LV3_FORCEINLINE void NextRow() noexcept
+        {
+            depthRow += ctx.db->Width();
+            colorRow = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(colorRow) + ctx.fb->PitchBytes());
+        }
+
         LV3_FORCEINLINE void Pixel(int32_t x, const BarycentricWeights& b) noexcept
         {
             [[maybe_unused]] const bool pass = Shader::Shade(ctx, b, depthRow[x], colorRow[x]);
@@ -287,12 +308,23 @@ namespace LV3
                 uint32_t depthPassed = 0;
         #endif
 
-        explicit ShaderSink8(const FragmentContext& c) noexcept : ctx(c), u(MakeUniforms8(c)) {}
+        // D-a2 : pas d'une ligne, lus UNE fois par triangle (NextRow : 2 additions au lieu de BeginRow).
+        const ptrdiff_t dStride;            // floats par ligne du Z-buffer
+        const ptrdiff_t cStride;            // OCTETS par ligne du framebuffer (pitch SDL)
+
+        explicit ShaderSink8(const FragmentContext& c) noexcept
+            : ctx(c), u(MakeUniforms8(c)), dStride(c.db->Width()), cStride(c.fb->PitchBytes()) {}
 
         LV3_FORCEINLINE void BeginRow(int32_t y) noexcept
         {
             depthRow = ctx.db->Row(y);
             colorRow = ctx.fb->Row(y);
+        }
+        // D-a2 : la hiérarchie parcourt une tuile de 8 lignes : BeginRow une fois, puis NextRow.
+        LV3_FORCEINLINE void NextRow() noexcept
+        {
+            depthRow += dStride;
+            colorRow = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(colorRow) + cStride);
         }
 
         LV3_FORCEINLINE void Block(int32_t x, __m256 cover, uint32_t bits,
@@ -320,8 +352,28 @@ namespace LV3
             #if LV3_RASTER_STATS
                         depthPassed += uint32_t(_mm_popcnt_u32(passBits));
             #else
-                        (void)passBits;
+            (void)passBits;
             #endif
+        }
+
+        // D-a2 : bloc PLEIN d'une tuile acceptée (8 voies couvertes, dans la boîte).
+        //   Shader avec Shade8Full : lecture Z ordinaire, aucun masque de couverture.
+        //   Sinon : le Block() normal, masque « tout », bits 0xFF (mêmes écritures).
+        LV3_FORCEINLINE void BlockFull(int32_t x, __m256 allOn, __m256 b0, __m256 b1, __m256 b2) noexcept
+        {
+            if constexpr (requires { Shader::Shade8Full; })
+            {
+                (void)allOn;
+                [[maybe_unused]] const uint32_t passBits = Shader::Shade8Full(u, b0, b1, b2, depthRow + x, colorRow + x);
+       
+                #if LV3_RASTER_STATS
+                            depthPassed += uint32_t(_mm_popcnt_u32(passBits));
+                #endif
+            }
+            else
+            {
+                Block(x, allOn, 0xFFu, b0, b1, b2);
+            }
         }
     };
 
@@ -384,11 +436,34 @@ namespace LV3
         return covered;
     }
 
+    // ── D-a2 : la hiérarchie dans SA PROPRE fonction, hors ligne (leçon C2 et contre-exemple 2 de D-a1c) :
+    //    dans RasterizeBlocks8Fx, ses registres ymm alourdiraient le prologue payé par TOUS les triangles
+    //    Giesen (ABI Windows x64 : xmm6-15 sauvegardés à l'entrée), et changeraient le placement de la
+    //    boucle Fx32. Mesuré sur V2 (aucun triangle tuilé) : +4 % quand la hiérarchie partageait la fonction.
+    //    E' hors de int32 sur le domaine des tuiles (rare : longues arêtes clippées) : repli Giesen.
+    template<class Shader>
+    LV3_NOINLINE uint32_t RasterizeTiles8Fx(const TriangleSetup& s, const EdgeSetupFx& fx, FragmentContext& ctx) noexcept
+    {
+        if (!TilesFitInt32(s, fx)) return RasterizeBlocks8Fx<Shader, false>(s, fx, ctx);
+        
+        #if LV3_RASTER_STATS
+                LV3_PROF_COUNT(EProfCounter::TrisTiled, 1);
+        #endif
+
+        ShaderSink8<Shader> sink(ctx);                                     // COPIE + diffusions
+        const uint32_t covered = ForEachCoveredTile8Fx32(s, fx, sink);
+        
+        #if LV3_RASTER_STATS
+                ctx.depthPassed += sink.depthPassed;
+        #endif
+        return covered;
+    }
+
     //    D-a1c : kSmallPx = W* (pixels). Un triangle AVX2 PETIT (IsSmallFloatTri) prend les blocs
     //    flottants de C2 sur le TriangleSetup de la préparation entière : identique au bit à celui de
     //    SetupTriangle pour un petit triangle (sommets, échange, boîte, top-left, 1/aire exacts).
     //    Force64 (TNR des voies 64 bits) coupe l'aiguillage : chaque triangle doit y passer par Fx64.
-    template<class Shader, int32_t kMinSimdWidth, EFixedLanes kLanes, int32_t kSmallPx>
+    template<class Shader, int32_t kMinSimdWidth, EFixedLanes kLanes, int32_t kSmallPx, int32_t kTilePx>
     LV3_FORCEINLINE void RasterizeTriangleFx(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
     {
         TriangleSetup s;
@@ -402,6 +477,7 @@ namespace LV3
 
         constexpr bool kForce64 = (kLanes == EFixedLanes::Force64);
         constexpr int32_t kSmall = kForce64 ? 0 : kSmallPx;
+        [[maybe_unused]] constexpr int32_t kTile = kForce64 ? 0 : kTilePx;  // D-a2 : Force64 coupe aussi la hiérarchie
 
         #if LV3_ABLATION_PIXELS == 1
             AblationConsumeSetupFx(s, fx);                             // palier S : aucun pixel
@@ -418,15 +494,23 @@ namespace LV3
                 }
                 else
                 {
-                    PrepareLanesFx(s, fx);
-                    g_ablationSink = g_ablationSink + ((kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, edges)
-                        : ForEachCoveredBlock8Fx32(s, fx, edges));
+                    if (IsTiledTri<kTile>(s) && TilesFitInt32(s, fx))      // D-a2 : MÊME aiguillage que le moteur
+                    {
+                        g_ablationSink = g_ablationSink + ForEachCoveredTile8Fx32(s, fx, edges);
+                    }
+                    else
+                    {
+                        PrepareLanesFx(s, fx);
+                        g_ablationSink = g_ablationSink + ((kForce64 || fx.wide) ? ForEachCoveredBlock8Fx64(s, fx, edges)
+                            : ForEachCoveredBlock8Fx32(s, fx, edges));
+                    }
                 }
             }
             else
             {
                 AblationEdgeSink edges;
-                g_ablationSink = g_ablationSink + ForEachCoveredPixelFx(s, fx, edges);
+                g_ablationSink = g_ablationSink + (IsTiledTri<kTile>(s) ? ForEachCoveredPixelFxTiled(s, fx, edges)
+                    : ForEachCoveredPixelFx(s, fx, edges));
             }
         #else
             uint32_t covered;
@@ -442,20 +526,32 @@ namespace LV3
                     covered = RasterizeBlocks8<Shader>(s, ctx);        // hors ligne, comme en C2
                 #if LV3_RASTER_STATS
                     LV3_PROF_COUNT(EProfCounter::TrisSmallFloat, 1);
+                //#endif
+                //}
+                //else
+                //{
                 #endif
+                }
+                else if (IsTiledTri<kTile>(s))                             // D-a2 : grand -> tuiles 8 x 8
+                {
+                    covered = RasterizeTiles8Fx<Shader>(s, fx, ctx);       // hors ligne : prologue inchangé
+                }
+                else
+                {
+                    covered = RasterizeBlocks8Fx<Shader, kForce64>(s, fx, ctx);    // hors ligne : prologue inchangé
+                }
             }
-            else
-            {
-                covered = RasterizeBlocks8Fx<Shader, kForce64>(s, fx, ctx);    // hors ligne : prologue inchangé
-            }
-        }
             else                                                       // boîte étroite : scalaire int64
             {
-                ShaderSink<Shader> sink{ ctx };
-                covered = ForEachCoveredPixelFx(s, fx, sink);
-                #if LV3_RASTER_STATS
-                    ctx.depthPassed += sink.depthPassed;
-                #endif
+                {
+                    ShaderSink<Shader> sink{ ctx };
+                    // D-a2 : pendant scalaire de la hiérarchie (LV3_SIMD = 0 ou TNR kScalarOnly) pour les grandes boîtes.
+                    covered = IsTiledTri<kTile>(s) ? ForEachCoveredPixelFxTiled(s, fx, sink)
+                        : ForEachCoveredPixelFx(s, fx, sink);
+                    
+                    #if LV3_RASTER_STATS
+                        ctx.depthPassed += sink.depthPassed;
+                    #endif
              }
             LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
             (void)covered;
@@ -472,15 +568,15 @@ namespace LV3
     //    le corps flottant ci-dessous ne sert plus qu'aux sommets hors garde (TrisFixedGuard).
    //    D-a1c : kSmallPx = W* (défaut kSmallFloatPx, config.h section 13) ; les TNR forcent
     //    kSmallFloatOff (Giesen pour tous, la référence) ou une valeur > 16 (contre-exemple).
-    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth, EFixedLanes kLanes = EFixedLanes::Auto,
-        int32_t kSmallPx = kSmallFloatPx>
-    void RasterizeTriangleT(const Vec2f& v0, const Vec2f& v1, const Vec2f& v2, const Viewport& vp, FragmentContext& ctx) noexcept
+    template<class Shader, int32_t kMinSimdWidth = kSimdMinBoxWidth, EFixedLanes kLanes = EFixedLanes::Auto, 
+                int32_t kSmallPx = kSmallFloatPx, int32_t kTilePx = kTileMinPx>
+    void RasterizeTriangleT(const Vec2f & v0, const Vec2f & v1, const Vec2f & v2, const Viewport & vp, FragmentContext & ctx) noexcept
     {
         #if LV3_RASTER_FIXED
             if (InFixedGuard(v0, v1, v2))
             {
-                RasterizeTriangleFx<Shader, kMinSimdWidth, kLanes, kSmallPx>(v0, v1, v2, vp, ctx);
-               return;
+                RasterizeTriangleFx<Shader, kMinSimdWidth, kLanes, kSmallPx, kTilePx>(v0, v1, v2, vp, ctx);
+                return;
             }
             #if LV3_RASTER_STATS
                     LV3_PROF_COUNT(EProfCounter::TrisFixedGuard, 1);           // repli flottant C2

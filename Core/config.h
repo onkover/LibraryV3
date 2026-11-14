@@ -275,3 +275,21 @@ namespace LV3
 #if LV3_RASTER_SMALL_FLOAT < 0 || LV3_RASTER_SMALL_FLOAT > 16
 	#error "LV3_RASTER_SMALL_FLOAT : 0 (desactive) a 16 px. Au-dela, le flottant n'est plus exact (lot D-a1c)"
 #endif
+
+// 14. HIERARCHIE DE TUILES (jalon D, lot D-a2 : Abrash sur Giesen). Commutateur de MESURE A / B 
+//		: T* en pixels, 0 = pas de hiérarchie. Un #error refuse un T* entre 1 et 7 (plus petit qu'une tuile).
+// 
+//     Valeur = T* en pixels ; 0 = desactive (blocs Giesen pour tous les grands triangles, comme D-a1c).
+//     Sous LV3_RASTER_FIXED = 1, un triangle du chemin Giesen (pas un petit de D-a1c) dont la boite
+//     (rognee) fait >= T* pixels en largeur ET en hauteur est parcouru par tuiles 8 x 8 alignees :
+//     8 tuiles jugees par registre (rejetees / pleines / partielles), blocs testes seulement dans les
+//     tuiles partielles, blocs ecrits SANS test dans les tuiles pleines.
+//     Image IDENTIQUE au bit pres (memes E' entiers) : aucune reference TNR ne change.
+//     Declare dans l'en-tete CSV (tiles=).
+#ifndef LV3_RASTER_TILES
+	#define LV3_RASTER_TILES 16
+#endif
+
+#if LV3_RASTER_TILES < 0 || (LV3_RASTER_TILES > 0 && LV3_RASTER_TILES < 8)
+	#error "LV3_RASTER_TILES : 0 (desactive) ou T* >= 8 px (une tuile). En dessous, D-a1c ou les blocs Giesen"
+#endif

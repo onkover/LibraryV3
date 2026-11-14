@@ -49,6 +49,15 @@ namespace LV3
     #endif
         inline constexpr int32_t kSmallFloatOff = 0;        // valeur de TEST : Giesen pour tous (référence TNR)
 
+        // ── D-a2 : T* effectif (pixels). Un triangle Giesen dont la boîte fait >= T* dans les deux axes
+        //    est parcouru par tuiles 8 x 8 (hiérarchie d'Abrash). 0 : blocs Giesen pour tous (D-a1c).
+        //    Sans virgule fixe (LV3_RASTER_FIXED = 0) : sans objet (la hiérarchie repose sur les E' entiers).
+        #if LV3_RASTER_FIXED
+                inline constexpr int32_t kTileMinPx = LV3_RASTER_TILES;
+        #else
+                inline constexpr int32_t kTileMinPx = 0;
+        #endif
+                inline constexpr int32_t kTilesOff = 0;             // valeur de TEST : sans hiérarchie (référence TNR)
 
 
     // bool -> masque de voie : vrai = 0xFFFFFFFF sur les 8 voies, faux = 0.
@@ -397,13 +406,198 @@ namespace LV3
         return covered;
     }
 
+    // ════════════════════════════════════════════════════════════
+    //  D-a2 : HIÉRARCHIE D'ABRASH (tuiles 8 x 8) POSÉE SUR LES BLOCS GIESEN
+    //
+    // La hiérarchie AVX2 : 8 tuiles jugées par registre, du masque aux tuiles par tzcnt/blsr, tuile pleine sans test, tuile partielle = les blocs de Fx32.
+    // 
+    //  Deux niveaux, le même geste « additionner puis lire un bit de signe » :
+    //    NIVEAU TUILES : 8 tuiles voisines d'une rangée (64 x 8 pixels) jugées en UN registre par
+    //                    arête : voie j = coin haut-gauche de la tuile j. Deux masques de 8 bits :
+    //                    REJETÉES (une arête dont le MAX < 0) et PLEINES (les trois MIN >= 0).
+    //    NIVEAU BLOCS  : une tuile PARTIELLE = 8 lignes = 8 blocs Giesen testés (3 OU + movemask,
+    //                    comme Fx32). Une tuile PLEINE = 8 blocs écrits SANS AUCUN TEST.
+    //  La grille part du coin (x0, y0) de la boîte : aucun bloc de plus que Fx32 (contre-exemple 2).
+    //  Les E' de chaque voie sont les MÊMES entiers que Fx32 (affine, exact) : mêmes pixels,
+    //  mêmes barycentriques, mêmes profondeurs. Seuls changent les blocs VISITÉS et leur ORDRE.
+    //  Précondition : TilesFitInt32(s, fx), E' tient dans int32 sur [x0, x1 + 7] x [y0, y1 + 7].
+    // ════════════════════════════════════════════════════════════
+    template<class Sink8>
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredTile8Fx32(const TriangleSetup& s, const EdgeSetupFx& fx, Sink8& sink) noexcept
+    {
+        const int32_t bx0 = s.bb.x0, bx1 = s.bb.x1;           // C2b : locales, jamais relues en mémoire
+        const int32_t by0 = s.bb.y0, by1 = s.bb.y1;
+        const bool    flipped = s.flipped;
+        const BaryFx8 bf = MakeBaryFx8(fx);
+
+        // ── Pas entiers d'une arête : int32 EXACTS (TilesFitInt32). Les produits passent par uint32 :
+        //    modulaires, jamais de comportement indéfini, et justes pour toute voie qui reste dans la boîte.
+        const int32_t A0 = int32_t(fx.a[0]), A1 = int32_t(fx.a[1]), A2 = int32_t(fx.a[2]);
+        const int32_t B0 = int32_t(fx.b[0]), B1 = int32_t(fx.b[1]), B2 = int32_t(fx.b[2]);
+        const auto Mul = [](int32_t v, int32_t k) noexcept { return int32_t(uint32_t(v) * uint32_t(k)); };
+        const auto Add = [](int32_t u, int32_t v) noexcept { return int32_t(uint32_t(u) + uint32_t(v)); };
+
+        const __m256i lane = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+
+        // ── NIVEAU TUILES (une fois par triangle) : voie j d'un groupe = tuile j, décalée de j * 8A'.
+        const __m256i tOff0 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(Mul(A0, kTileSize)));
+        const __m256i tOff1 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(Mul(A1, kTileSize)));
+        const __m256i tOff2 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(Mul(A2, kTileSize)));
+        
+        //    Décalages des deux coins, du coin haut-gauche au coin de REJET (max) et d'ACCEPTATION (min).
+        const __m256i rj0 = _mm256_set1_epi32(int32_t(TileRejectOfs(A0, B0)));
+        const __m256i rj1 = _mm256_set1_epi32(int32_t(TileRejectOfs(A1, B1)));
+        const __m256i rj2 = _mm256_set1_epi32(int32_t(TileRejectOfs(A2, B2)));
+        const __m256i ac0 = _mm256_set1_epi32(int32_t(TileAcceptOfs(A0, B0)));
+        const __m256i ac1 = _mm256_set1_epi32(int32_t(TileAcceptOfs(A1, B1)));
+        const __m256i ac2 = _mm256_set1_epi32(int32_t(TileAcceptOfs(A2, B2)));
+        const int32_t gStep0 = Mul(A0, 8 * kTileSize), gStep1 = Mul(A1, 8 * kTileSize), gStep2 = Mul(A2, 8 * kTileSize);
+        const int32_t tStep0 = Mul(B0, kTileSize), tStep1 = Mul(B1, kTileSize), tStep2 = Mul(B2, kTileSize);
+
+        // ── NIVEAU BLOCS (une fois par triangle) : décalage de chaque voie-pixel (i * A') et pas de ligne B'.
+        const __m256i off0 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(A0));
+        const __m256i off1 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(A1));
+        const __m256i off2 = _mm256_mullo_epi32(lane, _mm256_set1_epi32(A2));
+        const __m256i vB0 = _mm256_set1_epi32(B0), vB1 = _mm256_set1_epi32(B1), vB2 = _mm256_set1_epi32(B2);
+        const __m256i minus1 = _mm256_set1_epi32(-1);
+        const __m256  allOn = _mm256_castsi256_ps(minus1);
+        
+        // 4e « arête » des tuiles de la DERNIÈRE colonne : la boîte, comme dans Fx32 ((x1 - 1) - (x + i) >= 0).
+        const __m256i boxLane = _mm256_sub_epi32(_mm256_set1_epi32(bx1 - 1), lane);
+
+        // E' au coin haut-gauche de la rangée de tuiles courante : départ au pixel (x0, y0).
+        int32_t t0 = int32_t(fx.e[0]), t1 = int32_t(fx.e[1]), t2 = int32_t(fx.e[2]);
+
+        uint32_t covered = 0;
+        #if LV3_RASTER_STATS
+                uint32_t blocks = 0, tRej = 0, tFull = 0, tPart = 0;
+        #endif
+
+        for (int32_t ty = by0; ty < by1; ty += kTileSize, t0 = Add(t0, tStep0), t1 = Add(t1, tStep1), t2 = Add(t2, tStep2))
+        {
+            const int32_t ry1 = ty + kTileSize < by1 ? ty + kTileSize : by1;     // la dernière rangée peut être courte
+            const bool    rowsFull = (ty + kTileSize <= by1);
+            int32_t g0 = t0, g1 = t1, g2 = t2;                                    // E' au coin de la 1re tuile du groupe
+
+            for (int32_t gx = bx0; gx < bx1; gx += 8 * kTileSize, g0 = Add(g0, gStep0), g1 = Add(g1, gStep1), g2 = Add(g2, gStep2))
+            {
+                // ── JUGER 8 TUILES. E' au coin haut-gauche de chacune : 1 diffusion + 1 addition par arête.
+                const __m256i c0 = _mm256_add_epi32(_mm256_set1_epi32(g0), tOff0);
+                const __m256i c1 = _mm256_add_epi32(_mm256_set1_epi32(g1), tOff1);
+                const __m256i c2 = _mm256_add_epi32(_mm256_set1_epi32(g2), tOff2);
+                
+                //    REJET : bit de signe du OU des trois MAX (UNE arête dehors suffit).
+                const __m256i anyRj = _mm256_or_si256(_mm256_or_si256(_mm256_add_epi32(c0, rj0), _mm256_add_epi32(c1, rj1)),
+                    _mm256_add_epi32(c2, rj2));
+                
+                //    ACCEPTATION : bit de signe du OU des trois MIN à 0 (les TROIS dedans).
+                const __m256i anyAc = _mm256_or_si256(_mm256_or_si256(_mm256_add_epi32(c0, ac0), _mm256_add_epi32(c1, ac1)),
+                    _mm256_add_epi32(c2, ac2));
+                const uint32_t rej = uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(anyRj)));
+                const uint32_t acc = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(anyAc))) & 0xFFu;
+
+                //    Tuiles de la boîte : gx + 8j < x1. Les voies au-delà (débordement modulaire possible)
+                //    sont ignorées ici, AVANT toute décision.
+                const int32_t  nt = (bx1 - gx + kTileSize - 1) >> kTileBits;
+                const uint32_t inBox = nt >= 8 ? 0xFFu : ((1u << nt) - 1u);
+                
+                //    Une tuile PLEINE doit aussi tenir dans la boîte (bord rogné au viewport) :
+                //    dernière colonne complète, rangée complète.
+                const uint32_t fitX = (bx1 - gx) >= 8 * kTileSize ? 0xFFu : ((1u << ((bx1 - gx) >> kTileBits)) - 1u);
+                const uint32_t full = acc & fitX & (rowsFull ? 0xFFu : 0u);
+                uint32_t live = ~rej & inBox;                                     // tuiles à visiter
+                
+#if LV3_RASTER_STATS
+                    tRej += uint32_t(_mm_popcnt_u32(rej & inBox));
+                #endif
+
+                // ── DU MASQUE AUX TUILES : une itération par bit à 1 (tzcnt trouve, blsr efface).
+                while (live != 0)
+                {
+                    const uint32_t j = _tzcnt_u32(live);
+                    live = _blsr_u32(live);
+                    const int32_t x = gx + int32_t(j) * kTileSize;
+
+                    // E' des 8 voies-pixels sur la 1re ligne de la tuile : coin de la tuile j, diffusé depuis
+                    // la voie j du registre des coins (vpermd : un seul µop par arête), plus i * A'.
+                    const __m256i jj = _mm256_set1_epi32(int32_t(j));
+                    __m256i e0 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c0, jj), off0);
+                    __m256i e1 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c1, jj), off1);
+                    __m256i e2 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c2, jj), off2);
+
+                    if ((full >> j) & 1u)
+                    {
+                        // ── TUILE PLEINE : 8 lignes, 8 blocs, AUCUN test de couverture.
+                        //    Filet Debug : une tuile écrite sans test DOIT tenir dans la boîte (fitX, rowsFull).
+                        LV3_ASSERT(x >= bx0 && x + kTileSize <= bx1 && ty + kTileSize <= by1
+                            && "D-a2 : tuile pleine hors de la boite (bord rogne au viewport ?)");
+                        #if LV3_RASTER_STATS
+                            ++tFull;
+                        #endif
+                        sink.BeginRow(ty);                                // pointeurs : une fois par tuile
+                        for (int32_t r = 0; r < kTileSize; ++r, sink.NextRow())
+                        {
+                            const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
+                            const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
+                            const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
+                            sink.BlockFull(x, allOn, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+                        }
+                        covered += uint32_t(kTileSize * kTileSize);
+                    }
+                    else
+                    {
+                        // ── TUILE PARTIELLE : les blocs de Fx32, la boîte en 4e arête (constante sur la tuile).
+                        #if LV3_RASTER_STATS
+                            ++tPart;
+                        #endif
+                        const __m256i eb = _mm256_sub_epi32(boxLane, _mm256_set1_epi32(x));   // (x1 - 1) - (x + i)
+                        sink.BeginRow(ty);
+                        for (int32_t y = ty; y < ry1; ++y, sink.NextRow())
+                        {
+                            const __m256i any = _mm256_or_si256(_mm256_or_si256(e0, e1), _mm256_or_si256(e2, eb));
+                            const uint32_t bits = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(any))) & 0xFFu;
+                            #if LV3_RASTER_STATS
+                                    ++blocks;
+                            #endif
+                            // Filet Debug : aucune voie couverte au-delà de la boîte (la 4e arête eb l'interdit).
+                            LV3_ASSERT((x + kTileSize <= bx1 || (bits >> (bx1 - x)) == 0u)
+                                && "D-a2 : voie couverte hors de la boite (4e arete oubliee ?)");
+                            if (bits != 0)
+                            {
+                                covered += uint32_t(_mm_popcnt_u32(bits));
+                                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
+                                const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
+                                const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
+                                const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
+                                sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+                            }
+                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+                        }
+                    }
+                }
+            }
+        }
+
+        #if LV3_RASTER_STATS
+                LV3_PROF_COUNT(EProfCounter::TrisSimd8, 1);
+                LV3_PROF_COUNT(EProfCounter::LaneBlocks8, blocks);
+                LV3_PROF_COUNT(EProfCounter::Tiles8Rejected, tRej);
+                LV3_PROF_COUNT(EProfCounter::Tiles8Full, tFull);
+                LV3_PROF_COUNT(EProfCounter::Tiles8Partial, tPart);
+                LV3_PROF_COUNT(EProfCounter::BlocksFull8, tFull * kTileSize);
+        #endif
+        return covered;
+    }
 
     #if LV3_ABLATION_PIXELS
         // Palier E (C0) pour le chemin AVX2 : arêtes et masques, AUCUN fragment.
         struct AblationEdgeSink8
         {
             LV3_FORCEINLINE void BeginRow(int32_t) noexcept {}
+            LV3_FORCEINLINE void NextRow() noexcept {}                                   // D-a2
             LV3_FORCEINLINE void Block(int32_t, __m256, uint32_t, __m256, __m256, __m256) noexcept {}
+            LV3_FORCEINLINE void BlockFull(int32_t, __m256, __m256, __m256, __m256) noexcept {}   // D-a2
         };
     #endif
 }
