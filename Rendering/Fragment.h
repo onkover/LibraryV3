@@ -526,10 +526,6 @@ namespace LV3
                     covered = RasterizeBlocks8<Shader>(s, ctx);        // hors ligne, comme en C2
                 #if LV3_RASTER_STATS
                     LV3_PROF_COUNT(EProfCounter::TrisSmallFloat, 1);
-                //#endif
-                //}
-                //else
-                //{
                 #endif
                 }
                 else if (IsTiledTri<kTile>(s))                             // D-a2 : grand -> tuiles 8 x 8
@@ -543,16 +539,16 @@ namespace LV3
             }
             else                                                       // boîte étroite : scalaire int64
             {
-                {
-                    ShaderSink<Shader> sink{ ctx };
-                    // D-a2 : pendant scalaire de la hiérarchie (LV3_SIMD = 0 ou TNR kScalarOnly) pour les grandes boîtes.
-                    covered = IsTiledTri<kTile>(s) ? ForEachCoveredPixelFxTiled(s, fx, sink)
-                        : ForEachCoveredPixelFx(s, fx, sink);
+            
+                ShaderSink<Shader> sink{ ctx };
+                // D-a2 : pendant scalaire de la hiérarchie (LV3_SIMD = 0 ou TNR kScalarOnly) pour les grandes boîtes.
+                covered = IsTiledTri<kTile>(s) ? ForEachCoveredPixelFxTiled(s, fx, sink)
+                    : ForEachCoveredPixelFx(s, fx, sink);
                     
-                    #if LV3_RASTER_STATS
-                        ctx.depthPassed += sink.depthPassed;
-                    #endif
-             }
+                #if LV3_RASTER_STATS
+                    ctx.depthPassed += sink.depthPassed;
+                #endif
+            }
             LV3_RASTER_RECORD(s.bb.Area(), s.bb.Area(), covered);
             (void)covered;
         #endif
