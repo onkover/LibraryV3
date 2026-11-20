@@ -441,7 +441,9 @@ namespace LV3
     //    Giesen (ABI Windows x64 : xmm6-15 sauvegardés à l'entrée), et changeraient le placement de la
     //    boucle Fx32. Mesuré sur V2 (aucun triangle tuilé) : +4 % quand la hiérarchie partageait la fonction.
     //    E' hors de int32 sur le domaine des tuiles (rare : longues arêtes clippées) : repli Giesen.
-    template<class Shader>
+    // 
+    // ── D-a2b : kSplit relayé (défaut : LV3_RASTER_TILE_SPLIT). La TNR appelle <Shader, false> et <Shader, true>.
+    template<class Shader, bool kSplit = (LV3_RASTER_TILE_SPLIT != 0)>
     LV3_NOINLINE uint32_t RasterizeTiles8Fx(const TriangleSetup& s, const EdgeSetupFx& fx, FragmentContext& ctx) noexcept
     {
         if (!TilesFitInt32(s, fx)) return RasterizeBlocks8Fx<Shader, false>(s, fx, ctx);
@@ -451,8 +453,8 @@ namespace LV3
         #endif
 
         ShaderSink8<Shader> sink(ctx);                                     // COPIE + diffusions
-        const uint32_t covered = ForEachCoveredTile8Fx32(s, fx, sink);
-        
+        const uint32_t covered = ForEachCoveredTile8Fx32<ShaderSink8<Shader>, kSplit>(s, fx, sink);
+
         #if LV3_RASTER_STATS
                 ctx.depthPassed += sink.depthPassed;
         #endif

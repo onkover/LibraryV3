@@ -222,6 +222,7 @@ namespace LV3
 				<< ";fixed=" << LV3_RASTER_FIXED         // 0 = aretes flottantes C2, 1 = virgule fixe D-a1 (config.h, 12)
 				<< ";smallfp=" << LV3_RASTER_SMALL_FLOAT // 0 = Giesen partout, W* = petits triangles AVX2 en flottant (config.h, 13)
 				<< ";tiles=" << LV3_RASTER_TILES         // 0 = blocs Giesen partout, T* = hierarchie de tuiles 8 x 8 (config.h, 14)
+				<< ";tsplit=" << LV3_RASTER_TILE_SPLIT   // 0 = boucle D-a2 (branche par tuile), 1 = D-a2b (deux boucles) (config.h, 14b)
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE
@@ -286,6 +287,7 @@ namespace LV3
 				<< ";fixed=" << LV3_RASTER_FIXED         // 0 = aretes flottantes C2, 1 = virgule fixe D-a1 (config.h, 12)
 				<< ";smallfp=" << LV3_RASTER_SMALL_FLOAT // 0 = Giesen partout, W* = petits triangles AVX2 en flottant (config.h, 13)
 				<< ";tiles=" << LV3_RASTER_TILES         // 0 = blocs Giesen partout, T* = hierarchie de tuiles 8 x 8 (config.h, 14)
+				<< ";tsplit=" << LV3_RASTER_TILE_SPLIT   // 0 = boucle D-a2 (branche par tuile), 1 = D-a2b (deux boucles) (config.h, 14b)
 				<< ";lodstats=" << LV3_LOD_STATS         // idem (M11)
 				<< ";asserts_lib=" << LV3_ASSERTS_ENABLED // valeur vue par la LIB, qui VERIFIE :
 														// config= ne decrit que l'EXE

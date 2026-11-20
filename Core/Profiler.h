@@ -159,6 +159,12 @@ namespace LV3
 		//                     Tiles8Rejected + Tiles8Full + Tiles8Partial = tuiles de la grille dans la boite.
 		TrisTiled, Tiles8Rejected, Tiles8Full, Tiles8Partial, BlocksFull8,
 
+		// ── D-a2b (RASTER_STATS seulement) : changements de nature (pleine <-> partielle) entre tuiles
+		//    vivantes CONSECUTIVES d'un groupe, dans l'ordre de D-a2. Borne haute des erreurs de prediction
+		//    de la branche de D-a2. Identique quelle que soit LV3_RASTER_TILE_SPLIT.
+		//    Invariants : Tiles8Switch <= 2 x Tiles8Full et <= 2 x Tiles8Partial.
+		Tiles8Switch,
+
 		Count
 	};
 
@@ -205,7 +211,8 @@ namespace LV3
 		"TrisFixedWide", "TrisFixedGuard",
 		"TrisBoxW1", "TrisBoxW2", "TrisBoxW3to4", "TrisBoxW5to8", "TrisBoxW9to16", "TrisBoxW17plus",
 		"TrisSmallFloat",
-		"TrisTiled", "Tiles8Rejected", "Tiles8Full", "Tiles8Partial", "BlocksFull8"
+		"TrisTiled", "Tiles8Rejected", "Tiles8Full", "Tiles8Partial", "BlocksFull8",
+		"Tiles8Switch"
 	};
 
 	static_assert(std::size(kProfZoneNames) == kProfZoneCount, "kProfZoneNames doit suivre EProfZone, une entree par zone");

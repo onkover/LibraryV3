@@ -293,3 +293,22 @@ namespace LV3
 #if LV3_RASTER_TILES < 0 || (LV3_RASTER_TILES > 0 && LV3_RASTER_TILES < 8)
 	#error "LV3_RASTER_TILES : 0 (desactive) ou T* >= 8 px (une tuile). En dessous, D-a1c ou les blocs Giesen"
 #endif
+
+
+// 14b. BOUCLE DES TUILES (jalon D, lot D-a2b). Commutateur de MESURE A / B / B'.
+//     0 = boucle de D-a2 : une boucle sur les tuiles vivantes d'un groupe, et par tuile une BRANCHE
+//         DE DONNEES « pleine ou partielle ? » (imprevisible quand les deux alternent : hypothese H3).
+//     1 = boucle de D-a2b : deux boucles, d'abord les bits de full, puis ceux de live & ~full ;
+//         plus aucun test de nature par tuile.
+//     Memes tuiles, memes blocs, memes pixels : seul l'ORDRE de visite change dans un groupe.
+//     Image IDENTIQUE au bit pres : aucune reference TNR ne change. 
+//	   
+//	   /!\ Sans objet si LV3_RASTER_TILES = 0.
+//     Declare dans l'en-tete CSV (tsplit=).
+#ifndef LV3_RASTER_TILE_SPLIT
+	#define LV3_RASTER_TILE_SPLIT 0
+#endif
+
+#if LV3_RASTER_TILE_SPLIT < 0 || LV3_RASTER_TILE_SPLIT > 1
+	#error "LV3_RASTER_TILE_SPLIT : 0 (D-a2, branche par tuile) ou 1 (D-a2b, deux boucles)"
+#endif

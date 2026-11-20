@@ -407,6 +407,74 @@ namespace LV3
     }
 
     // ════════════════════════════════════════════════════════════
+    //  D-a2b : LES TROIS GESTES D'UNE TUILE, sortis de la boucle
+    //  Appelés par les DEUX variantes de la boucle des tuiles (D-a2 : une branche par tuile ;
+    //  D-a2b : deux boucles sur deux masques). Même code machine dans les deux : seul l'ORDRE
+    //  des appels change, donc la mesure A / B / B' n'attribue l'écart qu'à la boucle.
+    //  Fonctions LV3_FORCEINLINE, JAMAIS des lambdas : MSVC n'inline pas une lambda appelée à
+    //  plusieurs endroits (piste P5 : `call <lambda_3>` x3 par triangle dans SetupTriangleFx).
+    // ════════════════════════════════════════════════════════════
+
+    // E' des 8 voies-pixels sur la 1re ligne de la tuile j du groupe.
+    struct TileRows8 { __m256i e0, e1, e2; };
+
+    [[nodiscard]] LV3_FORCEINLINE TileRows8 TileEntry8(__m256i c0, __m256i c1, __m256i c2, uint32_t j,
+        __m256i off0, __m256i off1, __m256i off2) noexcept
+    {
+        // vpermd : la voie j du registre des coins diffusée sur les 8 voies (un µop par arête),
+        // puis + i * A' pour la voie-pixel i.
+        const __m256i jj = _mm256_set1_epi32(int32_t(j));
+        return { _mm256_add_epi32(_mm256_permutevar8x32_epi32(c0, jj), off0),
+                 _mm256_add_epi32(_mm256_permutevar8x32_epi32(c1, jj), off1),
+                 _mm256_add_epi32(_mm256_permutevar8x32_epi32(c2, jj), off2) };
+    }
+
+    // TUILE PLEINE : 8 lignes, 8 blocs, AUCUN test de couverture. Rend 64 (pixels couverts).
+    template<class Sink8>
+    LV3_FORCEINLINE uint32_t TileFull8(Sink8& sink, int32_t x, int32_t ty, TileRows8 t, const BaryFx8& bf,
+        __m256i vB0, __m256i vB1, __m256i vB2, bool flipped, __m256 allOn) noexcept
+    {
+        sink.BeginRow(ty);                                        // pointeurs : une fois par tuile
+        for (int32_t r = 0; r < kTileSize; ++r, sink.NextRow())
+        {
+            const __m256 w0 = BaryFromFixed8(t.e0, bf.o0, bf.inv);
+            const __m256 w1 = BaryFromFixed8(t.e1, bf.o1, bf.inv);
+            const __m256 w2 = BaryFromFixed8(t.e2, bf.o2, bf.inv);
+            sink.BlockFull(x, allOn, w0, flipped ? w2 : w1, flipped ? w1 : w2);    // échange défait
+            t.e0 = _mm256_add_epi32(t.e0, vB0); t.e1 = _mm256_add_epi32(t.e1, vB1); t.e2 = _mm256_add_epi32(t.e2, vB2);
+        }
+        return uint32_t(kTileSize * kTileSize);
+    }
+
+    // TUILE PARTIELLE : les blocs de Fx32 sur les lignes [ty, ry1), la boîte en 4e arête eb.
+    template<class Sink8>
+    LV3_FORCEINLINE uint32_t TilePartial8(Sink8& sink, int32_t x, int32_t ty, int32_t ry1, [[maybe_unused]] int32_t bx1,
+        TileRows8 t, __m256i eb, const BaryFx8& bf, __m256i vB0, __m256i vB1, __m256i vB2, bool flipped, __m256i minus1) noexcept
+    {
+        uint32_t covered = 0;
+        sink.BeginRow(ty);
+        for (int32_t y = ty; y < ry1; ++y, sink.NextRow())
+        {
+            const __m256i any = _mm256_or_si256(_mm256_or_si256(t.e0, t.e1), _mm256_or_si256(t.e2, eb));
+            const uint32_t bits = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(any))) & 0xFFu;
+            // Filet Debug : aucune voie couverte au-delà de la boîte (la 4e arête eb l'interdit).
+            LV3_ASSERT((x + kTileSize <= bx1 || (bits >> (bx1 - x)) == 0u)
+                && "D-a2 : voie couverte hors de la boite (4e arete oubliee ?)");
+            if (bits != 0)
+            {
+                covered += uint32_t(_mm_popcnt_u32(bits));
+                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
+                const __m256 w0 = BaryFromFixed8(t.e0, bf.o0, bf.inv);
+                const __m256 w1 = BaryFromFixed8(t.e1, bf.o1, bf.inv);
+                const __m256 w2 = BaryFromFixed8(t.e2, bf.o2, bf.inv);
+                sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+            }
+            t.e0 = _mm256_add_epi32(t.e0, vB0); t.e1 = _mm256_add_epi32(t.e1, vB1); t.e2 = _mm256_add_epi32(t.e2, vB2);
+        }
+        return covered;
+    }
+
+    // ════════════════════════════════════════════════════════════
     //  D-a2 : HIÉRARCHIE D'ABRASH (tuiles 8 x 8) POSÉE SUR LES BLOCS GIESEN
     //
     // La hiérarchie AVX2 : 8 tuiles jugées par registre, du masque aux tuiles par tzcnt/blsr, tuile pleine sans test, tuile partielle = les blocs de Fx32.
@@ -416,14 +484,22 @@ namespace LV3
     //                    arête : voie j = coin haut-gauche de la tuile j. Deux masques de 8 bits :
     //                    REJETÉES (une arête dont le MAX < 0) et PLEINES (les trois MIN >= 0).
     //    NIVEAU BLOCS  : une tuile PARTIELLE = 8 lignes = 8 blocs Giesen testés (3 OU + movemask,
+    //    NIVEAU BLOCS  : une tuile PARTIELLE = 8 lignes = 8 blocs Giesen testés (3 OU + movemask,
     //                    comme Fx32). Une tuile PLEINE = 8 blocs écrits SANS AUCUN TEST.
     //  La grille part du coin (x0, y0) de la boîte : aucun bloc de plus que Fx32 (contre-exemple 2).
     //  Les E' de chaque voie sont les MÊMES entiers que Fx32 (affine, exact) : mêmes pixels,
     //  mêmes barycentriques, mêmes profondeurs. Seuls changent les blocs VISITÉS et leur ORDRE.
-    //  Précondition : TilesFitInt32(s, fx), E' tient dans int32 sur [x0, x1 + 7] x [y0, y1 + 7].
+//  Précondition : TilesFitInt32(s, fx), E' tient dans int32 sur [x0, x1 + 7] x [y0, y1 + 7].
+    //
+    //  D-a2b : kSplit choisit la boucle des tuiles VIVANTES d'un groupe.
+    //    false (D-a2)  : une boucle, et par tuile  if ((full >> j) & 1)  -> branche de DONNÉES ;
+    //    true  (D-a2b) : deux boucles, d'abord les bits de full, puis ceux de live & ~full ;
+    //                    plus aucune branche qui dépend de la nature d'une tuile.
+    //  Mêmes tuiles, mêmes blocs, mêmes pixels : seul l'ORDRE de visite change dans un groupe
+    //  (un pixel n'appartient qu'à une tuile : l'ordre ne change aucun bit, TNR D-a2b).
     // ════════════════════════════════════════════════════════════
-    template<class Sink8>
-    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredTile8Fx32(const TriangleSetup& s, const EdgeSetupFx& fx, Sink8& sink) noexcept
+    template<class Sink8, bool kSplit = (LV3_RASTER_TILE_SPLIT != 0)>
+    [[nodiscard]] LV3_FORCEINLINE uint32_t ForEachCoveredTile8Fx32(const TriangleSetup& s, const EdgeSetupFx& fx, Sink8& sink) noexcept 
     {
         const int32_t bx0 = s.bb.x0, bx1 = s.bb.x1;           // C2b : locales, jamais relues en mémoire
         const int32_t by0 = s.bb.y0, by1 = s.bb.y1;
@@ -470,7 +546,7 @@ namespace LV3
 
         uint32_t covered = 0;
         #if LV3_RASTER_STATS
-                uint32_t blocks = 0, tRej = 0, tFull = 0, tPart = 0;
+            uint32_t blocks = 0, tRej = 0, tFull = 0, tPart = 0, tSwitch = 0;
         #endif
 
         for (int32_t ty = by0; ty < by1; ty += kTileSize, t0 = Add(t0, tStep0), t1 = Add(t1, tStep1), t2 = Add(t2, tStep2))
@@ -505,77 +581,144 @@ namespace LV3
                 //    dernière colonne complète, rangée complète.
                 const uint32_t fitX = (bx1 - gx) >= 8 * kTileSize ? 0xFFu : ((1u << ((bx1 - gx) >> kTileBits)) - 1u);
                 const uint32_t full = acc & fitX & (rowsFull ? 0xFFu : 0u);
-                uint32_t live = ~rej & inBox;                                     // tuiles à visiter
-                
-#if LV3_RASTER_STATS
+
+
+//                uint32_t live = ~rej & inBox;                                     // tuiles à visiter
+//                
+//#if LV3_RASTER_STATS
+//                    tRej += uint32_t(_mm_popcnt_u32(rej & inBox));
+//                #endif
+//
+//                // ── DU MASQUE AUX TUILES : une itération par bit à 1 (tzcnt trouve, blsr efface).
+//                while (live != 0)
+//                {
+//                    const uint32_t j = _tzcnt_u32(live);
+//                    live = _blsr_u32(live);
+//                    const int32_t x = gx + int32_t(j) * kTileSize;
+//
+//                    // E' des 8 voies-pixels sur la 1re ligne de la tuile : coin de la tuile j, diffusé depuis
+//                    // la voie j du registre des coins (vpermd : un seul µop par arête), plus i * A'.
+//                    const __m256i jj = _mm256_set1_epi32(int32_t(j));
+//                    __m256i e0 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c0, jj), off0);
+//                    __m256i e1 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c1, jj), off1);
+//                    __m256i e2 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c2, jj), off2);
+//
+//                    if ((full >> j) & 1u)
+//                    {
+//                        // ── TUILE PLEINE : 8 lignes, 8 blocs, AUCUN test de couverture.
+//                        //    Filet Debug : une tuile écrite sans test DOIT tenir dans la boîte (fitX, rowsFull).
+//                        LV3_ASSERT(x >= bx0 && x + kTileSize <= bx1 && ty + kTileSize <= by1
+//                            && "D-a2 : tuile pleine hors de la boite (bord rogne au viewport ?)");
+//                        #if LV3_RASTER_STATS
+//                            ++tFull;
+//                        #endif
+//                        sink.BeginRow(ty);                                // pointeurs : une fois par tuile
+//                        for (int32_t r = 0; r < kTileSize; ++r, sink.NextRow())
+//                        {
+//                            const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
+//                            const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
+//                            const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
+//                            sink.BlockFull(x, allOn, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+//                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+//                        }
+//                        covered += uint32_t(kTileSize * kTileSize);
+//                    }
+//                    else
+//                    {
+//                        // ── TUILE PARTIELLE : les blocs de Fx32, la boîte en 4e arête (constante sur la tuile).
+//                        #if LV3_RASTER_STATS
+//                            ++tPart;
+//                        #endif
+//                        const __m256i eb = _mm256_sub_epi32(boxLane, _mm256_set1_epi32(x));   // (x1 - 1) - (x + i)
+//                        sink.BeginRow(ty);
+//                        for (int32_t y = ty; y < ry1; ++y, sink.NextRow())
+//                        {
+//                            const __m256i any = _mm256_or_si256(_mm256_or_si256(e0, e1), _mm256_or_si256(e2, eb));
+//                            const uint32_t bits = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(any))) & 0xFFu;
+//                            #if LV3_RASTER_STATS
+//                                    ++blocks;
+//                            #endif
+//                            // Filet Debug : aucune voie couverte au-delà de la boîte (la 4e arête eb l'interdit).
+//                            LV3_ASSERT((x + kTileSize <= bx1 || (bits >> (bx1 - x)) == 0u)
+//                                && "D-a2 : voie couverte hors de la boite (4e arete oubliee ?)");
+//                            if (bits != 0)
+//                            {
+//                                covered += uint32_t(_mm_popcnt_u32(bits));
+//                                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
+//                                const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
+//                                const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
+//                                const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
+//                                sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);
+//                            }
+//                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+//                        }
+//                    }
+//                }
+
+                const uint32_t live = ~rej & inBox;                               // tuiles à visiter
+                // full ⊂ live : acc => aucune arête n'a son max < 0 (max >= min >= 0), fitX ⊂ inBox.
+                LV3_ASSERT((full & ~live) == 0u && "D-a2b : tuile pleine non vivante (masques incoherents)");
+
+                #if LV3_RASTER_STATS
                     tRej += uint32_t(_mm_popcnt_u32(rej & inBox));
+                    // Changements de nature entre tuiles vivantes CONSÉCUTIVES (ordre de D-a2) : au plus autant
+                    // de branches imprévisibles pour if ((full >> j) & 1). pext tasse les bits vivants de full.
+                    {
+                        const uint32_t n = uint32_t(_mm_popcnt_u32(live));
+                        const uint32_t p = _pext_u32(full, live);
+                        if (n > 1) tSwitch += uint32_t(_mm_popcnt_u32((p ^ (p >> 1)) & ((1u << (n - 1)) - 1u)));
+                    }
+                    tFull += uint32_t(_mm_popcnt_u32(full));
+                    tPart += uint32_t(_mm_popcnt_u32(live & ~full));
+                    blocks += uint32_t(_mm_popcnt_u32(live & ~full)) * uint32_t(ry1 - ty);   // blocs testés
                 #endif
 
-                // ── DU MASQUE AUX TUILES : une itération par bit à 1 (tzcnt trouve, blsr efface).
-                while (live != 0)
+                if constexpr (!kSplit)
                 {
-                    const uint32_t j = _tzcnt_u32(live);
-                    live = _blsr_u32(live);
-                    const int32_t x = gx + int32_t(j) * kTileSize;
-
-                    // E' des 8 voies-pixels sur la 1re ligne de la tuile : coin de la tuile j, diffusé depuis
-                    // la voie j du registre des coins (vpermd : un seul µop par arête), plus i * A'.
-                    const __m256i jj = _mm256_set1_epi32(int32_t(j));
-                    __m256i e0 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c0, jj), off0);
-                    __m256i e1 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c1, jj), off1);
-                    __m256i e2 = _mm256_add_epi32(_mm256_permutevar8x32_epi32(c2, jj), off2);
-
-                    if ((full >> j) & 1u)
+                    // ── D-a2 : UNE boucle sur live ; la nature de la tuile choisie par une BRANCHE DE DONNÉES.
+                    //    Imprévisible quand pleines et partielles alternent (c48 : 27 % de pleines, H3).
+                    uint32_t m = live;
+                    while (m != 0)
                     {
-                        // ── TUILE PLEINE : 8 lignes, 8 blocs, AUCUN test de couverture.
-                        //    Filet Debug : une tuile écrite sans test DOIT tenir dans la boîte (fitX, rowsFull).
-                        LV3_ASSERT(x >= bx0 && x + kTileSize <= bx1 && ty + kTileSize <= by1
-                            && "D-a2 : tuile pleine hors de la boite (bord rogne au viewport ?)");
-                        #if LV3_RASTER_STATS
-                            ++tFull;
-                        #endif
-                        sink.BeginRow(ty);                                // pointeurs : une fois par tuile
-                        for (int32_t r = 0; r < kTileSize; ++r, sink.NextRow())
+                        const uint32_t j = _tzcnt_u32(m);                         // tzcnt trouve
+                        m = _blsr_u32(m);                                         // blsr efface
+                        const int32_t x = gx + int32_t(j) * kTileSize;
+                        const TileRows8 t = TileEntry8(c0, c1, c2, j, off0, off1, off2);
+                        if ((full >> j) & 1u)
                         {
-                            const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
-                            const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
-                            const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
-                            sink.BlockFull(x, allOn, w0, flipped ? w2 : w1, flipped ? w1 : w2);
-                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+                            LV3_ASSERT(x >= bx0 && x + kTileSize <= bx1 && ty + kTileSize <= by1
+                                && "D-a2 : tuile pleine hors de la boite (bord rogne au viewport ?)");
+                            covered += TileFull8(sink, x, ty, t, bf, vB0, vB1, vB2, flipped, allOn);
                         }
-                        covered += uint32_t(kTileSize * kTileSize);
-                    }
-                    else
-                    {
-                        // ── TUILE PARTIELLE : les blocs de Fx32, la boîte en 4e arête (constante sur la tuile).
-                        #if LV3_RASTER_STATS
-                            ++tPart;
-                        #endif
-                        const __m256i eb = _mm256_sub_epi32(boxLane, _mm256_set1_epi32(x));   // (x1 - 1) - (x + i)
-                        sink.BeginRow(ty);
-                        for (int32_t y = ty; y < ry1; ++y, sink.NextRow())
+                        else
                         {
-                            const __m256i any = _mm256_or_si256(_mm256_or_si256(e0, e1), _mm256_or_si256(e2, eb));
-                            const uint32_t bits = ~uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(any))) & 0xFFu;
-                            #if LV3_RASTER_STATS
-                                    ++blocks;
-                            #endif
-                            // Filet Debug : aucune voie couverte au-delà de la boîte (la 4e arête eb l'interdit).
-                            LV3_ASSERT((x + kTileSize <= bx1 || (bits >> (bx1 - x)) == 0u)
-                                && "D-a2 : voie couverte hors de la boite (4e arete oubliee ?)");
-                            if (bits != 0)
-                            {
-                                covered += uint32_t(_mm_popcnt_u32(bits));
-                                const __m256 cover = _mm256_castsi256_ps(_mm256_cmpgt_epi32(any, minus1));
-                                const __m256 w0 = BaryFromFixed8(e0, bf.o0, bf.inv);
-                                const __m256 w1 = BaryFromFixed8(e1, bf.o1, bf.inv);
-                                const __m256 w2 = BaryFromFixed8(e2, bf.o2, bf.inv);
-                                sink.Block(x, cover, bits, w0, flipped ? w2 : w1, flipped ? w1 : w2);
-                            }
-                            e0 = _mm256_add_epi32(e0, vB0); e1 = _mm256_add_epi32(e1, vB1); e2 = _mm256_add_epi32(e2, vB2);
+                            const __m256i eb = _mm256_sub_epi32(boxLane, _mm256_set1_epi32(x));
+                            covered += TilePartial8(sink, x, ty, ry1, bx1, t, eb, bf, vB0, vB1, vB2, flipped, minus1);
                         }
                     }
                 }
+                else
+                {
+                    // ── D-a2b : DEUX boucles, chacune sur un masque déjà trié par nature.
+                    //    Le seul branchement qui reste par tuile est la fin de boucle (m != 0) :
+                    //    au plus une erreur de prédiction par boucle, au lieu d'une par changement de nature.
+                    for (uint32_t m = full; m != 0; m = _blsr_u32(m))            // 1) toutes les PLEINES
+                    {
+                        const uint32_t j = _tzcnt_u32(m);
+                        const int32_t x = gx + int32_t(j) * kTileSize;
+                        LV3_ASSERT(x >= bx0 && x + kTileSize <= bx1 && ty + kTileSize <= by1
+                            && "D-a2 : tuile pleine hors de la boite (bord rogne au viewport ?)");
+                        covered += TileFull8(sink, x, ty, TileEntry8(c0, c1, c2, j, off0, off1, off2), bf, vB0, vB1, vB2, flipped, allOn);
+                    }
+                    for (uint32_t m = live & ~full; m != 0; m = _blsr_u32(m))    // 2) puis les PARTIELLES
+                    {
+                        const uint32_t j = _tzcnt_u32(m);
+                        const int32_t x = gx + int32_t(j) * kTileSize;
+                        const __m256i eb = _mm256_sub_epi32(boxLane, _mm256_set1_epi32(x));
+                        covered += TilePartial8(sink, x, ty, ry1, bx1, TileEntry8(c0, c1, c2, j, off0, off1, off2), eb, bf, vB0, vB1, vB2, flipped, minus1);
+                    }
+                }
+
             }
         }
 
@@ -586,6 +729,8 @@ namespace LV3
                 LV3_PROF_COUNT(EProfCounter::Tiles8Full, tFull);
                 LV3_PROF_COUNT(EProfCounter::Tiles8Partial, tPart);
                 LV3_PROF_COUNT(EProfCounter::BlocksFull8, tFull * kTileSize);
+               LV3_PROF_COUNT(EProfCounter::Tiles8Switch, tSwitch);
+
         #endif
         return covered;
     }
